@@ -24,3 +24,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+@layer utilities {
+  .label {
+    @apply block text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5;
+  }
+
+  .inp {
+    @apply w-full bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2.5
+           text-zinc-100 font-mono text-sm outline-none mt-1
+           focus:border-blue-500 transition-colors;
+  }
+}

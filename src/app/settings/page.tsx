@@ -20,11 +20,11 @@ export default function SettingsPage() {
   const [generating, setGenerating] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const [syncUrl, setSyncUrl] = useState("");
+  const [syncUrl] = useState(() =>
+    typeof window !== "undefined" ? window.location.origin + "/api/mt5/sync" : ""
+  );
 
   useEffect(() => {
-    setSyncUrl(window.location.origin + "/api/mt5/sync");
-
     async function init() {
       const supabase = createClient();
       const {

@@ -10,8 +10,8 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -199,15 +199,20 @@ function WinRateChart({ data }: {
           width={40}
         />
         <Tooltip content={<WinTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-        <Bar dataKey="winRate" radius={[4, 4, 0, 0]}>
-          {data.map((entry, i) => (
-            <Cell
-              key={i}
-              fill={entry.winRate >= 50 ? "#34d399" : "#f87171"}
-              fillOpacity={0.75}
-            />
-          ))}
-        </Bar>
+        <Bar
+          dataKey="winRate"
+          shape={(props: unknown) => {
+            const p = props as { x: number; y: number; width: number; height: number; winRate: number };
+            return (
+              <rect
+                x={p.x} y={p.y} width={p.width} height={p.height}
+                rx={4}
+                fill={p.winRate >= 50 ? "#34d399" : "#f87171"}
+                fillOpacity={0.75}
+              />
+            );
+          }}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -602,6 +607,13 @@ export default function TradingJournal() {
           {currentUser && (
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-zinc-500 hidden sm:block">{currentUser.email}</span>
+              <Link
+                href="/settings"
+                className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
+                           hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                Settings
+              </Link>
               <button
                 onClick={handleLogout}
                 className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700

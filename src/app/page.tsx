@@ -97,6 +97,28 @@ function WinTooltip({ active, payload, label }: {
   );
 }
 
+// ─── Analysis Report ──────────────────────────────────────────────────────────
+function AnalysisReport({ text }: { text: string }) {
+  const sections = text.split(/^## /m).filter(Boolean);
+  return (
+    <div className="space-y-4">
+      {sections.map((section, i) => {
+        const nl = section.indexOf("\n");
+        const heading = nl > -1 ? section.slice(0, nl).trim() : section.trim();
+        const body = nl > -1 ? section.slice(nl + 1).trim() : "";
+        return (
+          <div key={i}>
+            <h3 className="text-[10px] uppercase tracking-widest text-blue-400 font-semibold mb-1.5">
+              {heading}
+            </h3>
+            <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-xs">{body}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Equity Curve ─────────────────────────────────────────────────────────────
 function EquityCurveChart({ data }: { data: { date: string; value: number }[] }) {
   if (data.length < 2) {
@@ -277,6 +299,14 @@ export default function TradingJournal() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = useState<{
+    analysis: string; period: string; created_at: string;
+  } | null>(null);
+  const [pastAnalyses, setPastAnalyses] = useState<{
+    id: string; period: string; trade_count: number; analysis: string; created_at: string;
+  }[]>([]);
+  const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
 
   function showToast(msg: string, type: "ok" | "err") {
     setToast({ msg, type });
@@ -299,6 +329,14 @@ export default function TradingJournal() {
       if (error) showToast("Failed to load trades", "err");
       else if (data) setTrades(data as Trade[]);
       setLoading(false);
+
+      const { data: analyses } = await supabase
+        .from("journal_analyses")
+        .select("id, period, trade_count, analysis, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(3);
+      if (analyses) setPastAnalyses(analyses);
     }
     init();
   }, []);
@@ -480,6 +518,46 @@ export default function TradingJournal() {
     setDirection("BUY");
   }
 
+  async function loadPastAnalyses() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from("journal_analyses")
+      .select("id, period, trade_count, analysis, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    if (data) setPastAnalyses(data);
+  }
+
+  async function runAnalysis(period: "weekly" | "monthly") {
+    setAnalysisLoading(true);
+    setCurrentAnalysis(null);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Analysis failed", "err");
+        return;
+      }
+      setCurrentAnalysis({
+        analysis: data.analysis,
+        period,
+        created_at: data.created_at || new Date().toISOString(),
+      });
+      await loadPastAnalyses();
+    } catch {
+      showToast("Analysis failed", "err");
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }
+
   async function deleteTrade(id: string) {
     const supabase = createClient();
     const { error } = await supabase.from("trades").delete().eq("id", id);
@@ -608,6 +686,112 @@ export default function TradingJournal() {
               <CalendarHeatmap dailyPnl={dailyPnlMap} />
             </div>
           </div>
+        </div>
+
+        {/* AI JOURNAL ANALYSIS */}
+        <div className="bg-[#13161e] border border-zinc-800 rounded-2xl p-6 mb-5">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+                AI Journal Analysis
+              </p>
+              <p className="text-[10px] text-zinc-700 mt-0.5">Powered by Claude</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => runAnalysis("weekly")}
+                disabled={analysisLoading}
+                className="text-xs px-4 py-2 rounded-lg bg-[#1a1e29] border border-zinc-700
+                           hover:border-blue-500/50 text-zinc-300 hover:text-zinc-100
+                           disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Analyse Last 7 Days
+              </button>
+              <button
+                onClick={() => runAnalysis("monthly")}
+                disabled={analysisLoading}
+                className="text-xs px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white
+                           font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Analyse Last 30 Days
+              </button>
+            </div>
+          </div>
+
+          {analysisLoading && (
+            <div className="flex items-center justify-center gap-3 py-10 text-zinc-500">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Analysing your trades with Claude...</span>
+            </div>
+          )}
+
+          {!analysisLoading && currentAnalysis && (
+            <div className="border border-zinc-800 rounded-xl p-5 mb-4">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-[10px] uppercase tracking-widest text-blue-500/70
+                                 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md">
+                  {currentAnalysis.period === "weekly" ? "Last 7 days" : "Last 30 days"}
+                </span>
+                <span className="text-[10px] text-zinc-700">
+                  {new Date(currentAnalysis.created_at).toLocaleDateString("en-GB", {
+                    day: "numeric", month: "short", year: "numeric",
+                  })}
+                </span>
+              </div>
+              <AnalysisReport text={currentAnalysis.analysis} />
+            </div>
+          )}
+
+          {!analysisLoading && !currentAnalysis && pastAnalyses.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 text-zinc-600">
+              <div className="w-10 h-10 rounded-xl bg-[#1a1e29] border border-zinc-800
+                              flex items-center justify-center text-lg mb-3">
+                🤖
+              </div>
+              <p className="text-sm text-zinc-500 font-semibold mb-1">No analyses yet</p>
+              <p className="text-xs">Click a button above to get your first AI coaching report</p>
+            </div>
+          )}
+
+          {pastAnalyses.length > 0 && (
+            <div className={currentAnalysis ? "border-t border-zinc-800 pt-4" : ""}>
+              <p className="text-[10px] uppercase tracking-widest text-zinc-600 font-medium mb-3">
+                Past Analyses
+              </p>
+              <div className="space-y-2">
+                {pastAnalyses.map((a) => (
+                  <div key={a.id} className="border border-zinc-800 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setExpandedAnalysis(expandedAnalysis === a.id ? null : a.id)}
+                      className="w-full flex items-center justify-between px-4 py-3
+                                 hover:bg-zinc-800/30 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] uppercase tracking-widest text-zinc-500
+                                         bg-zinc-800 px-2 py-0.5 rounded">
+                          {a.period === "weekly" ? "7 days" : "30 days"}
+                        </span>
+                        <span className="text-xs text-zinc-500">
+                          {new Date(a.created_at).toLocaleDateString("en-GB", {
+                            day: "numeric", month: "short", year: "numeric",
+                          })}
+                        </span>
+                        <span className="text-[10px] text-zinc-700">{a.trade_count} trades</span>
+                      </div>
+                      <span className="text-zinc-600 text-[10px]">
+                        {expandedAnalysis === a.id ? "▲" : "▼"}
+                      </span>
+                    </button>
+                    {expandedAnalysis === a.id && (
+                      <div className="px-4 pb-4 border-t border-zinc-800 pt-4">
+                        <AnalysisReport text={a.analysis} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* MAIN GRID */}

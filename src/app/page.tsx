@@ -67,6 +67,36 @@ const pnlColor = (v: number) =>
 const fmt = (v: number) =>
   (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(2);
 
+// ─── Tooltip components (module-level — must not be defined inside render) ────
+function EquityTooltip({ active, payload, label }: {
+  active?: boolean; payload?: { value: number }[]; label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
+      <p className="text-zinc-400 mb-1">{label}</p>
+      <p className={`font-mono font-semibold ${payload[0].value >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+        {fmt(payload[0].value)}
+      </p>
+    </div>
+  );
+}
+
+function WinTooltip({ active, payload, label }: {
+  active?: boolean; payload?: { value: number; payload: { total: number } }[]; label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
+      <p className="text-zinc-300 font-mono font-semibold mb-1">{label}</p>
+      <p className={`font-mono ${payload[0].value >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
+        {payload[0].value}% win rate
+      </p>
+      <p className="text-zinc-500 mt-0.5">{payload[0].payload.total} trades</p>
+    </div>
+  );
+}
+
 // ─── Equity Curve ─────────────────────────────────────────────────────────────
 function EquityCurveChart({ data }: { data: { date: string; value: number }[] }) {
   if (data.length < 2) {
@@ -78,20 +108,6 @@ function EquityCurveChart({ data }: { data: { date: string; value: number }[] })
   }
   const isUp = data[data.length - 1].value >= 0;
   const stroke = isUp ? "#34d399" : "#f87171";
-
-  function EquityTooltip({ active, payload, label }: {
-    active?: boolean; payload?: { value: number }[]; label?: string;
-  }) {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
-        <p className="text-zinc-400 mb-1">{label}</p>
-        <p className={`font-mono font-semibold ${payload[0].value >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-          {fmt(payload[0].value)}
-        </p>
-      </div>
-    );
-  }
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -139,21 +155,6 @@ function WinRateChart({ data }: {
     return (
       <div className="flex items-center justify-center h-full text-zinc-600 text-sm">
         No pair data yet
-      </div>
-    );
-  }
-
-  function WinTooltip({ active, payload, label }: {
-    active?: boolean; payload?: { value: number; payload: { total: number } }[]; label?: string;
-  }) {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
-        <p className="text-zinc-300 font-mono font-semibold mb-1">{label}</p>
-        <p className={`font-mono ${payload[0].value >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
-          {payload[0].value}% win rate
-        </p>
-        <p className="text-zinc-500 mt-0.5">{payload[0].payload.total} trades</p>
       </div>
     );
   }
@@ -277,6 +278,10 @@ export default function TradingJournal() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
+  function showToast(msg: string, type: "ok" | "err") {
+    setToast({ msg, type });
+  }
+
   // Load user and trades on mount
   useEffect(() => {
     async function init() {
@@ -314,11 +319,10 @@ export default function TradingJournal() {
   // ── Chart data ─────────────────────────────────────────────────────────────
   const equityCurveData = useMemo(() => {
     const sorted = [...trades].sort((a, b) => a.date.localeCompare(b.date));
-    let cum = 0;
-    return sorted.map((t) => {
-      cum = parseFloat((cum + t.pnl).toFixed(2));
-      return { date: t.date, value: cum };
-    });
+    return sorted.reduce<{ date: string; value: number }[]>((acc, t) => {
+      const prev = acc.length > 0 ? acc[acc.length - 1].value : 0;
+      return [...acc, { date: t.date, value: parseFloat((prev + t.pnl).toFixed(2)) }];
+    }, []);
   }, [trades]);
 
   const pairWinRateData = useMemo(() => {
@@ -483,10 +487,6 @@ export default function TradingJournal() {
     setTrades((prev) => prev.filter((t) => t.id !== id));
     if (editingId === id) cancelEdit();
     showToast("Trade deleted", "err");
-  }
-
-  function showToast(msg: string, type: "ok" | "err") {
-    setToast({ msg, type });
   }
 
   const isEditing = editingId !== null;

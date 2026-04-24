@@ -6,8 +6,8 @@
 #property version   "1.00"
 #property description "Syncs every closed trade to your CandlesJournal automatically."
 
-input string InpSyncToken = "";   // Sync Token  (paste from Settings page)
-input string InpServerURL = "";   // Sync URL    (paste from Settings page)
+input string InpSyncToken = "";                                                                   // Sync Token  (paste from Settings page)
+input string InpServerURL = "https://symphonious-lily-0d7ae0.netlify.app/api/mt5/sync";           // Sync URL    (pre-filled for your live app)
 
 //+------------------------------------------------------------------+
 int OnInit()

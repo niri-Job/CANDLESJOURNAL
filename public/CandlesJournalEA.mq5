@@ -3,7 +3,7 @@
 //|          Automatically syncs closed trades to CandlesJournal     |
 //+------------------------------------------------------------------+
 #property copyright "CandlesJournal"
-#property version   "1.00"
+#property version   "1.01"
 #property description "Syncs every closed trade to your CandlesJournal automatically."
 
 input string InpSyncToken = "";                                                                   // Sync Token  (paste from Settings page)
@@ -36,7 +36,7 @@ int OnInit()
 
    if(code == 200)
    {
-      Print("CandlesJournal ✓  Connected. Token valid. Ready to sync trades.");
+      Print("CandlesJournal ✓  Connected. Token valid. Ready to sync ALL symbols.");
    }
    else if(code == -1)
    {
@@ -75,44 +75,67 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
                         const MqlTradeRequest&     request,
                         const MqlTradeResult&      result)
 {
+   // ── Step 1: confirm it is a deal being added to history ──────
    if(trans.type != TRADE_TRANSACTION_DEAL_ADD)
       return;
 
-   if(!HistoryDealSelect(trans.deal))
+   ulong dealTicket = trans.deal;
+   Print("CandlesJournal: Trade detected — deal #", dealTicket,
+         " | trans.symbol: ", trans.symbol);
+
+   // ── Step 2: load the deal from history ────────────────────────
+   if(!HistoryDealSelect(dealTicket))
+   {
+      Print("CandlesJournal: HistoryDealSelect FAILED for deal #", dealTicket,
+            " — deal may not be in history yet. Skipping.");
       return;
+   }
 
-   ENUM_DEAL_ENTRY dealEntry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
-   if(dealEntry != DEAL_ENTRY_OUT)
+   // ── Step 3: only process closing deals ────────────────────────
+   ENUM_DEAL_ENTRY dealEntry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(dealTicket, DEAL_ENTRY);
+   if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY)
+   {
+      Print("CandlesJournal: Deal #", dealTicket, " skipped — entry type: ",
+            EnumToString(dealEntry), " (not a closing deal)");
       return;
+   }
 
-   // ── Closing deal details ──────────────────────────────────────
-   string   symbol    = HistoryDealGetString(trans.deal,  DEAL_SYMBOL);
-   double   exitPrice = HistoryDealGetDouble(trans.deal,  DEAL_PRICE);
-   double   volume    = HistoryDealGetDouble(trans.deal,  DEAL_VOLUME);
-   double   profit    = HistoryDealGetDouble(trans.deal,  DEAL_PROFIT)
-                      + HistoryDealGetDouble(trans.deal,  DEAL_SWAP)
-                      + HistoryDealGetDouble(trans.deal,  DEAL_COMMISSION);
-   datetime closeTime = (datetime)HistoryDealGetInteger(trans.deal, DEAL_TIME);
-   long     posId     = HistoryDealGetInteger(trans.deal, DEAL_POSITION_ID);
+   // ── Step 4: read closing deal fields ─────────────────────────
+   string   symbol    = HistoryDealGetString (dealTicket, DEAL_SYMBOL);
+   double   exitPrice = HistoryDealGetDouble (dealTicket, DEAL_PRICE);
+   double   volume    = HistoryDealGetDouble (dealTicket, DEAL_VOLUME);
+   double   profit    = HistoryDealGetDouble (dealTicket, DEAL_PROFIT)
+                      + HistoryDealGetDouble (dealTicket, DEAL_SWAP)
+                      + HistoryDealGetDouble (dealTicket, DEAL_COMMISSION);
+   datetime closeTime = (datetime)HistoryDealGetInteger(dealTicket, DEAL_TIME);
+   long     posId     = HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID);
 
-   // ── Find opening deal → entry price and direction ─────────────
+   Print("CandlesJournal: Closing deal — symbol: ", symbol,
+         " | exit: ", exitPrice,
+         " | lot: ",  volume,
+         " | pnl: ",  NormalizeDouble(profit, 2),
+         " | posId: ", posId);
+
+   // ── Step 5: find opening deal → entry price + direction ───────
    string direction  = "BUY";
-   double entryPrice = 0;
+   double entryPrice = exitPrice; // fallback: use exit if open deal not found
    double sl = 0, tp = 0;
 
    if(HistorySelectByPosition(posId))
    {
       int nDeals = HistoryDealsTotal();
+      Print("CandlesJournal: Position history loaded — ", nDeals, " deal(s) found for posId ", posId);
+
       for(int i = 0; i < nDeals; i++)
       {
          ulong tk = HistoryDealGetTicket(i);
-         if(HistoryDealGetInteger(tk, DEAL_POSITION_ID) != posId) continue;
-
          ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
          if(de == DEAL_ENTRY_IN)
          {
             direction  = (HistoryDealGetInteger(tk, DEAL_TYPE) == DEAL_TYPE_BUY) ? "BUY" : "SELL";
             entryPrice = HistoryDealGetDouble(tk, DEAL_PRICE);
+            Print("CandlesJournal: Opening deal found — direction: ", direction,
+                  " | entry: ", entryPrice);
             break;
          }
       }
@@ -122,7 +145,6 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
       {
          ulong tk = HistoryOrderGetTicket(i);
          if(HistoryOrderGetInteger(tk, ORDER_POSITION_ID) != posId) continue;
-
          double oSL = HistoryOrderGetDouble(tk, ORDER_SL);
          double oTP = HistoryOrderGetDouble(tk, ORDER_TP);
          if(oSL > 0) sl = oSL;
@@ -130,22 +152,33 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
          break;
       }
    }
+   else
+   {
+      Print("CandlesJournal: HistorySelectByPosition FAILED for posId ", posId,
+            " — will use fallback direction/entry values.");
+   }
 
-   // ── Date string ───────────────────────────────────────────────
+   // ── Step 6: date string ────────────────────────────────────────
    MqlDateTime dt;
    TimeToStruct(closeTime, dt);
    string dateStr = StringFormat("%04d-%02d-%02d", dt.year, dt.mon, dt.day);
 
-   // ── Asset class detection ──────────────────────────────────────
+   // ── Step 7: asset class (suffix-aware, never blocks sync) ─────
    string assetClass = "Forex";
    string symUp = symbol;
    StringToUpper(symUp);
 
-   if(StringFind(symUp,"BTC") >= 0 || StringFind(symUp,"ETH") >= 0 ||
-      StringFind(symUp,"XRP") >= 0 || StringFind(symUp,"BNB") >= 0 ||
-      StringFind(symUp,"SOL") >= 0 || StringFind(symUp,"DOGE") >= 0 ||
-      StringFind(symUp,"ADA") >= 0 || StringFind(symUp,"LTC") >= 0)
+   if(StringFind(symUp,"BTC")  >= 0 || StringFind(symUp,"ETH")  >= 0 ||
+      StringFind(symUp,"XRP")  >= 0 || StringFind(symUp,"BNB")  >= 0 ||
+      StringFind(symUp,"SOL")  >= 0 || StringFind(symUp,"DOGE") >= 0 ||
+      StringFind(symUp,"ADA")  >= 0 || StringFind(symUp,"LTC")  >= 0 ||
+      StringFind(symUp,"LINK") >= 0 || StringFind(symUp,"DOT")  >= 0)
       assetClass = "Crypto";
+   else if(StringFind(symUp,"XAU") >= 0 || StringFind(symUp,"XAG") >= 0 ||
+           StringFind(symUp,"GOLD")>= 0 || StringFind(symUp,"SILVER")>=0 ||
+           StringFind(symUp,"OIL") >= 0 || StringFind(symUp,"WTI") >= 0 ||
+           StringFind(symUp,"BRENT")>=0)
+      assetClass = "Commodities";
    else if(StringFind(symUp,"SPX")  >= 0 || StringFind(symUp,"SP500") >= 0 ||
            StringFind(symUp,"NAS")  >= 0 || StringFind(symUp,"NDX")   >= 0 ||
            StringFind(symUp,"US30") >= 0 || StringFind(symUp,"DJ30")  >= 0 ||
@@ -154,7 +187,9 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
            StringFind(symUp,"GER")  >= 0 || StringFind(symUp,"AUS200")>= 0)
       assetClass = "Indices";
 
-   // ── Build JSON payload ─────────────────────────────────────────
+   Print("CandlesJournal: Asset class: ", assetClass, " for symbol: ", symbol);
+
+   // ── Step 8: build JSON payload ────────────────────────────────
    string slStr = (sl > 0) ? StringFormat("%.5f", sl) : "null";
    string tpStr = (tp > 0) ? StringFormat("%.5f", tp) : "null";
 
@@ -183,7 +218,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
       assetClass
    );
 
-   // ── HTTP POST ──────────────────────────────────────────────────
+   // ── Step 9: POST to server ────────────────────────────────────
    char   postData[];
    char   resData[];
    string resHeaders;
@@ -192,27 +227,34 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
    int charLen = StringToCharArray(json, postData, 0, StringLen(json));
    ArrayResize(postData, charLen - 1);
 
+   Print("CandlesJournal: Sending to journal... symbol: ", symbol,
+         " | direction: ", direction,
+         " | lot: ", DoubleToString(volume, 2));
+
    ResetLastError();
-   int httpCode = WebRequest("POST", InpServerURL, reqHeaders, 10000, postData, resData, resHeaders);
+   int httpCode = WebRequest("POST", InpServerURL, reqHeaders, 15000, postData, resData, resHeaders);
+
+   string resp = CharArrayToString(resData);
+   Print("CandlesJournal: Server response: HTTP ", httpCode, " | body: ", resp);
 
    if(httpCode == 200)
    {
-      Print("CandlesJournal ✓  ", symbol, " ", direction,
+      Print("CandlesJournal ✓  SYNCED — ", symbol, " ", direction,
             " | Lot: ", DoubleToString(volume, 2),
             " | P&L: $", DoubleToString(NormalizeDouble(profit, 2), 2));
    }
    else if(httpCode == -1)
    {
       int err = GetLastError();
-      Print("CandlesJournal ✗  WebRequest failed (error ", err, ")");
+      Print("CandlesJournal ✗  WebRequest FAILED — error code: ", err);
       if(err == 4014)
-         Print("  → Go to MT5: Tools > Options > Expert Advisors > Allow WebRequest");
-      Print("  → Add this URL: ", InpServerURL);
+         Print("  → Fix: Tools > Options > Expert Advisors > Allow WebRequest > Add: ", InpServerURL);
+      else
+         Print("  → Network error. Check internet connection.");
    }
    else
    {
-      string resp = CharArrayToString(resData);
-      Print("CandlesJournal ✗  HTTP ", httpCode, " — ", resp);
+      Print("CandlesJournal ✗  Sync FAILED — HTTP ", httpCode, " | response: ", resp);
    }
 }
 //+------------------------------------------------------------------+

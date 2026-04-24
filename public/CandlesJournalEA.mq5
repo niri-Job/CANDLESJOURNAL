@@ -14,7 +14,7 @@ int OnInit()
 {
    if(InpSyncToken == "")
    {
-      Alert("CandlesJournal: Enter your Sync Token in the EA inputs.");
+      Alert("CandlesJournal: Enter your Sync Token in the EA inputs.\n\nGet it from: Settings page → MT5 Sync Token → Generate Token");
       return(INIT_PARAMETERS_INCORRECT);
    }
    if(InpServerURL == "")
@@ -22,7 +22,48 @@ int OnInit()
       Alert("CandlesJournal: Enter your Sync URL in the EA inputs.");
       return(INIT_PARAMETERS_INCORRECT);
    }
-   Print("CandlesJournal EA ready. Syncing to: ", InpServerURL);
+
+   // ── Connection test ───────────────────────────────────────────
+   string hdr  = "Content-Type: application/json\r\nAccept: application/json\r\n";
+   string ping = StringFormat("{\"token\":\"%s\",\"ping\":true}", InpSyncToken);
+   char   pData[], pRes[];
+   string pHeaders;
+   int    pLen = StringToCharArray(ping, pData, 0, StringLen(ping));
+   ArrayResize(pData, pLen - 1);
+
+   ResetLastError();
+   int code = WebRequest("POST", InpServerURL, hdr, 10000, pData, pRes, pHeaders);
+
+   if(code == 200)
+   {
+      Print("CandlesJournal ✓  Connected. Token valid. Ready to sync trades.");
+   }
+   else if(code == -1)
+   {
+      int err = GetLastError();
+      Print("CandlesJournal ✗  Cannot reach server (error ", err, ")");
+      if(err == 4014)
+         Alert("CandlesJournal: WebRequest blocked by MT5!\n\n"
+               "Fix: Tools → Options → Expert Advisors\n"
+               "  ✓ Check 'Allow WebRequest for listed URL'\n"
+               "  + Add: " + InpServerURL + "\n\n"
+               "Then re-attach the EA.");
+      else
+         Alert("CandlesJournal: Network error " + IntegerToString(err) + ".\nCheck your internet connection.");
+      return(INIT_FAILED);
+   }
+   else if(code == 401)
+   {
+      Alert("CandlesJournal: Invalid sync token!\n\n"
+            "Go to the Settings page → Regenerate Token\n"
+            "Then paste the new token into the EA inputs.");
+      return(INIT_PARAMETERS_INCORRECT);
+   }
+   else
+   {
+      Print("CandlesJournal !  Init ping returned HTTP ", code, " — check server logs.");
+   }
+
    return(INIT_SUCCEEDED);
 }
 

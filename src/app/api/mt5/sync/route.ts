@@ -35,6 +35,19 @@ export async function POST(request: Request) {
   if (!token || typeof token !== "string") {
     return NextResponse.json({ error: "Missing sync token" }, { status: 400 });
   }
+
+  // Ping/connection test from EA OnInit — just validates the token
+  const b = body as { ping?: boolean };
+  if (b.ping === true) {
+    const { data } = await supabase
+      .from("mt5_sync_tokens")
+      .select("id")
+      .eq("token", token)
+      .maybeSingle();
+    if (!data) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    return NextResponse.json({ pong: true });
+  }
+
   if (!trade) {
     return NextResponse.json({ error: "Missing trade data" }, { status: 400 });
   }

@@ -96,8 +96,9 @@ One specific, measurable drill addressing the biggest weakness. Be exact — e.g
 
 Be direct, specific, and reference trade numbers (Trade 1, Trade 4, etc.) throughout. No vague advice.`;
 
+  console.log("analyzeJournal: sending request to Anthropic API, trades count:", trades.length, "period:", period);
   const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 2000,
     messages: [{ role: "user", content: prompt }],
   });

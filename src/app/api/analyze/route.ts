@@ -107,8 +107,8 @@ export async function POST(request: Request) {
   try {
     analysis = await analyzeJournal(trades, period);
   } catch (err: unknown) {
+    console.error("analyze: Claude API error (full):", err);
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("analyze: Claude API error:", msg);
     return NextResponse.json(
       { error: "AI analysis failed: " + msg },
       { status: 500 }

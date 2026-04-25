@@ -52,7 +52,13 @@ export default function SettingsPage() {
     setGenerating(true);
     setGenError(null);
     const supabase = createClient();
-    if (syncToken) await supabase.from("mt5_sync_tokens").delete().eq("id", syncToken.id);
+    if (syncToken) {
+      await supabase
+        .from("mt5_sync_tokens")
+        .delete()
+        .eq("id", syncToken.id)
+        .eq("user_id", user.id);
+    }
     const newToken = crypto.randomUUID().replace(/-/g, "");
     const { data, error } = await supabase
       .from("mt5_sync_tokens")

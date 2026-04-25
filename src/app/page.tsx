@@ -499,6 +499,7 @@ export default function TradingJournal() {
   }
 
   async function saveEdit() {
+    if (!currentUser) return;
     if (!form.pair.trim()) return showToast("Enter a currency pair", "err");
     if (!form.lot || +form.lot <= 0) return showToast("Enter a valid lot size", "err");
     if (!form.entry || !form.exit_price) return showToast("Enter entry and exit prices", "err");
@@ -530,7 +531,11 @@ export default function TradingJournal() {
     };
 
     const supabase = createClient();
-    const { error } = await supabase.from("trades").update(updates).eq("id", editingId!);
+    const { error } = await supabase
+      .from("trades")
+      .update(updates)
+      .eq("id", editingId!)
+      .eq("user_id", currentUser.id);
     if (error) { showToast("Failed to update trade", "err"); return; }
 
     setTrades((prev) => prev.map((t) => t.id === editingId ? { ...t, ...updates } : t));
@@ -587,8 +592,13 @@ export default function TradingJournal() {
   }
 
   async function deleteTrade(id: string) {
+    if (!currentUser) return;
     const supabase = createClient();
-    const { error } = await supabase.from("trades").delete().eq("id", id);
+    const { error } = await supabase
+      .from("trades")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", currentUser.id);
     if (error) { showToast("Failed to delete trade", "err"); return; }
     setTrades((prev) => prev.filter((t) => t.id !== id));
     if (editingId === id) cancelEdit();
@@ -607,8 +617,6 @@ export default function TradingJournal() {
     cancelEdit();
     showToast(`Cleared ${count} trade${count !== 1 ? "s" : ""}`, "err");
   }
-
-  const isDev = currentUser?.email === "bangajiyainfluence@gmail.com";
 
   const isEditing = editingId !== null;
 
@@ -1056,12 +1064,12 @@ export default function TradingJournal() {
                 Trade History
               </p>
               <div className="flex items-center gap-3">
-                {isDev && trades.length > 0 && (
+                {trades.length > 0 && (
                   <button
                     onClick={clearAllTrades}
                     className="text-[10px] text-rose-700 hover:text-rose-400 border border-rose-900/50
                                hover:border-rose-500/50 rounded-md px-2 py-1 transition-colors"
-                    title="Developer only"
+                    title="Delete all your trades"
                   >
                     Clear all trades
                   </button>

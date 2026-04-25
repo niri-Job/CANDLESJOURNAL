@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       lot?: number;
       date?: string;
       entry?: number;
-      exit?: number;
+      exit_price?: number;
       sl?: number | null;
       tp?: number | null;
       pnl?: number;
@@ -88,13 +88,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing trade object in request body" }, { status: 400 });
   }
 
-  const { pair, direction, lot, date, entry, exit, sl, tp, pnl, notes, asset_class } = trade;
+  const { pair, direction, lot, date, entry, exit_price, sl, tp, pnl, notes, asset_class } = trade;
 
-  if (!pair || !direction || !lot || !date || entry == null || exit == null || pnl == null) {
+  if (!pair || !direction || !lot || !date || entry == null || exit_price == null || pnl == null) {
     return NextResponse.json(
       {
         error: "Missing required trade fields",
-        received: { pair, direction, lot, date, entry, exit, pnl },
+        received: { pair, direction, lot, date, entry, exit_price, pnl },
       },
       { status: 400 }
     );
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     lot:         Number(lot),
     date:        String(date),
     entry:       Number(entry),
-    exit:        Number(exit),
+    exit_price:  Number(exit_price),
     sl:          sl != null ? Number(sl) : null,
     tp:          tp != null ? Number(tp) : null,
     pnl:         Number(pnl),

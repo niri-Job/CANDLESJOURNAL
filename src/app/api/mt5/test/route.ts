@@ -51,7 +51,7 @@ export async function GET() {
     lot:         0.01,
     date:        today,
     entry:       1.08500,
-    exit:        1.09000,   // column is "exit", not "exit_price"
+    exit_price:  1.09000,
     sl:          null,
     tp:          null,
     pnl:         50.00,

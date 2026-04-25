@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   const { data: trades, error: tradesError } = await supabase
     .from("trades")
     .select(
-      "pair, direction, lot, date, entry, exit, sl, tp, pnl, notes, asset_class, session, setup"
+      "pair, direction, lot, date, entry, exit_price, sl, tp, pnl, notes, asset_class, session, setup"
     )
     .eq("user_id", user.id)
     .gte("date", fromStr)

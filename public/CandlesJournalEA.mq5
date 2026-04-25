@@ -202,7 +202,7 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
           "\"lot\":%.2f,"
           "\"date\":\"%s\","
           "\"entry\":%.5f,"
-          "\"exit\":%.5f,"
+          "\"exit_price\":%.5f,"
           "\"sl\":%s,"
           "\"tp\":%s,"
           "\"pnl\":%.2f,"

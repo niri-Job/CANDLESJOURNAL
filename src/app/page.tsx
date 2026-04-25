@@ -23,7 +23,7 @@ interface Trade {
   lot: number;
   date: string;
   entry: number;
-  exit: number;
+  exit_price: number;
   sl: number | null;
   tp: number | null;
   pnl: number;
@@ -48,7 +48,7 @@ const EMPTY_FORM = {
   lot: "",
   date: new Date().toISOString().split("T")[0],
   entry: "",
-  exit: "",
+  exit_price: "",
   sl: "",
   tp: "",
   pnl: "",
@@ -415,7 +415,7 @@ export default function TradingJournal() {
   async function addTrade() {
     if (!form.pair.trim()) return showToast("Enter a currency pair", "err");
     if (!form.lot || +form.lot <= 0) return showToast("Enter a valid lot size", "err");
-    if (!form.entry || !form.exit) return showToast("Enter entry and exit prices", "err");
+    if (!form.entry || !form.exit_price) return showToast("Enter entry and exit prices", "err");
     if (!currentUser) return;
 
     let pnl: number;
@@ -423,8 +423,8 @@ export default function TradingJournal() {
       pnl = parseFloat(form.pnl);
     } else {
       const diff = direction === "BUY"
-        ? parseFloat(form.exit) - parseFloat(form.entry)
-        : parseFloat(form.entry) - parseFloat(form.exit);
+        ? parseFloat(form.exit_price) - parseFloat(form.entry)
+        : parseFloat(form.entry) - parseFloat(form.exit_price);
       pnl = parseFloat((diff * parseFloat(form.lot) * 10000).toFixed(2));
     }
 
@@ -435,7 +435,7 @@ export default function TradingJournal() {
       lot: parseFloat(form.lot),
       date: form.date,
       entry: parseFloat(form.entry),
-      exit: parseFloat(form.exit),
+      exit_price: parseFloat(form.exit_price),
       sl: form.sl ? parseFloat(form.sl) : null,
       tp: form.tp ? parseFloat(form.tp) : null,
       pnl,
@@ -463,7 +463,7 @@ export default function TradingJournal() {
       lot: String(trade.lot),
       date: trade.date,
       entry: String(trade.entry),
-      exit: String(trade.exit),
+      exit_price: String(trade.exit_price),
       sl: trade.sl ? String(trade.sl) : "",
       tp: trade.tp ? String(trade.tp) : "",
       pnl: "",
@@ -478,15 +478,15 @@ export default function TradingJournal() {
   async function saveEdit() {
     if (!form.pair.trim()) return showToast("Enter a currency pair", "err");
     if (!form.lot || +form.lot <= 0) return showToast("Enter a valid lot size", "err");
-    if (!form.entry || !form.exit) return showToast("Enter entry and exit prices", "err");
+    if (!form.entry || !form.exit_price) return showToast("Enter entry and exit prices", "err");
 
     let pnl: number;
     if (form.pnl !== "") {
       pnl = parseFloat(form.pnl);
     } else {
       const diff = direction === "BUY"
-        ? parseFloat(form.exit) - parseFloat(form.entry)
-        : parseFloat(form.entry) - parseFloat(form.exit);
+        ? parseFloat(form.exit_price) - parseFloat(form.entry)
+        : parseFloat(form.entry) - parseFloat(form.exit_price);
       pnl = parseFloat((diff * parseFloat(form.lot) * 10000).toFixed(2));
     }
 
@@ -496,7 +496,7 @@ export default function TradingJournal() {
       lot: parseFloat(form.lot),
       date: form.date,
       entry: parseFloat(form.entry),
-      exit: parseFloat(form.exit),
+      exit_price: parseFloat(form.exit_price),
       sl: form.sl ? parseFloat(form.sl) : null,
       tp: form.tp ? parseFloat(form.tp) : null,
       pnl,
@@ -905,8 +905,8 @@ export default function TradingJournal() {
               <label>
                 <span className="label">Exit Price</span>
                 <input className="inp" type="number" step="0.00001" placeholder="1.09200"
-                  value={form.exit}
-                  onChange={(e) => setForm({ ...form, exit: e.target.value })} />
+                  value={form.exit_price}
+                  onChange={(e) => setForm({ ...form, exit_price: e.target.value })} />
               </label>
             </div>
 
@@ -1075,7 +1075,7 @@ export default function TradingJournal() {
                         </td>
 
                         <td className="px-2 py-3 border-b border-zinc-800/60 font-mono text-xs text-right">
-                          {t.exit.toFixed(5)}
+                          {t.exit_price.toFixed(5)}
                         </td>
 
                         <td className={`px-2 py-3 border-b border-zinc-800/60 font-mono text-sm

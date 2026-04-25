@@ -6,7 +6,7 @@ export interface TradeForAnalysis {
   lot: number;
   date: string;
   entry: number;
-  exit: number | null;
+  exit_price: number | null;
   sl: number | null;
   tp: number | null;
   pnl: number | null;
@@ -40,7 +40,7 @@ export async function analyzeJournal(
         t.pnl != null
           ? (t.pnl >= 0 ? "+" : "") + t.pnl.toFixed(2)
           : "open";
-      return `Trade ${i + 1}: ${t.pair} ${t.direction.toUpperCase()} | ${t.date} | Lot: ${t.lot} | Entry: ${t.entry} | Exit: ${t.exit ?? "open"} | SL: ${t.sl ?? "none"} | TP: ${t.tp ?? "none"} | P&L: ${pnlStr} | R:R: ${rr} | Asset: ${t.asset_class ?? "Forex"} | Session: ${t.session ?? "N/A"} | Setup: ${t.setup || "none"} | Notes: ${t.notes || "none"}`;
+      return `Trade ${i + 1}: ${t.pair} ${t.direction.toUpperCase()} | ${t.date} | Lot: ${t.lot} | Entry: ${t.entry} | Exit: ${t.exit_price ?? "open"} | SL: ${t.sl ?? "none"} | TP: ${t.tp ?? "none"} | P&L: ${pnlStr} | R:R: ${rr} | Asset: ${t.asset_class ?? "Forex"} | Session: ${t.session ?? "N/A"} | Setup: ${t.setup || "none"} | Notes: ${t.notes || "none"}`;
     })
     .join("\n");
 

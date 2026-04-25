@@ -52,7 +52,7 @@ string DetectAssetClass(string symbol)
       StringFind(s,"DOT") >=0)  return "Crypto";
    if(StringFind(s,"XAU")   >=0 || StringFind(s,"XAG")  >=0 || StringFind(s,"GOLD")  >=0 ||
       StringFind(s,"SILVER")>=0 || StringFind(s,"OIL")  >=0 || StringFind(s,"WTI")   >=0 ||
-      StringFind(s,"BRENT") >=0)  return "Commodities";
+      StringFind(s,"BRENT") >=0)  return "Metals";
    if(StringFind(s,"SPX") >=0 || StringFind(s,"SP500")>=0 || StringFind(s,"NAS")  >=0 ||
       StringFind(s,"NDX") >=0 || StringFind(s,"US30") >=0 || StringFind(s,"DJ30") >=0 ||
       StringFind(s,"DAX") >=0 || StringFind(s,"FTSE") >=0 || StringFind(s,"CAC")  >=0 ||

@@ -40,7 +40,7 @@ interface Filters {
   direction: "" | "BUY" | "SELL";
 }
 
-const ASSET_CLASSES = ["Forex", "Crypto", "Stocks", "Indices"] as const;
+const ASSET_CLASSES = ["Forex", "Crypto", "Metals", "Indices", "Stocks"] as const;
 const SESSIONS = ["London", "New York", "Asian", "Overlap"] as const;
 
 const EMPTY_FORM = {

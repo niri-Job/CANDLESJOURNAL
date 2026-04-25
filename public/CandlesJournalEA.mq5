@@ -3,15 +3,16 @@
 //|          Automatically syncs closed trades to CandlesJournal     |
 //+------------------------------------------------------------------+
 #property copyright "CandlesJournal"
-#property version   "1.03"
+#property version   "1.04"
 #property description "Syncs every closed trade to your CandlesJournal automatically."
 
 input string InpSyncToken = "";                                                                   // Sync Token  (paste from Settings page)
 input string InpServerURL = "https://symphonious-lily-0d7ae0.netlify.app/api/mt5/sync";           // Sync URL    (pre-filled for your live app)
 
-// ── In-session deduplication ──────────────────────────────────────────────────
+// ── Global tick counter & deduplication array ─────────────────────────────────
+int   g_tickCount    = 0;
 ulong g_synced[];
-int   g_syncedCount = 0;
+int   g_syncedCount  = 0;
 
 bool IsAlreadySynced(ulong ticket)
 {
@@ -26,77 +27,32 @@ void MarkSynced(ulong ticket)
    g_synced[g_syncedCount++] = ticket;
 }
 
-// ── Asset class detection (suffix-aware: BTCUSDm, XAUUSDm, etc.) ─────────────
+// ── Asset class detection (handles suffixes: BTCUSDm, XAUUSDm, etc.) ─────────
 string DetectAssetClass(string symbol)
 {
    string s = symbol;
    StringToUpper(s);
-
-   if(StringFind(s,"BTC")   >= 0 || StringFind(s,"ETH")    >= 0 ||
-      StringFind(s,"XRP")   >= 0 || StringFind(s,"BNB")    >= 0 ||
-      StringFind(s,"SOL")   >= 0 || StringFind(s,"DOGE")   >= 0 ||
-      StringFind(s,"ADA")   >= 0 || StringFind(s,"LTC")    >= 0 ||
-      StringFind(s,"LINK")  >= 0 || StringFind(s,"DOT")    >= 0)
-      return "Crypto";
-
-   if(StringFind(s,"XAU")   >= 0 || StringFind(s,"XAG")   >= 0 ||
-      StringFind(s,"GOLD")  >= 0 || StringFind(s,"SILVER") >= 0 ||
-      StringFind(s,"OIL")   >= 0 || StringFind(s,"WTI")   >= 0 ||
-      StringFind(s,"BRENT") >= 0)
-      return "Commodities";
-
-   if(StringFind(s,"SPX")   >= 0 || StringFind(s,"SP500")  >= 0 ||
-      StringFind(s,"NAS")   >= 0 || StringFind(s,"NDX")    >= 0 ||
-      StringFind(s,"US30")  >= 0 || StringFind(s,"DJ30")   >= 0 ||
-      StringFind(s,"DAX")   >= 0 || StringFind(s,"FTSE")   >= 0 ||
-      StringFind(s,"CAC")   >= 0 || StringFind(s,"UK100")  >= 0 ||
-      StringFind(s,"GER")   >= 0 || StringFind(s,"AUS200") >= 0)
+   if(StringFind(s,"BTC")  >=0 || StringFind(s,"ETH")  >=0 || StringFind(s,"XRP") >=0 ||
+      StringFind(s,"BNB")  >=0 || StringFind(s,"SOL")  >=0 || StringFind(s,"DOGE")>=0 ||
+      StringFind(s,"ADA")  >=0 || StringFind(s,"LTC")  >=0 || StringFind(s,"LINK")>=0 ||
+      StringFind(s,"DOT")  >=0)  return "Crypto";
+   if(StringFind(s,"XAU")  >=0 || StringFind(s,"XAG")  >=0 || StringFind(s,"GOLD")  >=0 ||
+      StringFind(s,"SILVER")>=0 || StringFind(s,"OIL")  >=0 || StringFind(s,"WTI")   >=0 ||
+      StringFind(s,"BRENT")>=0)  return "Commodities";
+   if(StringFind(s,"SPX")  >=0 || StringFind(s,"SP500") >=0 || StringFind(s,"NAS")  >=0 ||
+      StringFind(s,"NDX")  >=0 || StringFind(s,"US30")  >=0 || StringFind(s,"DJ30") >=0 ||
+      StringFind(s,"DAX")  >=0 || StringFind(s,"FTSE")  >=0 || StringFind(s,"CAC")  >=0 ||
+      StringFind(s,"UK100")>=0 || StringFind(s,"GER")   >=0 || StringFind(s,"AUS200")>=0)
       return "Indices";
-
    return "Forex";
 }
 
-// ── Scan recent history for missed closed deals (all symbols) ─────────────────
-// lookbackSeconds: how far back to look (e.g. 1800 = last 30 min)
-void ScanHistory(int lookbackSeconds)
-{
-   datetime from = TimeCurrent() - lookbackSeconds;
-   if(!HistorySelect(from, TimeCurrent()))
-      return;
-
-   int total = HistoryDealsTotal();
-   if(total == 0) return;
-
-   // Collect tickets BEFORE calling SyncDeal — SyncDeal calls HistorySelectByPosition
-   // which replaces the current history pool, so collect everything first.
-   ulong tickets[];
-   int   ticketCount = 0;
-
-   for(int i = 0; i < total; i++)
-   {
-      ulong tk = HistoryDealGetTicket(i);
-      if(IsAlreadySynced(tk)) continue;
-
-      ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
-      if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY) continue;
-
-      ArrayResize(tickets, ticketCount + 1);
-      tickets[ticketCount++] = tk;
-   }
-
-   for(int i = 0; i < ticketCount; i++)
-   {
-      Print("CandlesJournal: History scan found unsynced deal #", tickets[i], " — syncing now");
-      SyncDeal(tickets[i]);
-   }
-}
-
-// ── Core sync — called by OnTradeTransaction, OnTick, and OnTimer ─────────────
+// ── Build and POST one closed deal to the journal ────────────────────────────
 void SyncDeal(ulong dealTicket)
 {
-   if(IsAlreadySynced(dealTicket))
-      return;
+   if(IsAlreadySynced(dealTicket)) return;
 
+   // Select the deal so we can read its properties
    if(!HistoryDealSelect(dealTicket))
    {
       Print("CandlesJournal: HistoryDealSelect FAILED for deal #", dealTicket);
@@ -105,7 +61,7 @@ void SyncDeal(ulong dealTicket)
 
    ENUM_DEAL_ENTRY dealEntry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(dealTicket, DEAL_ENTRY);
    if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY)
-      return;
+      return; // not a closing deal
 
    string   symbol    = HistoryDealGetString (dealTicket, DEAL_SYMBOL);
    double   exitPrice = HistoryDealGetDouble (dealTicket, DEAL_PRICE);
@@ -116,10 +72,13 @@ void SyncDeal(ulong dealTicket)
    datetime closeTime = (datetime)HistoryDealGetInteger(dealTicket, DEAL_TIME);
    long     posId     = HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID);
 
-   Print("CandlesJournal: Processing deal #", dealTicket,
+   Print("CandlesJournal: New deal found — ticket #", dealTicket,
          " | symbol: ", symbol,
-         " | pnl: ",    NormalizeDouble(profit, 2));
+         " | exit: ",   exitPrice,
+         " | pnl: ",    NormalizeDouble(profit, 2),
+         " | posId: ",  posId);
 
+   // ── find entry price + direction from the opening deal ───────────
    string direction  = "BUY";
    double entryPrice = exitPrice;
    double sl = 0, tp = 0;
@@ -183,14 +142,13 @@ void SyncDeal(ulong dealTicket)
       assetClass
    );
 
+   Print("CandlesJournal: Sending to server — payload: ", json);
+
    char   postData[], resData[];
    string resHeaders;
    string reqHeaders = "Content-Type: application/json\r\nAccept: application/json\r\n";
    int    charLen    = StringToCharArray(json, postData, 0, StringLen(json));
    ArrayResize(postData, charLen - 1);
-
-   Print("CandlesJournal: Sending to journal — ", symbol, " ", direction,
-         " | lot: ", DoubleToString(volume, 2));
 
    ResetLastError();
    int    httpCode = WebRequest("POST", InpServerURL, reqHeaders, 15000, postData, resData, resHeaders);
@@ -216,8 +174,36 @@ void SyncDeal(ulong dealTicket)
    }
    else
    {
-      Print("CandlesJournal ✗  Sync FAILED — HTTP ", httpCode, " | ", resp);
+      Print("CandlesJournal ✗  Sync FAILED — HTTP ", httpCode, " | body: ", resp);
    }
+}
+
+// ── Scan a time window for unsynced closing deals (all symbols) ───────────────
+void ScanAndSync(int lookbackSeconds)
+{
+   datetime from = TimeCurrent() - lookbackSeconds;
+   if(!HistorySelect(from, TimeCurrent())) return;
+
+   int total = HistoryDealsTotal();
+   if(total == 0) return;
+
+   // Collect ALL closing ticket numbers first — HistorySelectByPosition (inside
+   // SyncDeal) replaces the pool, so we must snapshot before looping.
+   ulong tickets[];
+   int   ticketCount = 0;
+
+   for(int i = 0; i < total; i++)
+   {
+      ulong tk = HistoryDealGetTicket(i);
+      if(IsAlreadySynced(tk)) continue;
+      ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
+      if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY) continue;
+      ArrayResize(tickets, ticketCount + 1);
+      tickets[ticketCount++] = tk;
+   }
+
+   for(int i = 0; i < ticketCount; i++)
+      SyncDeal(tickets[i]);
 }
 
 //+------------------------------------------------------------------+
@@ -234,9 +220,9 @@ int OnInit()
       return(INIT_PARAMETERS_INCORRECT);
    }
 
-   Print("CandlesJournal EA initialized. Monitoring ALL symbols on this account.");
+   Print("CandlesJournal EA initialized. Monitoring ALL symbols on this account. Version 1.04");
 
-   // ── Connection test ───────────────────────────────────────────
+   // ── Connection + token test ───────────────────────────────────
    string hdr  = "Content-Type: application/json\r\nAccept: application/json\r\n";
    string ping = StringFormat("{\"token\":\"%s\",\"ping\":true}", InpSyncToken);
    char   pData[], pRes[];
@@ -249,76 +235,58 @@ int OnInit()
 
    if(code == 200)
    {
-      Print("CandlesJournal ✓  Connected. Token valid. Scanning last 24 hours for missed trades...");
-
-      // One-time catchup scan on startup — covers any trades closed before EA was attached
-      ScanHistory(86400); // 24 hours
+      Print("CandlesJournal ✓  Server connected. Token valid.");
+      Print("CandlesJournal: Scanning last 24 hours for missed trades...");
+      ScanAndSync(86400); // catchup: last 24 hours
+      Print("CandlesJournal: Catchup scan complete. Now watching for new trades via OnTick.");
    }
    else if(code == -1)
    {
       int err = GetLastError();
       Print("CandlesJournal ✗  Cannot reach server (error ", err, ")");
       if(err == 4014)
-         Alert("CandlesJournal: WebRequest blocked by MT5!\n\n"
+         Alert("CandlesJournal: WebRequest blocked!\n\n"
                "Fix: Tools → Options → Expert Advisors\n"
-               "  ✓ Check 'Allow WebRequest for listed URL'\n"
-               "  + Add: " + InpServerURL + "\n\n"
-               "Then re-attach the EA.");
+               "  ✓ Allow WebRequest for listed URL\n"
+               "  + Add: " + InpServerURL);
       else
-         Alert("CandlesJournal: Network error " + IntegerToString(err) + ".\nCheck your internet connection.");
+         Alert("CandlesJournal: Network error " + IntegerToString(err));
       return(INIT_FAILED);
    }
    else if(code == 401)
    {
-      Alert("CandlesJournal: Invalid sync token!\n\n"
-            "Go to the Settings page → Regenerate Token\n"
-            "Then paste the new token into the EA inputs.");
+      Alert("CandlesJournal: Invalid token — regenerate on the Settings page.");
       return(INIT_PARAMETERS_INCORRECT);
    }
    else
    {
-      Print("CandlesJournal !  Init ping returned HTTP ", code, " — check server logs.");
+      Print("CandlesJournal: Server returned HTTP ", code, " during init ping.");
    }
-
-   EventSetTimer(30); // timer backup every 30 seconds
 
    return(INIT_SUCCEEDED);
 }
 
-void OnDeinit(const int reason)
-{
-   EventKillTimer();
-}
+void OnDeinit(const int reason) { }
 
-// ── OnTick backup: throttled to once per 5 seconds, scans last 30 min ────────
-// This is the most reliable fallback when OnTradeTransaction does not fire.
+// ── PRIMARY detection method: fires on every price tick ───────────────────────
+// Throttled to one history scan per second to avoid performance issues.
+// Looks back 60 seconds to catch any deal that just closed.
 void OnTick()
 {
+   g_tickCount++;
+
+   // Heartbeat: confirm EA is alive every 100 ticks
+   if(g_tickCount % 100 == 0)
+      Print("CandlesJournal: OnTick firing — tick #", g_tickCount,
+            " | synced so far: ", g_syncedCount);
+
+   // Throttle: scan history at most once per second
    static datetime s_lastScan = 0;
-   if(TimeCurrent() - s_lastScan < 5) return;
-   s_lastScan = TimeCurrent();
+   datetime now = TimeCurrent();
+   if(now - s_lastScan < 1) return;
+   s_lastScan = now;
 
-   ScanHistory(1800); // last 30 minutes
-}
-
-// ── OnTimer backup: additional redundancy every 30 seconds ───────────────────
-void OnTimer()
-{
-   ScanHistory(1800); // last 30 minutes
-}
-
-// ── Primary handler: fires immediately when MT5 adds a deal to history ────────
-void OnTradeTransaction(const MqlTradeTransaction& trans,
-                        const MqlTradeRequest&     request,
-                        const MqlTradeResult&      result)
-{
-   Print("CandlesJournal: OnTradeTransaction called: type=", EnumToString(trans.type),
-         " symbol=", trans.symbol,
-         " deal=",   trans.deal);
-
-   if(trans.type != TRADE_TRANSACTION_DEAL_ADD)
-      return;
-
-   SyncDeal(trans.deal);
+   // Scan last 60 seconds for new closed deals across ALL symbols
+   ScanAndSync(60);
 }
 //+------------------------------------------------------------------+

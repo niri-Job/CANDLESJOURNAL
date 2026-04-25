@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Bundle @anthropic-ai/sdk with esbuild so it deploys correctly on Netlify
+[functions]
+  external_node_modules = ["@anthropic-ai/sdk"]
+  node_bundler = "esbuild"
+
+# Disable caching on all API routes
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+  "Cache-Control" = "no-store"

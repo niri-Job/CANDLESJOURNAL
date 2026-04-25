@@ -3,12 +3,31 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { analyzeJournal } from "@/lib/analyzeJournal";
 
+// Increase Netlify/Vercel function timeout — Claude analysis takes 15–30s
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
   const { period } = body as { period: string };
 
   if (period !== "daily" && period !== "weekly" && period !== "monthly") {
     return NextResponse.json({ error: "Invalid period" }, { status: 400 });
+  }
+
+  // Fail fast if the API key is missing — gives a clear error instead of a
+  // cryptic Anthropic SDK exception that surfaces as "Analysis failed"
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("analyze: ANTHROPIC_API_KEY is not set on this server");
+    return NextResponse.json(
+      { error: "Server misconfiguration: ANTHROPIC_API_KEY not set. Add it in Netlify → Site config → Environment variables." },
+      { status: 500 }
+    );
   }
 
   const cookieStore = await cookies();
@@ -65,8 +84,9 @@ export async function POST(request: Request) {
     .order("date", { ascending: true });
 
   if (tradesError) {
+    console.error("analyze: trades fetch error:", tradesError.message);
     return NextResponse.json(
-      { error: "Failed to fetch trades" },
+      { error: "Failed to fetch trades: " + tradesError.message },
       { status: 500 }
     );
   }
@@ -81,7 +101,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const analysis = await analyzeJournal(trades, period);
+  // Call Claude — wrap in try/catch so any SDK error (auth, timeout, rate limit)
+  // returns a readable message instead of an unhandled rejection
+  let analysis: string;
+  try {
+    analysis = await analyzeJournal(trades, period);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("analyze: Claude API error:", msg);
+    return NextResponse.json(
+      { error: "AI analysis failed: " + msg },
+      { status: 500 }
+    );
+  }
 
   const { data: saved, error: saveError } = await supabase
     .from("journal_analyses")
@@ -95,7 +127,8 @@ export async function POST(request: Request) {
     .single();
 
   if (saveError) {
-    console.error("Failed to save analysis:", saveError);
+    console.error("analyze: failed to save analysis:", saveError.message);
+    // Still return the analysis even if saving failed
     return NextResponse.json({ analysis, saved: false });
   }
 

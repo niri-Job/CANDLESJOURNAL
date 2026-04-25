@@ -31,9 +31,16 @@ export default function LoginPage() {
     setLoading(true);
 
     if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error, data: authData } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { setError(error.message); setLoading(false); return; }
-      window.location.href = "/";
+
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("onboarding_completed")
+        .eq("user_id", authData.user!.id)
+        .maybeSingle();
+
+      window.location.href = profile?.onboarding_completed ? "/" : "/onboarding";
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) { setError(error.message); setLoading(false); return; }

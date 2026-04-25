@@ -330,6 +330,13 @@ export default function TradingJournal() {
       if (!user) { window.location.href = "/login"; return; }
       setCurrentUser(user);
 
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("onboarding_completed")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!profile?.onboarding_completed) { window.location.href = "/onboarding"; return; }
+
       const { data, error } = await supabase
         .from("trades")
         .select("*")

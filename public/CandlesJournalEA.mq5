@@ -2,66 +2,86 @@
 //|                                       CandlesJournalEA.mq5      |
 //|          Automatically syncs closed trades to CandlesJournal     |
 //+------------------------------------------------------------------+
+//
+// HOW TO INSTALL:
+// 1. Copy this file to your MT5 data folder:
+//       File → Open Data Folder → MQL5 → Experts
+// 2. Open MetaEditor: press F4 inside MT5 (or Tools → MetaEditor)
+// 3. In MetaEditor: File → Open → find CandlesJournalEA.mq5
+// 4. Press F5 (or Build → Compile) — must show "0 errors, 0 warnings"
+// 5. Back in MT5 Navigator: right-click Experts → Refresh
+// 6. Drag CandlesJournalEA onto any chart (e.g. EURUSD H1)
+// 7. In the EA Inputs tab paste your Sync Token from the Settings page
+// 8. Enable "Allow Algo Trading" (green button in MT5 toolbar)
+// 9. Watch the Experts tab at the bottom for confirmation messages
+//
 #property copyright "CandlesJournal"
-#property version   "1.04"
+#property version   "1.05"
 #property description "Syncs every closed trade to your CandlesJournal automatically."
 
 input string InpSyncToken = "";                                                                   // Sync Token  (paste from Settings page)
 input string InpServerURL = "https://symphonious-lily-0d7ae0.netlify.app/api/mt5/sync";           // Sync URL    (pre-filled for your live app)
 
-// ── Global tick counter & deduplication array ─────────────────────────────────
-int   g_tickCount    = 0;
-ulong g_synced[];
-int   g_syncedCount  = 0;
+// GlobalVariable key — persists the highest deal ticket we have synced
+// even after MT5 is restarted or the EA is re-attached.
+#define GV_LAST_TICKET "CJ_LAST_TICKET"
 
-bool IsAlreadySynced(ulong ticket)
+//+------------------------------------------------------------------+
+//  Helpers
+//+------------------------------------------------------------------+
+
+ulong GetLastSyncedTicket()
 {
-   for(int i = 0; i < g_syncedCount; i++)
-      if(g_synced[i] == ticket) return true;
-   return false;
+   if(GlobalVariableCheck(GV_LAST_TICKET))
+      return (ulong)GlobalVariableGet(GV_LAST_TICKET);
+   return 0;
 }
 
-void MarkSynced(ulong ticket)
+void SetLastSyncedTicket(ulong ticket)
 {
-   ArrayResize(g_synced, g_syncedCount + 1);
-   g_synced[g_syncedCount++] = ticket;
+   GlobalVariableSet(GV_LAST_TICKET, (double)ticket);
 }
 
-// ── Asset class detection (handles suffixes: BTCUSDm, XAUUSDm, etc.) ─────────
 string DetectAssetClass(string symbol)
 {
    string s = symbol;
    StringToUpper(s);
-   if(StringFind(s,"BTC")  >=0 || StringFind(s,"ETH")  >=0 || StringFind(s,"XRP") >=0 ||
-      StringFind(s,"BNB")  >=0 || StringFind(s,"SOL")  >=0 || StringFind(s,"DOGE")>=0 ||
-      StringFind(s,"ADA")  >=0 || StringFind(s,"LTC")  >=0 || StringFind(s,"LINK")>=0 ||
-      StringFind(s,"DOT")  >=0)  return "Crypto";
-   if(StringFind(s,"XAU")  >=0 || StringFind(s,"XAG")  >=0 || StringFind(s,"GOLD")  >=0 ||
+   if(StringFind(s,"BTC") >=0 || StringFind(s,"ETH") >=0 || StringFind(s,"XRP") >=0 ||
+      StringFind(s,"BNB") >=0 || StringFind(s,"SOL") >=0 || StringFind(s,"DOGE")>=0 ||
+      StringFind(s,"ADA") >=0 || StringFind(s,"LTC") >=0 || StringFind(s,"LINK")>=0 ||
+      StringFind(s,"DOT") >=0)  return "Crypto";
+   if(StringFind(s,"XAU")   >=0 || StringFind(s,"XAG")  >=0 || StringFind(s,"GOLD")  >=0 ||
       StringFind(s,"SILVER")>=0 || StringFind(s,"OIL")  >=0 || StringFind(s,"WTI")   >=0 ||
-      StringFind(s,"BRENT")>=0)  return "Commodities";
-   if(StringFind(s,"SPX")  >=0 || StringFind(s,"SP500") >=0 || StringFind(s,"NAS")  >=0 ||
-      StringFind(s,"NDX")  >=0 || StringFind(s,"US30")  >=0 || StringFind(s,"DJ30") >=0 ||
-      StringFind(s,"DAX")  >=0 || StringFind(s,"FTSE")  >=0 || StringFind(s,"CAC")  >=0 ||
-      StringFind(s,"UK100")>=0 || StringFind(s,"GER")   >=0 || StringFind(s,"AUS200")>=0)
+      StringFind(s,"BRENT") >=0)  return "Commodities";
+   if(StringFind(s,"SPX") >=0 || StringFind(s,"SP500")>=0 || StringFind(s,"NAS")  >=0 ||
+      StringFind(s,"NDX") >=0 || StringFind(s,"US30") >=0 || StringFind(s,"DJ30") >=0 ||
+      StringFind(s,"DAX") >=0 || StringFind(s,"FTSE") >=0 || StringFind(s,"CAC")  >=0 ||
+      StringFind(s,"UK100")>=0 || StringFind(s,"GER") >=0 || StringFind(s,"AUS200")>=0)
       return "Indices";
    return "Forex";
 }
 
-// ── Build and POST one closed deal to the journal ────────────────────────────
+//+------------------------------------------------------------------+
+//  SyncDeal — POST one closed deal to CandlesJournal
+//+------------------------------------------------------------------+
 void SyncDeal(ulong dealTicket)
 {
-   if(IsAlreadySynced(dealTicket)) return;
+   Print("CandlesJournal: --- SyncDeal START ticket #", dealTicket, " ---");
 
-   // Select the deal so we can read its properties
    if(!HistoryDealSelect(dealTicket))
    {
-      Print("CandlesJournal: HistoryDealSelect FAILED for deal #", dealTicket);
+      Print("CandlesJournal: HistoryDealSelect FAILED for ticket #", dealTicket, " — skipping");
       return;
    }
 
    ENUM_DEAL_ENTRY dealEntry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(dealTicket, DEAL_ENTRY);
+   Print("CandlesJournal: Deal entry type = ", EnumToString(dealEntry));
+
    if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY)
-      return; // not a closing deal
+   {
+      Print("CandlesJournal: Not a closing deal — skipping ticket #", dealTicket);
+      return;
+   }
 
    string   symbol    = HistoryDealGetString (dealTicket, DEAL_SYMBOL);
    double   exitPrice = HistoryDealGetDouble (dealTicket, DEAL_PRICE);
@@ -72,13 +92,11 @@ void SyncDeal(ulong dealTicket)
    datetime closeTime = (datetime)HistoryDealGetInteger(dealTicket, DEAL_TIME);
    long     posId     = HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID);
 
-   Print("CandlesJournal: New deal found — ticket #", dealTicket,
-         " | symbol: ", symbol,
-         " | exit: ",   exitPrice,
-         " | pnl: ",    NormalizeDouble(profit, 2),
-         " | posId: ",  posId);
+   Print("CandlesJournal: Closing deal details — symbol:", symbol,
+         " exit:", exitPrice, " volume:", volume,
+         " profit:", NormalizeDouble(profit,2), " posId:", posId);
 
-   // ── find entry price + direction from the opening deal ───────────
+   // ── find opening deal → entry price + direction ──────────────
    string direction  = "BUY";
    double entryPrice = exitPrice;
    double sl = 0, tp = 0;
@@ -86,6 +104,7 @@ void SyncDeal(ulong dealTicket)
    if(HistorySelectByPosition(posId))
    {
       int n = HistoryDealsTotal();
+      Print("CandlesJournal: Position history — ", n, " deal(s) for posId ", posId);
       for(int i = 0; i < n; i++)
       {
          ulong tk = HistoryDealGetTicket(i);
@@ -94,6 +113,7 @@ void SyncDeal(ulong dealTicket)
          {
             direction  = (HistoryDealGetInteger(tk, DEAL_TYPE) == DEAL_TYPE_BUY) ? "BUY" : "SELL";
             entryPrice = HistoryDealGetDouble(tk, DEAL_PRICE);
+            Print("CandlesJournal: Opening deal found — direction:", direction, " entry:", entryPrice);
             break;
          }
       }
@@ -108,6 +128,11 @@ void SyncDeal(ulong dealTicket)
          if(oTP > 0) tp = oTP;
          break;
       }
+   }
+   else
+   {
+      Print("CandlesJournal: HistorySelectByPosition FAILED for posId ", posId,
+            " — using fallback direction/entry");
    }
 
    MqlDateTime dt;
@@ -142,7 +167,7 @@ void SyncDeal(ulong dealTicket)
       assetClass
    );
 
-   Print("CandlesJournal: Sending to server — payload: ", json);
+   Print("CandlesJournal: Sending payload — ", json);
 
    char   postData[], resData[];
    string resHeaders;
@@ -158,52 +183,79 @@ void SyncDeal(ulong dealTicket)
 
    if(httpCode == 200)
    {
-      MarkSynced(dealTicket);
+      // Update the persistent last-ticket marker
+      ulong lastTk = GetLastSyncedTicket();
+      if(dealTicket > lastTk) SetLastSyncedTicket(dealTicket);
+
       Print("CandlesJournal ✓  SYNCED — ", symbol, " ", direction,
-            " | Lot: ", DoubleToString(volume, 2),
-            " | P&L: $", DoubleToString(NormalizeDouble(profit, 2), 2));
+            " | Lot:", DoubleToString(volume, 2),
+            " | P&L: $", DoubleToString(NormalizeDouble(profit, 2), 2),
+            " | LastTicket now: ", dealTicket);
    }
    else if(httpCode == -1)
    {
       int err = GetLastError();
-      Print("CandlesJournal ✗  WebRequest FAILED — error code: ", err);
+      Print("CandlesJournal ✗  WebRequest FAILED — error: ", err);
       if(err == 4014)
-         Print("  → Fix: Tools > Options > Expert Advisors > Allow WebRequest > Add: ", InpServerURL);
-      else
-         Print("  → Network error. Check internet connection.");
+         Print("  → Tools > Options > Expert Advisors > Allow WebRequest > Add: ", InpServerURL);
    }
    else
    {
-      Print("CandlesJournal ✗  Sync FAILED — HTTP ", httpCode, " | body: ", resp);
+      Print("CandlesJournal ✗  HTTP ", httpCode, " | ", resp);
    }
+
+   Print("CandlesJournal: --- SyncDeal END ticket #", dealTicket, " ---");
 }
 
-// ── Scan a time window for unsynced closing deals (all symbols) ───────────────
-void ScanAndSync(int lookbackSeconds)
+//+------------------------------------------------------------------+
+//  ScanHistory — scan last N seconds, sync any deal ticket > lastSynced
+//+------------------------------------------------------------------+
+void ScanHistory(int lookbackSeconds)
 {
+   ulong lastTicket = GetLastSyncedTicket();
+
+   Print("CandlesJournal: ScanHistory — lookback:", lookbackSeconds,
+         "s | lastSyncedTicket:", lastTicket);
+
    datetime from = TimeCurrent() - lookbackSeconds;
-   if(!HistorySelect(from, TimeCurrent())) return;
+   if(!HistorySelect(from, TimeCurrent()))
+   {
+      Print("CandlesJournal: HistorySelect FAILED");
+      return;
+   }
 
    int total = HistoryDealsTotal();
+   Print("CandlesJournal: HistorySelect returned ", total, " deal(s) in window");
+
    if(total == 0) return;
 
-   // Collect ALL closing ticket numbers first — HistorySelectByPosition (inside
-   // SyncDeal) replaces the pool, so we must snapshot before looping.
-   ulong tickets[];
-   int   ticketCount = 0;
+   // Snapshot all qualifying tickets before calling SyncDeal
+   // (SyncDeal calls HistorySelectByPosition which replaces the pool)
+   ulong toSync[];
+   int   count = 0;
 
    for(int i = 0; i < total; i++)
    {
       ulong tk = HistoryDealGetTicket(i);
-      if(IsAlreadySynced(tk)) continue;
+      if(tk <= lastTicket) continue; // already synced in a previous session
+
       ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
       if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY) continue;
-      ArrayResize(tickets, ticketCount + 1);
-      tickets[ticketCount++] = tk;
+
+      ArrayResize(toSync, count + 1);
+      toSync[count++] = tk;
    }
 
-   for(int i = 0; i < ticketCount; i++)
-      SyncDeal(tickets[i]);
+   if(count == 0)
+   {
+      Print("CandlesJournal: No new unsynced closing deals found");
+      return;
+   }
+
+   Print("CandlesJournal: Found ", count, " new closing deal(s) to sync");
+
+   for(int i = 0; i < count; i++)
+      SyncDeal(toSync[i]);
 }
 
 //+------------------------------------------------------------------+
@@ -211,16 +263,19 @@ int OnInit()
 {
    if(InpSyncToken == "")
    {
-      Alert("CandlesJournal: Enter your Sync Token in the EA inputs.\n\nGet it from: Settings page → MT5 Sync Token → Generate Token");
+      Alert("CandlesJournal: Paste your Sync Token in the EA inputs.\nGet it: Settings page → Generate Token");
       return(INIT_PARAMETERS_INCORRECT);
    }
    if(InpServerURL == "")
    {
-      Alert("CandlesJournal: Enter your Sync URL in the EA inputs.");
+      Alert("CandlesJournal: Sync URL is empty.");
       return(INIT_PARAMETERS_INCORRECT);
    }
 
-   Print("CandlesJournal EA initialized. Monitoring ALL symbols on this account. Version 1.04");
+   Print("CandlesJournal: ====== EA v1.05 INITIALIZING ======");
+   Print("CandlesJournal: Token length = ", StringLen(InpSyncToken),
+         " | URL = ", InpServerURL);
+   Print("CandlesJournal: Last synced ticket from GlobalVariable = ", GetLastSyncedTicket());
 
    // ── Connection + token test ───────────────────────────────────
    string hdr  = "Content-Type: application/json\r\nAccept: application/json\r\n";
@@ -232,18 +287,19 @@ int OnInit()
 
    ResetLastError();
    int code = WebRequest("POST", InpServerURL, hdr, 10000, pData, pRes, pHeaders);
+   Print("CandlesJournal: Init ping response = HTTP ", code,
+         " | body = ", CharArrayToString(pRes));
 
    if(code == 200)
    {
-      Print("CandlesJournal ✓  Server connected. Token valid.");
-      Print("CandlesJournal: Scanning last 24 hours for missed trades...");
-      ScanAndSync(86400); // catchup: last 24 hours
-      Print("CandlesJournal: Catchup scan complete. Now watching for new trades via OnTick.");
+      Print("CandlesJournal ✓  Connected. Scanning last 24 hours for any missed trades...");
+      ScanHistory(86400);
+      Print("CandlesJournal: Catchup scan complete.");
    }
    else if(code == -1)
    {
       int err = GetLastError();
-      Print("CandlesJournal ✗  Cannot reach server (error ", err, ")");
+      Print("CandlesJournal ✗  Cannot reach server. Error = ", err);
       if(err == 4014)
          Alert("CandlesJournal: WebRequest blocked!\n\n"
                "Fix: Tools → Options → Expert Advisors\n"
@@ -255,38 +311,62 @@ int OnInit()
    }
    else if(code == 401)
    {
-      Alert("CandlesJournal: Invalid token — regenerate on the Settings page.");
+      Alert("CandlesJournal: Token invalid. Regenerate on the Settings page.");
       return(INIT_PARAMETERS_INCORRECT);
    }
    else
    {
-      Print("CandlesJournal: Server returned HTTP ", code, " during init ping.");
+      Print("CandlesJournal: Unexpected init ping HTTP ", code);
    }
+
+   // Start 10-second timer — primary detection on Exness where OnTradeTransaction
+   // does not fire
+   EventSetTimer(10);
+   Print("CandlesJournal: Timer started (every 10 seconds).");
+   Print("CandlesJournal: ====== EA v1.05 READY ======");
 
    return(INIT_SUCCEEDED);
 }
 
-void OnDeinit(const int reason) { }
-
-// ── PRIMARY detection method: fires on every price tick ───────────────────────
-// Throttled to one history scan per second to avoid performance issues.
-// Looks back 60 seconds to catch any deal that just closed.
-void OnTick()
+void OnDeinit(const int reason)
 {
-   g_tickCount++;
+   EventKillTimer();
+   Print("CandlesJournal: EA removed. Timer stopped.");
+}
 
-   // Heartbeat: confirm EA is alive every 100 ticks
-   if(g_tickCount % 100 == 0)
-      Print("CandlesJournal: OnTick firing — tick #", g_tickCount,
-            " | synced so far: ", g_syncedCount);
+//+------------------------------------------------------------------+
+//  OnTimer — fires every 10 seconds, scans last 24 hours
+//  PRIMARY method for Exness demo where OnTradeTransaction is broken
+//+------------------------------------------------------------------+
+void OnTimer()
+{
+   static int timerFires = 0;
+   timerFires++;
+   Print("CandlesJournal: OnTimer #", timerFires, " — scanning last 24 hours...");
+   ScanHistory(86400);
+}
 
-   // Throttle: scan history at most once per second
-   static datetime s_lastScan = 0;
-   datetime now = TimeCurrent();
-   if(now - s_lastScan < 1) return;
-   s_lastScan = now;
+//+------------------------------------------------------------------+
+//  OnTrade — fires on any account trade event (positions/deals/orders)
+//  Secondary method, complements OnTimer
+//+------------------------------------------------------------------+
+void OnTrade()
+{
+   Print("CandlesJournal: OnTrade fired — scanning last 24 hours...");
+   ScanHistory(86400);
+}
 
-   // Scan last 60 seconds for new closed deals across ALL symbols
-   ScanAndSync(60);
+//+------------------------------------------------------------------+
+//  OnTradeTransaction — kept as tertiary fallback for other brokers
+//+------------------------------------------------------------------+
+void OnTradeTransaction(const MqlTradeTransaction& trans,
+                        const MqlTradeRequest&     request,
+                        const MqlTradeResult&      result)
+{
+   Print("CandlesJournal: OnTradeTransaction fired — type:", EnumToString(trans.type),
+         " symbol:", trans.symbol, " deal:", trans.deal);
+
+   if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
+      ScanHistory(86400);
 }
 //+------------------------------------------------------------------+

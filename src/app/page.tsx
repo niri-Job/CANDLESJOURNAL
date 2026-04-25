@@ -315,6 +315,8 @@ export default function TradingJournal() {
   }[]>([]);
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isPro, setIsPro] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
 
   function showToast(msg: string, type: "ok" | "err") {
     setToast({ msg, type });
@@ -330,12 +332,21 @@ export default function TradingJournal() {
       if (!user) { window.location.href = "/login"; return; }
       setCurrentUser(user);
 
-      const { data: profile } = await supabase
+      const { data: rawProfile } = await supabase
         .from("user_profiles")
-        .select("onboarding_completed")
+        .select("onboarding_completed, subscription_status, subscription_end")
         .eq("user_id", user.id)
         .maybeSingle();
+      const profile = rawProfile as {
+        onboarding_completed: boolean;
+        subscription_status: string | null;
+        subscription_end: string | null;
+      } | null;
       if (!profile?.onboarding_completed) { window.location.href = "/onboarding"; return; }
+      const pro = profile?.subscription_status === "pro" &&
+                  !!profile?.subscription_end &&
+                  new Date(profile.subscription_end) > new Date();
+      setIsPro(pro);
 
       const { data, error } = await supabase
         .from("trades")
@@ -435,6 +446,11 @@ export default function TradingJournal() {
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
+  const tradesThisMonth = useMemo(() => {
+    const month = new Date().toISOString().slice(0, 7);
+    return trades.filter((t) => t.date.startsWith(month)).length;
+  }, [trades]);
+
   // ── Handlers ───────────────────────────────────────────────────────────────
   async function handleLogout() {
     const supabase = createClient();
@@ -443,6 +459,7 @@ export default function TradingJournal() {
   }
 
   async function addTrade() {
+    if (!isPro && tradesThisMonth >= 20) { setUpgradeReason("trades"); return; }
     if (!form.pair.trim()) return showToast("Enter a currency pair", "err");
     if (!form.lot || +form.lot <= 0) return showToast("Enter a valid lot size", "err");
     if (!form.entry || !form.exit_price) return showToast("Enter entry and exit prices", "err");
@@ -572,6 +589,7 @@ export default function TradingJournal() {
   }
 
   async function runAnalysis(period: "daily" | "weekly" | "monthly") {
+    if (!isPro) { setUpgradeReason("analysis"); return; }
     setAnalysisLoading(true);
     setCurrentAnalysis(null);
     try {
@@ -730,6 +748,23 @@ export default function TradingJournal() {
         )}
       </header>
 
+      {/* Free plan upgrade banner */}
+      {!isPro && !loading && (
+        <div className="bg-blue-500/10 border-b border-blue-500/20 px-4 sm:px-7 py-2.5
+                        flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span className="text-sm text-zinc-400">
+            Free plan ·{" "}
+            <span className="font-mono text-blue-400 font-semibold">{tradesThisMonth}/20</span>
+            {" "}trades this month
+          </span>
+          <Link href="/pricing"
+            className="text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white
+                       px-4 py-1.5 rounded-lg transition-all shrink-0">
+            Upgrade to Pro →
+          </Link>
+        </div>
+      )}
+
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-5 sm:py-7">
 
         {/* STAT CARDS */}
@@ -811,7 +846,9 @@ export default function TradingJournal() {
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
                 AI Journal Analysis
               </p>
-              <p className="text-[10px] text-zinc-700 mt-0.5">Powered by Claude</p>
+              <p className="text-[10px] text-zinc-700 mt-0.5">
+                {isPro ? "Powered by Claude" : "🔒 Pro feature — upgrade to unlock"}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -1234,6 +1271,46 @@ export default function TradingJournal() {
           </div>
         </div>
       </main>
+
+      {/* UPGRADE MODAL */}
+      {upgradeReason && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+             style={{ background: "rgba(0,0,0,0.75)" }}
+             onClick={() => setUpgradeReason(null)}>
+          <div className="bg-[var(--cj-surface)] border border-zinc-700 rounded-2xl p-7 max-w-sm w-full"
+               onClick={(e) => e.stopPropagation()}>
+            <div className="text-center mb-5">
+              <span className="text-4xl">🚀</span>
+              <h3 className="text-lg font-bold mt-3 mb-2">Upgrade to Pro</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                {upgradeReason === "trades" &&
+                  `You've used all 20 trades for this month on the Free plan.`}
+                {upgradeReason === "analysis" &&
+                  "AI coaching analysis is a Pro feature."}
+                {upgradeReason === "mt5" &&
+                  "MT5 auto-sync is a Pro feature."}
+              </p>
+            </div>
+            <ul className="space-y-2 mb-6 text-sm text-zinc-400">
+              {["Unlimited trades", "AI analysis (daily, weekly, monthly)",
+                "MT5 auto-sync", "Full charts & analytics"].map((f) => (
+                <li key={f} className="flex items-center gap-2">
+                  <span className="text-blue-400 shrink-0">✓</span>{f}
+                </li>
+              ))}
+            </ul>
+            <Link href="/pricing"
+              className="block w-full text-center py-3 rounded-xl bg-blue-600 hover:bg-blue-500
+                         text-white font-semibold text-sm transition-all mb-3">
+              View Plans — ₦5,000/month →
+            </Link>
+            <button onClick={() => setUpgradeReason(null)}
+              className="w-full text-center text-sm text-zinc-600 hover:text-zinc-400 transition-colors">
+              Maybe later
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* TOAST */}
       {toast && (

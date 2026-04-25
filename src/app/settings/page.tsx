@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { User } from "@supabase/supabase-js";
 
+interface SubState { status: string; end: string | null; }
+
 interface SyncToken {
   id: string;
   token: string;
@@ -22,6 +24,7 @@ export default function SettingsPage() {
   const [genError, setGenError] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [sub, setSub] = useState<SubState>({ status: "free", end: null });
   const [syncUrl] = useState(() =>
     typeof window !== "undefined" ? window.location.origin + "/api/mt5/sync" : ""
   );
@@ -42,6 +45,15 @@ export default function SettingsPage() {
         .maybeSingle();
 
       if (data) setSyncToken(data as SyncToken);
+
+      const { data: subRaw } = await supabase
+        .from("user_profiles")
+        .select("subscription_status, subscription_end")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const subData = subRaw as { subscription_status: string | null; subscription_end: string | null } | null;
+      setSub({ status: subData?.subscription_status ?? "free", end: subData?.subscription_end ?? null });
+
       setLoading(false);
     }
     init();
@@ -117,6 +129,58 @@ export default function SettingsPage() {
       </header>
 
       <main className="max-w-[680px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
+
+        {/* SUBSCRIPTION */}
+        {(() => {
+          const isPro = sub.status === "pro" && !!sub.end && new Date(sub.end) > new Date();
+          const daysLeft = sub.end
+            ? Math.max(0, Math.ceil((new Date(sub.end).getTime() - Date.now()) / 86_400_000))
+            : 0;
+          return (
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+                  Subscription
+                </p>
+                <span className={`text-[10px] uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full
+                  ${isPro
+                    ? "bg-blue-500/15 border border-blue-500/30 text-blue-400"
+                    : "bg-zinc-800 text-zinc-500"
+                  }`}>
+                  {isPro ? "Pro" : "Free"}
+                </span>
+              </div>
+              {isPro ? (
+                <div>
+                  <p className="text-sm text-zinc-300 mb-1">Pro plan active</p>
+                  <p className="text-xs text-zinc-500 mb-4">
+                    Expires{" "}
+                    {new Date(sub.end!).toLocaleDateString("en-GB", {
+                      day: "numeric", month: "long", year: "numeric",
+                    })}{" "}
+                    · {daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining
+                  </p>
+                  <Link href="/pricing"
+                    className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors">
+                    Renew Pro →
+                  </Link>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-zinc-500 mb-4">
+                    You are on the Free plan — up to 20 trades/month, no AI analysis, no MT5 sync.
+                    Upgrade to unlock everything.
+                  </p>
+                  <Link href="/pricing"
+                    className="inline-block px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500
+                               text-white font-semibold text-sm transition-all">
+                    Upgrade to Pro — ₦5,000/month →
+                  </Link>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* MT5 SYNC TOKEN */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
@@ -199,6 +263,14 @@ export default function SettingsPage() {
                 {generating ? "Generating..." : "Generate Token"}
               </button>
               {genError && <p className="mt-3 text-xs text-rose-400">{genError}</p>}
+              {sub.status !== "pro" && (
+                <p className="mt-4 text-[11px] text-amber-700 leading-relaxed">
+                  MT5 auto-sync is a Pro feature. Free plan allows up to 20 trades/month via the EA.{" "}
+                  <Link href="/pricing" className="underline hover:text-amber-500 transition-colors">
+                    Upgrade →
+                  </Link>
+                </p>
+              )}
             </div>
           )}
         </div>

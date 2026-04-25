@@ -79,9 +79,37 @@ export async function POST(request: Request) {
   console.log("MT5 sync: token valid, user_id =", userId);
 
   // ── Ping / connection test from EA OnInit ─────────────────────────────────
+  // (ping check must come before subscription check so EA can always connect)
   const b = body as { ping?: boolean };
   if (b.ping === true) {
     return NextResponse.json({ pong: true });
+  }
+
+  // ── Check subscription / free trade limit ────────────────────────────────
+  const { data: subRaw } = await supabase
+    .from("user_profiles")
+    .select("subscription_status, subscription_end")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const subRow = subRaw as { subscription_status: string | null; subscription_end: string | null } | null;
+  const isPro = subRow?.subscription_status === "pro" &&
+                !!subRow?.subscription_end &&
+                new Date(subRow.subscription_end) > new Date();
+
+  if (!isPro) {
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const { count } = await supabase
+      .from("trades")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("date", `${thisMonth}-01`);
+    if ((count ?? 0) >= 20) {
+      console.log("MT5 sync: free limit reached for user", userId);
+      return NextResponse.json(
+        { error: "Monthly trade limit reached (20/month on Free plan). Upgrade to Pro at /pricing." },
+        { status: 403 }
+      );
+    }
   }
 
   // ── Step 2: validate required trade fields ────────────────────────────────

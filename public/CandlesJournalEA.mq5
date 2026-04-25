@@ -16,7 +16,7 @@
 // 9. Watch the Experts tab at the bottom for confirmation messages
 //
 #property copyright "CandlesJournal"
-#property version   "1.06"
+#property version   "1.07"
 #property description "Syncs every closed trade to your CandlesJournal automatically."
 
 input string InpSyncToken = "";                                                                   // Sync Token  (paste from Settings page)
@@ -40,32 +40,81 @@ void SetLastSyncedTicket(ulong ticket)
 }
 
 //+------------------------------------------------------------------+
-//  Asset class detection (handles broker suffixes: BTCUSDm, XAUUSDm)
+//  StripSuffix — removes broker-specific suffixes from symbol names
+//
+//  Handles all common formats:
+//    BTCUSDm   → BTCUSD   (Exness: trailing lowercase letters)
+//    EURUSD.r  → EURUSD   (ICMarkets: dot + extension)
+//    EURUSD.pro→ EURUSD   (dot + word)
+//    EURUSD_raw→ EURUSD   (underscore + word)
+//    XAUUSDm   → XAUUSD
+//    GBPJPYm   → GBPJPY
 //+------------------------------------------------------------------+
-string DetectAssetClass(string symbol)
+string StripSuffix(string raw)
 {
-   string s = symbol;
+   string s = raw;
+
+   // Remove everything from '.' onwards  (.r, .pro, .ecn, .mt5, etc.)
+   int dotPos = StringFind(s, ".");
+   if(dotPos >= 0)
+      s = StringSubstr(s, 0, dotPos);
+
+   // Remove everything from '_' onwards  (_raw, _pro, _SB, etc.)
+   int underPos = StringFind(s, "_");
+   if(underPos >= 0)
+      s = StringSubstr(s, 0, underPos);
+
+   // Strip trailing lowercase letters  (m, mt, pro → gone; uppercase safe)
+   int len = StringLen(s);
+   while(len > 0)
+   {
+      ushort ch = StringGetCharacter(s, len - 1);
+      if(ch >= 'a' && ch <= 'z')
+         len--;
+      else
+         break;
+   }
+   return StringSubstr(s, 0, len);
+}
+
+//+------------------------------------------------------------------+
+//  DetectAssetClass — works on the STRIPPED symbol
+//+------------------------------------------------------------------+
+string DetectAssetClass(string stripped)
+{
+   string s = stripped;
    StringToUpper(s);
-   if(StringFind(s,"BTC") >=0 || StringFind(s,"ETH") >=0 || StringFind(s,"XRP") >=0 ||
-      StringFind(s,"BNB") >=0 || StringFind(s,"SOL") >=0 || StringFind(s,"DOGE")>=0 ||
-      StringFind(s,"ADA") >=0 || StringFind(s,"LTC") >=0 || StringFind(s,"LINK")>=0 ||
-      StringFind(s,"DOT") >=0)  return "Crypto";
-   if(StringFind(s,"XAU")   >=0 || StringFind(s,"XAG")  >=0 || StringFind(s,"GOLD")  >=0 ||
-      StringFind(s,"SILVER")>=0 || StringFind(s,"OIL")  >=0 || StringFind(s,"WTI")   >=0 ||
-      StringFind(s,"BRENT") >=0)  return "Metals";
-   if(StringFind(s,"SPX") >=0 || StringFind(s,"SP500")>=0 || StringFind(s,"NAS")  >=0 ||
-      StringFind(s,"NDX") >=0 || StringFind(s,"US30") >=0 || StringFind(s,"DJ30") >=0 ||
-      StringFind(s,"DAX") >=0 || StringFind(s,"FTSE") >=0 || StringFind(s,"CAC")  >=0 ||
-      StringFind(s,"UK100")>=0 || StringFind(s,"GER") >=0 || StringFind(s,"AUS200")>=0)
+
+   // Crypto
+   if(StringFind(s,"BTC")  >= 0 || StringFind(s,"ETH")  >= 0 || StringFind(s,"XRP")  >= 0 ||
+      StringFind(s,"BNB")  >= 0 || StringFind(s,"SOL")  >= 0 || StringFind(s,"DOGE") >= 0 ||
+      StringFind(s,"ADA")  >= 0 || StringFind(s,"LTC")  >= 0 || StringFind(s,"LINK") >= 0 ||
+      StringFind(s,"DOT")  >= 0 || StringFind(s,"AVAX") >= 0 || StringFind(s,"MATIC")>= 0 ||
+      StringFind(s,"UNI")  >= 0 || StringFind(s,"ATOM") >= 0 || StringFind(s,"TRX")  >= 0)
+      return "Crypto";
+
+   // Metals / Commodities
+   if(StringFind(s,"XAU")   >= 0 || StringFind(s,"XAG")   >= 0 || StringFind(s,"GOLD")  >= 0 ||
+      StringFind(s,"SILVER")>= 0 || StringFind(s,"OIL")   >= 0 || StringFind(s,"WTI")   >= 0 ||
+      StringFind(s,"BRENT") >= 0 || StringFind(s,"USOIL") >= 0 || StringFind(s,"UKOIL") >= 0 ||
+      StringFind(s,"NGAS")  >= 0 || StringFind(s,"COPPER")>= 0 || StringFind(s,"XPTUSD")>= 0)
+      return "Metals";
+
+   // Indices
+   if(StringFind(s,"SPX")   >= 0 || StringFind(s,"SP500") >= 0 || StringFind(s,"NAS")   >= 0 ||
+      StringFind(s,"NDX")   >= 0 || StringFind(s,"US30")  >= 0 || StringFind(s,"DJ30")  >= 0 ||
+      StringFind(s,"DAX")   >= 0 || StringFind(s,"FTSE")  >= 0 || StringFind(s,"CAC")   >= 0 ||
+      StringFind(s,"UK100") >= 0 || StringFind(s,"GER")   >= 0 || StringFind(s,"AUS200")>= 0 ||
+      StringFind(s,"JP225") >= 0 || StringFind(s,"HK50")  >= 0 || StringFind(s,"US500") >= 0 ||
+      StringFind(s,"US100") >= 0 || StringFind(s,"VIX")   >= 0 || StringFind(s,"CHINA") >= 0)
       return "Indices";
+
    return "Forex";
 }
 
 //+------------------------------------------------------------------+
 //  SafeDouble — locale-independent number → JSON string
-//  MQL5 StringFormat("%.2f", x) uses the system decimal separator
-//  (comma on many Windows locales), which breaks JSON.
-//  DoubleToString always uses a period regardless of locale.
+//  DoubleToString always uses a period regardless of system locale.
 //+------------------------------------------------------------------+
 string SafeDouble(double value, int digits)
 {
@@ -82,9 +131,8 @@ int PostJSON(string json, string &responseBody)
    string resHeaders;
    string reqHeaders = "Content-Type: application/json\r\nAccept: application/json\r\n";
 
-   // StringToCharArray with no count copies the full string INCLUDING the null
-   // terminator and auto-resizes the array (returns StringLen(json)+1).
-   // We then remove the null terminator before sending.
+   // StringToCharArray with no count includes null terminator (returns len+1).
+   // Remove null before sending.
    int sz = StringToCharArray(json, postData);
    ArrayResize(postData, sz - 1);
 
@@ -116,25 +164,25 @@ void SyncDeal(ulong dealTicket)
       return;
    }
 
-   string   symbol    = HistoryDealGetString (dealTicket, DEAL_SYMBOL);
-   double   exitPrice = HistoryDealGetDouble (dealTicket, DEAL_PRICE);
-   double   volume    = HistoryDealGetDouble (dealTicket, DEAL_VOLUME);
-   double   profit    = HistoryDealGetDouble (dealTicket, DEAL_PROFIT)
-                      + HistoryDealGetDouble (dealTicket, DEAL_SWAP)
-                      + HistoryDealGetDouble (dealTicket, DEAL_COMMISSION);
+   string   rawSymbol = HistoryDealGetString(dealTicket, DEAL_SYMBOL);
+   string   symbol    = StripSuffix(rawSymbol);          // clean pair sent to journal
+   double   exitPrice = HistoryDealGetDouble(dealTicket, DEAL_PRICE);
+   double   volume    = HistoryDealGetDouble(dealTicket, DEAL_VOLUME);
+   double   profit    = HistoryDealGetDouble(dealTicket, DEAL_PROFIT)
+                      + HistoryDealGetDouble(dealTicket, DEAL_SWAP)
+                      + HistoryDealGetDouble(dealTicket, DEAL_COMMISSION);
    datetime closeTime = (datetime)HistoryDealGetInteger(dealTicket, DEAL_TIME);
    long     posId     = HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID);
 
-   Print("CandlesJournal: symbol=", symbol,
-         " exit=", exitPrice,
-         " vol=",  volume,
-         " pnl=",  NormalizeDouble(profit, 2),
-         " posId=", posId);
+   Print("CandlesJournal: raw=", rawSymbol, " stripped=", symbol,
+         " exit=", exitPrice, " vol=", volume,
+         " pnl=",  NormalizeDouble(profit, 2), " posId=", posId);
 
-   // ── find opening deal → entry + direction ────────────────────
+   // ── Find opening deal → entry price + direction ───────────────
    string direction  = "BUY";
    double entryPrice = exitPrice;
    double sl = 0, tp = 0;
+   bool   foundOpen  = false;
 
    if(HistorySelectByPosition(posId))
    {
@@ -142,14 +190,20 @@ void SyncDeal(ulong dealTicket)
       for(int i = 0; i < n; i++)
       {
          ulong tk = HistoryDealGetTicket(i);
-         if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY) == DEAL_ENTRY_IN)
+         ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
+         // DEAL_ENTRY_IN  = normal open (hedging + netting)
+         // DEAL_ENTRY_INOUT = netting position reversal (first side is the close, ignored here)
+         if(de == DEAL_ENTRY_IN)
          {
             direction  = (HistoryDealGetInteger(tk, DEAL_TYPE) == DEAL_TYPE_BUY) ? "BUY" : "SELL";
             entryPrice = HistoryDealGetDouble(tk, DEAL_PRICE);
-            Print("CandlesJournal: Opening deal — direction:", direction, " entry:", entryPrice);
+            foundOpen  = true;
+            Print("CandlesJournal: Opening deal — direction:", direction,
+                  " entry:", entryPrice, " entry_type:", EnumToString(de));
             break;
          }
       }
+      // Try to find SL/TP from the position's orders
       int no = HistoryOrdersTotal();
       for(int i = 0; i < no; i++)
       {
@@ -162,38 +216,39 @@ void SyncDeal(ulong dealTicket)
          break;
       }
    }
-   else
+
+   if(!foundOpen)
    {
-      Print("CandlesJournal: HistorySelectByPosition FAILED — using fallback values");
+      // Fallback for netting accounts or when position history is unavailable:
+      // The closing deal type is the OPPOSITE of the original position direction.
+      // e.g. DEAL_TYPE_SELL to close → original position was BUY
+      long dealType = HistoryDealGetInteger(dealTicket, DEAL_TYPE);
+      direction     = (dealType == DEAL_TYPE_SELL) ? "BUY" : "SELL";
+      Print("CandlesJournal: Opening deal not found — netting fallback direction:", direction);
    }
 
    MqlDateTime dt;
    TimeToStruct(closeTime, dt);
    string dateStr    = StringFormat("%04d-%02d-%02d", dt.year, dt.mon, dt.day);
-   string assetClass = DetectAssetClass(symbol);
+   string assetClass = DetectAssetClass(symbol);          // on stripped symbol
 
-   // Null-safe SL/TP: use DoubleToString so decimal separator is always "."
    string slStr = (sl > 0) ? SafeDouble(sl, 5) : "null";
    string tpStr = (tp > 0) ? SafeDouble(tp, 5) : "null";
 
-   // ── Build JSON with string concatenation + DoubleToString ────
-   // CRITICAL: never use StringFormat("%.2f", x) for JSON values —
-   // StringFormat uses the system locale decimal separator (comma on
-   // many Windows setups) which produces invalid JSON like -0,77.
-   // DoubleToString always outputs a period regardless of locale.
+   // ── Build JSON (string concat + DoubleToString only — never StringFormat for floats) ──
    string json = "{"
-      + "\"token\":\""        + InpSyncToken                          + "\","
+      + "\"token\":\""        + InpSyncToken                              + "\","
       + "\"trade\":{"
-      + "\"pair\":\""         + symbol                                + "\","
-      + "\"direction\":\""    + direction                             + "\","
-      + "\"lot\":"            + SafeDouble(volume, 2)                 + ","
-      + "\"date\":\""         + dateStr                               + "\","
-      + "\"entry\":"          + SafeDouble(entryPrice, 5)             + ","
-      + "\"exit_price\":"     + SafeDouble(exitPrice, 5)              + ","
-      + "\"sl\":"             + slStr                                 + ","
-      + "\"tp\":"             + tpStr                                 + ","
-      + "\"pnl\":"            + SafeDouble(NormalizeDouble(profit,2),2) + ","
-      + "\"asset_class\":\""  + assetClass                            + "\","
+      + "\"pair\":\""         + symbol                                    + "\","
+      + "\"direction\":\""    + direction                                 + "\","
+      + "\"lot\":"            + SafeDouble(volume, 2)                     + ","
+      + "\"date\":\""         + dateStr                                   + "\","
+      + "\"entry\":"          + SafeDouble(entryPrice, 5)                 + ","
+      + "\"exit_price\":"     + SafeDouble(exitPrice, 5)                  + ","
+      + "\"sl\":"             + slStr                                     + ","
+      + "\"tp\":"             + tpStr                                     + ","
+      + "\"pnl\":"            + SafeDouble(NormalizeDouble(profit, 2), 2) + ","
+      + "\"asset_class\":\""  + assetClass                                + "\","
       + "\"session\":\"London\","
       + "\"setup\":\"\","
       + "\"notes\":\"Auto-synced from MT5\""
@@ -209,14 +264,14 @@ void SyncDeal(ulong dealTicket)
 
    if(httpCode == 200)
    {
-      // Update persistent last-ticket so this deal is never retried
       ulong last = GetLastSyncedTicket();
       if(dealTicket > last) SetLastSyncedTicket(dealTicket);
 
-      Print("CandlesJournal ✓  SYNCED — ", symbol, " ", direction,
+      Print("CandlesJournal ✓  SYNCED — ", symbol, " (", rawSymbol, ") ", direction,
             " | Lot:", SafeDouble(volume, 2),
             " | P&L: $", SafeDouble(NormalizeDouble(profit, 2), 2),
-            " | GlobalVar ticket now: ", dealTicket);
+            " | AssetClass:", assetClass,
+            " | Ticket:", dealTicket);
    }
    else if(httpCode == -1)
    {
@@ -230,12 +285,10 @@ void SyncDeal(ulong dealTicket)
    else
    {
       Print("CandlesJournal ✗  HTTP ", httpCode, " — ", resp);
-      // For 4xx errors the payload is malformed; mark as synced to stop infinite retries.
-      // The trade will need to be added manually if inspection shows a data problem.
+      // 4xx = bad payload → mark as skipped to prevent infinite retry
       if(httpCode >= 400 && httpCode < 500)
       {
-         Print("CandlesJournal: 4xx error — marking ticket #", dealTicket,
-               " as skipped to prevent infinite retry loop.");
+         Print("CandlesJournal: 4xx error — marking ticket #", dealTicket, " as skipped.");
          ulong last = GetLastSyncedTicket();
          if(dealTicket > last) SetLastSyncedTicket(dealTicket);
       }
@@ -245,7 +298,7 @@ void SyncDeal(ulong dealTicket)
 }
 
 //+------------------------------------------------------------------+
-//  ScanHistory — find and sync all unprocessed DEAL_ENTRY_OUT deals
+//  ScanHistory — find and sync all unprocessed closing deals
 //+------------------------------------------------------------------+
 void ScanHistory(int lookbackSeconds)
 {
@@ -297,12 +350,35 @@ int OnInit()
       return(INIT_PARAMETERS_INCORRECT);
    }
 
-   Print("CandlesJournal: ====== EA v1.06 INITIALIZING ======");
+   Print("CandlesJournal: ====== EA v1.07 INITIALIZING ======");
    Print("CandlesJournal: Token length=", StringLen(InpSyncToken),
          " URL=", InpServerURL);
    Print("CandlesJournal: Last synced ticket (GlobalVar) = ", GetLastSyncedTicket());
 
-   // Connection + token ping
+   // ── Broker & account diagnostics ──────────────────────────────
+   string broker   = AccountInfoString(ACCOUNT_COMPANY);
+   string currency = AccountInfoString(ACCOUNT_CURRENCY);
+   long   modeRaw  = AccountInfoInteger(ACCOUNT_MARGIN_MODE);
+   string modeStr  = (modeRaw == 0) ? "Netting (0)" :
+                     (modeRaw == 2) ? "Hedging (2)" :
+                                      "Exchange (" + IntegerToString(modeRaw) + ")";
+   string acctType = (AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO)
+                     ? "Demo" : "Live";
+
+   Print("CandlesJournal: Broker=",   broker,
+         " | Currency=", currency,
+         " | Mode=",     modeStr,
+         " | Type=",     acctType);
+
+   // Suffix-strip sanity check on the chart symbol
+   string rawChart     = Symbol();
+   string cleanChart   = StripSuffix(rawChart);
+   string acClass      = DetectAssetClass(cleanChart);
+   Print("CandlesJournal: Chart symbol raw=", rawChart,
+         " stripped=", cleanChart,
+         " asset_class=", acClass);
+
+   // ── Connection + token ping ────────────────────────────────────
    string pingJson = "{\"token\":\"" + InpSyncToken + "\",\"ping\":true}";
    string pingResp;
    int    pingCode = PostJSON(pingJson, pingResp);
@@ -334,12 +410,12 @@ int OnInit()
    }
    else
    {
-      Print("CandlesJournal: Unexpected ping HTTP ", pingCode);
+      Print("CandlesJournal: Unexpected ping HTTP ", pingCode, " | ", pingResp);
    }
 
    EventSetTimer(10);
    Print("CandlesJournal: Timer started (every 10 seconds).");
-   Print("CandlesJournal: ====== EA v1.06 READY ======");
+   Print("CandlesJournal: ====== EA v1.07 READY ======");
    return(INIT_SUCCEEDED);
 }
 

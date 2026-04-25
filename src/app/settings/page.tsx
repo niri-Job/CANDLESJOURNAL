@@ -18,6 +18,7 @@ export default function SettingsPage() {
   const [syncToken, setSyncToken] = useState<SyncToken | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [syncUrl] = useState(() =>
@@ -53,6 +54,7 @@ export default function SettingsPage() {
   async function generateToken() {
     if (!user) return;
     setGenerating(true);
+    setGenError(null);
     const supabase = createClient();
 
     if (syncToken) {
@@ -66,7 +68,11 @@ export default function SettingsPage() {
       .select()
       .single();
 
-    if (!error && data) setSyncToken(data as SyncToken);
+    if (error) {
+      setGenError("Failed to save token: " + error.message);
+    } else if (data) {
+      setSyncToken(data as SyncToken);
+    }
     setGenerating(false);
   }
 
@@ -182,6 +188,9 @@ export default function SettingsPage() {
               >
                 {generating ? "Regenerating..." : "⚠ Regenerate token (invalidates current EA connection)"}
               </button>
+              {genError && (
+                <p className="mt-3 text-xs text-rose-400">{genError}</p>
+              )}
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-8">
@@ -198,6 +207,9 @@ export default function SettingsPage() {
               >
                 {generating ? "Generating..." : "Generate Token"}
               </button>
+              {genError && (
+                <p className="mt-3 text-xs text-rose-400">{genError}</p>
+              )}
             </div>
           )}
         </div>

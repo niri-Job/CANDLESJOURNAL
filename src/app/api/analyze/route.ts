@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { period } = body as { period: string };
 
-  if (period !== "weekly" && period !== "monthly") {
+  if (period !== "daily" && period !== "weekly" && period !== "monthly") {
     return NextResponse.json({ error: "Invalid period" }, { status: 400 });
   }
 
@@ -39,14 +39,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const now = new Date();
-  const from = new Date(now);
-  if (period === "weekly") {
-    from.setDate(from.getDate() - 7);
+  const today = new Date().toISOString().split("T")[0];
+  let fromStr: string;
+
+  if (period === "daily") {
+    fromStr = today;
   } else {
-    from.setMonth(from.getMonth() - 1);
+    const from = new Date();
+    if (period === "weekly") {
+      from.setDate(from.getDate() - 7);
+    } else {
+      from.setMonth(from.getMonth() - 1);
+    }
+    fromStr = from.toISOString().split("T")[0];
   }
-  const fromStr = from.toISOString().split("T")[0];
 
   const { data: trades, error: tradesError } = await supabase
     .from("trades")
@@ -55,6 +61,7 @@ export async function POST(request: Request) {
     )
     .eq("user_id", user.id)
     .gte("date", fromStr)
+    .lte("date", today)
     .order("date", { ascending: true });
 
   if (tradesError) {
@@ -64,11 +71,12 @@ export async function POST(request: Request) {
     );
   }
 
+  const periodLabel =
+    period === "daily" ? "today" : period === "weekly" ? "the last 7 days" : "the last 30 days";
+
   if (!trades || trades.length === 0) {
     return NextResponse.json(
-      {
-        error: `No trades found in the last ${period === "weekly" ? "7 days" : "30 days"}`,
-      },
+      { error: `No trades found for ${periodLabel}` },
       { status: 404 }
     );
   }

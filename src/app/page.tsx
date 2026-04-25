@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   AreaChart,
   Area,
@@ -31,6 +32,7 @@ interface Trade {
   asset_class: string;
   session: string;
   setup: string;
+  mt5_deal_id?: string | null;
 }
 
 interface Filters {
@@ -73,7 +75,7 @@ function EquityTooltip({ active, payload, label }: {
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
+    <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-zinc-400 mb-1">{label}</p>
       <p className={`font-mono font-semibold ${payload[0].value >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
         {fmt(payload[0].value)}
@@ -87,7 +89,7 @@ function WinTooltip({ active, payload, label }: {
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
+    <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-zinc-300 font-mono font-semibold mb-1">{label}</p>
       <p className={`font-mono ${payload[0].value >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
         {payload[0].value}% win rate
@@ -281,7 +283,7 @@ function CalendarHeatmap({ dailyPnl }: { dailyPnl: Record<string, number> }) {
       })}
       {tip && (
         <div
-          className="fixed z-50 bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl pointer-events-none"
+          className="fixed z-50 bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl pointer-events-none"
           style={{ left: tip.x + 14, top: tip.y - 36 }}
         >
           <p className="text-zinc-400 mb-0.5">{tip.date}</p>
@@ -317,10 +319,12 @@ export default function TradingJournal() {
     setToast({ msg, type });
   }
 
-  // Load user and trades on mount
+  // Load user and trades on mount; subscribe to realtime MT5 inserts
   useEffect(() => {
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | undefined;
+
     async function init() {
-      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { window.location.href = "/login"; return; }
       setCurrentUser(user);
@@ -340,10 +344,28 @@ export default function TradingJournal() {
         .select("id, period, trade_count, analysis, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(3);
+        .limit(5);
       if (analyses) setPastAnalyses(analyses);
+
+      // Realtime: auto-prepend trades inserted by the MT5 EA
+      channel = supabase
+        .channel("trades-realtime")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const t = payload.new as Trade;
+            if (t.mt5_deal_id) {
+              setTrades((prev) => [t, ...prev]);
+              showToast("New trade synced from MT5", "ok");
+            }
+          }
+        )
+        .subscribe();
     }
+
     init();
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
@@ -532,11 +554,11 @@ export default function TradingJournal() {
       .select("id, period, trade_count, analysis, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(3);
+      .limit(5);
     if (data) setPastAnalyses(data);
   }
 
-  async function runAnalysis(period: "weekly" | "monthly") {
+  async function runAnalysis(period: "daily" | "weekly" | "monthly") {
     setAnalysisLoading(true);
     setCurrentAnalysis(null);
     try {
@@ -592,18 +614,18 @@ export default function TradingJournal() {
   // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0d0f14] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center">
         <div className="text-zinc-500 text-sm">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0f14] text-zinc-100 font-sans">
+    <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
 
       {/* HEADER */}
       <header className="sticky top-0 z-10 flex items-center justify-between px-7 h-16
-                         bg-[#13161e] border-b border-zinc-800">
+                         bg-[var(--cj-surface)] border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
                           flex items-center justify-center text-sm font-bold text-white">
@@ -612,7 +634,7 @@ export default function TradingJournal() {
           <span className="font-semibold text-base tracking-tight">My Trading Journal</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 bg-[#1a1e29] border border-zinc-800
+          <div className="flex items-center gap-3 bg-[var(--cj-raised)] border border-zinc-800
                           rounded-xl px-4 py-2">
             <span className="text-[11px] uppercase tracking-widest text-zinc-500">Total P&L</span>
             <span className={`font-mono text-lg font-semibold ${pnlColor(totalPnl)}`}>
@@ -629,6 +651,7 @@ export default function TradingJournal() {
               >
                 Settings
               </Link>
+              <ThemeToggle />
               <button
                 onClick={handleLogout}
                 className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
@@ -672,7 +695,7 @@ export default function TradingJournal() {
             },
           ].map((card) => (
             <div key={card.label}
-              className="bg-[#13161e] border border-zinc-800 rounded-xl px-5 py-4
+              className="bg-[var(--cj-surface)] border border-zinc-800 rounded-xl px-5 py-4
                          hover:border-zinc-700 transition-colors">
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 mb-2">{card.label}</p>
               <p className={`font-mono text-2xl font-semibold ${card.cls}`}>{card.value}</p>
@@ -682,7 +705,7 @@ export default function TradingJournal() {
         </div>
 
         {/* EQUITY CURVE */}
-        <div className="bg-[#13161e] border border-zinc-800 rounded-2xl p-5 mb-5">
+        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
             Equity Curve
           </p>
@@ -695,7 +718,7 @@ export default function TradingJournal() {
         <div className="grid grid-cols-2 gap-5 mb-6">
 
           {/* Win Rate by Pair */}
-          <div className="bg-[#13161e] border border-zinc-800 rounded-2xl p-5">
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
               Win Rate by Pair
             </p>
@@ -705,7 +728,7 @@ export default function TradingJournal() {
           </div>
 
           {/* Calendar Heatmap */}
-          <div className="bg-[#13161e] border border-zinc-800 rounded-2xl p-5">
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
               Daily P&L Calendar
             </p>
@@ -716,7 +739,7 @@ export default function TradingJournal() {
         </div>
 
         {/* AI JOURNAL ANALYSIS */}
-        <div className="bg-[#13161e] border border-zinc-800 rounded-2xl p-6 mb-5">
+        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
@@ -726,13 +749,22 @@ export default function TradingJournal() {
             </div>
             <div className="flex gap-2">
               <button
+                onClick={() => runAnalysis("daily")}
+                disabled={analysisLoading}
+                className="text-xs px-4 py-2 rounded-lg bg-[var(--cj-raised)] border border-zinc-700
+                           hover:border-emerald-500/50 text-zinc-300 hover:text-zinc-100
+                           disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Analyse Today
+              </button>
+              <button
                 onClick={() => runAnalysis("weekly")}
                 disabled={analysisLoading}
-                className="text-xs px-4 py-2 rounded-lg bg-[#1a1e29] border border-zinc-700
+                className="text-xs px-4 py-2 rounded-lg bg-[var(--cj-raised)] border border-zinc-700
                            hover:border-blue-500/50 text-zinc-300 hover:text-zinc-100
                            disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
-                Analyse Last 7 Days
+                Last 7 Days
               </button>
               <button
                 onClick={() => runAnalysis("monthly")}
@@ -740,7 +772,7 @@ export default function TradingJournal() {
                 className="text-xs px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white
                            font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
-                Analyse Last 30 Days
+                Last 30 Days
               </button>
             </div>
           </div>
@@ -757,7 +789,7 @@ export default function TradingJournal() {
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-[10px] uppercase tracking-widest text-blue-500/70
                                  bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md">
-                  {currentAnalysis.period === "weekly" ? "Last 7 days" : "Last 30 days"}
+                  {currentAnalysis.period === "daily" ? "Today" : currentAnalysis.period === "weekly" ? "Last 7 days" : "Last 30 days"}
                 </span>
                 <span className="text-[10px] text-zinc-700">
                   {new Date(currentAnalysis.created_at).toLocaleDateString("en-GB", {
@@ -771,7 +803,7 @@ export default function TradingJournal() {
 
           {!analysisLoading && !currentAnalysis && pastAnalyses.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 text-zinc-600">
-              <div className="w-10 h-10 rounded-xl bg-[#1a1e29] border border-zinc-800
+              <div className="w-10 h-10 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
                               flex items-center justify-center text-lg mb-3">
                 🤖
               </div>
@@ -796,7 +828,7 @@ export default function TradingJournal() {
                       <div className="flex items-center gap-3">
                         <span className="text-[10px] uppercase tracking-widest text-zinc-500
                                          bg-zinc-800 px-2 py-0.5 rounded">
-                          {a.period === "weekly" ? "7 days" : "30 days"}
+                          {a.period === "daily" ? "Today" : a.period === "weekly" ? "7 days" : "30 days"}
                         </span>
                         <span className="text-xs text-zinc-500">
                           {new Date(a.created_at).toLocaleDateString("en-GB", {
@@ -825,7 +857,7 @@ export default function TradingJournal() {
         <div className="grid gap-5" style={{ gridTemplateColumns: "380px 1fr" }}>
 
           {/* ── FORM PANEL ── */}
-          <div className={`bg-[#13161e] border rounded-2xl p-6 transition-colors
+          <div className={`bg-[var(--cj-surface)] border rounded-2xl p-6 transition-colors
                            ${isEditing ? "border-blue-500/50" : "border-zinc-800"}`}>
 
             <div className="flex items-center justify-between mb-5 pb-4 border-b border-zinc-800">
@@ -860,7 +892,7 @@ export default function TradingJournal() {
                         ? d === "BUY"
                           ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
                           : "bg-rose-500/15 border-rose-500 text-rose-400"
-                        : "bg-[#1a1e29] border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                        : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-500 hover:border-zinc-600"
                       }`}>
                     {d === "BUY" ? "▲ " : "▼ "}{d}
                   </button>
@@ -965,7 +997,7 @@ export default function TradingJournal() {
           </div>
 
           {/* ── TABLE PANEL ── */}
-          <div className="bg-[#13161e] border border-zinc-800 rounded-2xl p-6">
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
 
             {/* Table header + filter count */}
             <div className="flex items-center justify-between mb-4">
@@ -1032,7 +1064,7 @@ export default function TradingJournal() {
 
             {filteredTrades.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-zinc-600">
-                <div className="w-12 h-12 rounded-xl bg-[#1a1e29] border border-zinc-800
+                <div className="w-12 h-12 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
                                 flex items-center justify-center text-xl mb-4">📋</div>
                 <p className="font-semibold text-zinc-400 mb-1">
                   {trades.length === 0 ? "No trades yet" : "No trades match filters"}
@@ -1061,7 +1093,7 @@ export default function TradingJournal() {
                         className={`group transition-colors
                                     ${editingId === t.id
                             ? "bg-blue-500/5 border-l-2 border-l-blue-500"
-                            : "hover:bg-[#1a1e29]"}`}>
+                            : "hover:bg-[var(--cj-raised)]"}`}>
 
                         <td className="px-2 py-3 border-b border-zinc-800/60">
                           <div>
@@ -1140,7 +1172,7 @@ export default function TradingJournal() {
       {/* TOAST */}
       {toast && (
         <div className={`fixed bottom-6 right-6 px-4 py-3 rounded-xl border text-sm
-                         bg-[#1a1e29] text-zinc-100 shadow-xl z-50
+                         bg-[var(--cj-raised)] text-zinc-100 shadow-xl z-50
                          ${toast.type === "ok"
             ? "border-l-2 border-l-emerald-500 border-zinc-700"
             : "border-l-2 border-l-rose-500 border-zinc-700"}`}>

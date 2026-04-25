@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { User } from "@supabase/supabase-js";
 
 interface SyncToken {
@@ -28,13 +29,8 @@ export default function SettingsPage() {
   useEffect(() => {
     async function init() {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        window.location.href = "/login";
-        return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
       const { data } = await supabase
@@ -56,23 +52,15 @@ export default function SettingsPage() {
     setGenerating(true);
     setGenError(null);
     const supabase = createClient();
-
-    if (syncToken) {
-      await supabase.from("mt5_sync_tokens").delete().eq("id", syncToken.id);
-    }
-
+    if (syncToken) await supabase.from("mt5_sync_tokens").delete().eq("id", syncToken.id);
     const newToken = crypto.randomUUID().replace(/-/g, "");
     const { data, error } = await supabase
       .from("mt5_sync_tokens")
       .insert({ user_id: user.id, token: newToken, label: "My MT5 Account" })
       .select()
       .single();
-
-    if (error) {
-      setGenError("Failed to save token: " + error.message);
-    } else if (data) {
-      setSyncToken(data as SyncToken);
-    }
+    if (error) setGenError("Failed to save token: " + error.message);
+    else if (data) setSyncToken(data as SyncToken);
     setGenerating(false);
   }
 
@@ -91,18 +79,18 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0d0f14] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center">
         <div className="text-zinc-500 text-sm">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0f14] text-zinc-100 font-sans">
+    <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
 
       {/* HEADER */}
       <header className="sticky top-0 z-10 flex items-center justify-between px-7 h-16
-                         bg-[#13161e] border-b border-zinc-800">
+                         bg-[var(--cj-surface)] border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
@@ -114,15 +102,16 @@ export default function SettingsPage() {
           <span className="text-zinc-700 mx-1">·</span>
           <span className="text-sm text-zinc-400">Settings</span>
         </div>
-        {user && (
-          <span className="text-[11px] text-zinc-500 hidden sm:block">{user.email}</span>
-        )}
+        <div className="flex items-center gap-3">
+          {user && <span className="text-[11px] text-zinc-500 hidden sm:block">{user.email}</span>}
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className="max-w-[680px] mx-auto px-6 py-10">
 
         {/* MT5 SYNC TOKEN */}
-        <div className="bg-[#13161e] border border-zinc-800 rounded-2xl p-6 mb-5">
+        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
               MT5 Sync Token
@@ -140,11 +129,9 @@ export default function SettingsPage() {
 
           {syncToken ? (
             <>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">
-                Sync Token
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">Sync Token</p>
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex-1 bg-[#1a1e29] border border-zinc-700 rounded-lg px-4 py-3
+                <div className="flex-1 bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-4 py-3
                                 font-mono text-sm text-zinc-300 break-all select-all">
                   {syncToken.token}
                 </div>
@@ -153,18 +140,16 @@ export default function SettingsPage() {
                   className={`px-4 py-3 rounded-lg border text-xs font-semibold transition-all shrink-0
                     ${copiedToken
                       ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
-                      : "bg-[#1a1e29] border-zinc-700 text-zinc-300 hover:border-blue-500/50 hover:text-blue-400"
+                      : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-300 hover:border-blue-500/50 hover:text-blue-400"
                     }`}
                 >
                   {copiedToken ? "Copied!" : "Copy"}
                 </button>
               </div>
 
-              <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">
-                Sync URL
-              </p>
+              <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">Sync URL</p>
               <div className="flex items-center gap-2 mb-5">
-                <div className="flex-1 bg-[#1a1e29] border border-zinc-700 rounded-lg px-4 py-3
+                <div className="flex-1 bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-4 py-3
                                 font-mono text-xs text-zinc-500 break-all">
                   {syncUrl}
                 </div>
@@ -173,7 +158,7 @@ export default function SettingsPage() {
                   className={`px-4 py-3 rounded-lg border text-xs font-semibold transition-all shrink-0
                     ${copiedUrl
                       ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
-                      : "bg-[#1a1e29] border-zinc-700 text-zinc-300 hover:border-blue-500/50 hover:text-blue-400"
+                      : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-300 hover:border-blue-500/50 hover:text-blue-400"
                     }`}
                 >
                   {copiedUrl ? "Copied!" : "Copy"}
@@ -188,13 +173,11 @@ export default function SettingsPage() {
               >
                 {generating ? "Regenerating..." : "⚠ Regenerate token (invalidates current EA connection)"}
               </button>
-              {genError && (
-                <p className="mt-3 text-xs text-rose-400">{genError}</p>
-              )}
+              {genError && <p className="mt-3 text-xs text-rose-400">{genError}</p>}
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-8">
-              <div className="w-10 h-10 rounded-xl bg-[#1a1e29] border border-zinc-800
+              <div className="w-10 h-10 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
                               flex items-center justify-center text-lg mb-3">
                 🔑
               </div>
@@ -207,15 +190,13 @@ export default function SettingsPage() {
               >
                 {generating ? "Generating..." : "Generate Token"}
               </button>
-              {genError && (
-                <p className="mt-3 text-xs text-rose-400">{genError}</p>
-              )}
+              {genError && <p className="mt-3 text-xs text-rose-400">{genError}</p>}
             </div>
           )}
         </div>
 
         {/* SETUP GUIDE */}
-        <div className="bg-[#13161e] border border-zinc-800 rounded-2xl p-6">
+        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
               MT5 Setup Guide

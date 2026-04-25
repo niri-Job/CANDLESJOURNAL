@@ -1,37 +1,53 @@
 @import "tailwindcss";
 
+/* ─── CandlesJournal theme tokens ─────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --cj-bg:      #0d0f14;   /* page background            */
+  --cj-surface: #13161e;   /* card / panel               */
+  --cj-raised:  #1a1e29;   /* input / tooltip / elevated */
+  --cj-text:    #f4f4f5;   /* primary text (zinc-100)    */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-theme="light"] {
+  --cj-bg:      #f8fafc;
+  --cj-surface: #ffffff;
+  --cj-raised:  #f1f5f9;
+  --cj-text:    #0f172a;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--cj-bg);
+  color: var(--cj-text);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ─── Light theme: remap zinc utility classes ─────────────────────────────── */
+[data-theme="light"] .text-zinc-100 { color: #0f172a; }
+[data-theme="light"] .text-zinc-200 { color: #1e293b; }
+[data-theme="light"] .text-zinc-300 { color: #334155; }
+[data-theme="light"] .text-zinc-400 { color: #475569; }
+[data-theme="light"] .text-zinc-500 { color: #64748b; }
+[data-theme="light"] .text-zinc-600 { color: #94a3b8; }
+[data-theme="light"] .text-zinc-700 { color: #94a3b8; }
+[data-theme="light"] .border-zinc-800 { border-color: #e2e8f0; }
+[data-theme="light"] .border-zinc-700 { border-color: #cbd5e1; }
+[data-theme="light"] .bg-zinc-800 { background-color: #f1f5f9; }
+
+/* ─── Tailwind utilities ───────────────────────────────────────────────────── */
 @layer utilities {
   .label {
     @apply block text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5;
   }
 
   .inp {
-    @apply w-full bg-[#1a1e29] border border-zinc-700 rounded-lg px-3 py-2.5
-           text-zinc-100 font-mono text-sm outline-none mt-1
+    @apply w-full rounded-lg px-3 py-2.5 font-mono text-sm outline-none mt-1
            focus:border-blue-500 transition-colors;
+    background-color: var(--cj-raised);
+    border: 1px solid #3f3f46; /* zinc-700 in dark */
+    color: var(--cj-text);
   }
+}
+
+[data-theme="light"] .inp {
+  border-color: #cbd5e1;
 }

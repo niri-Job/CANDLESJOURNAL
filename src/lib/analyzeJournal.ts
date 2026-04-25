@@ -18,17 +18,22 @@ export interface TradeForAnalysis {
 
 export async function analyzeJournal(
   trades: TradeForAnalysis[],
-  period: "weekly" | "monthly"
+  period: "daily" | "weekly" | "monthly"
 ): Promise<string> {
   const client = new Anthropic();
 
   const closedTrades = trades.filter((t) => t.pnl != null);
-  const winners = closedTrades.filter((t) => (t.pnl ?? 0) > 0);
+  const winners  = closedTrades.filter((t) => (t.pnl ?? 0) > 0);
+  const losers   = closedTrades.filter((t) => (t.pnl ?? 0) < 0);
   const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
-  const winRate =
-    closedTrades.length > 0
-      ? ((winners.length / closedTrades.length) * 100).toFixed(1)
-      : "N/A";
+  const winRate  = closedTrades.length > 0
+    ? ((winners.length / closedTrades.length) * 100).toFixed(1)
+    : "N/A";
+
+  const bestTrade  = closedTrades.reduce<TradeForAnalysis | null>(
+    (b, t) => !b || (t.pnl ?? 0) > (b.pnl ?? 0) ? t : b, null);
+  const worstTrade = closedTrades.reduce<TradeForAnalysis | null>(
+    (w, t) => !w || (t.pnl ?? 0) < (w.pnl ?? 0) ? t : w, null);
 
   const tradesSummary = trades
     .map((t, i) => {
@@ -36,43 +41,64 @@ export async function analyzeJournal(
         t.sl != null && t.tp != null && t.entry != null && t.entry !== t.sl
           ? Math.abs((t.tp - t.entry) / (t.entry - t.sl)).toFixed(2)
           : "N/A";
-      const pnlStr =
-        t.pnl != null
-          ? (t.pnl >= 0 ? "+" : "") + t.pnl.toFixed(2)
-          : "open";
+      const pnlStr = t.pnl != null
+        ? (t.pnl >= 0 ? "+" : "") + t.pnl.toFixed(2)
+        : "open";
       return `Trade ${i + 1}: ${t.pair} ${t.direction.toUpperCase()} | ${t.date} | Lot: ${t.lot} | Entry: ${t.entry} | Exit: ${t.exit_price ?? "open"} | SL: ${t.sl ?? "none"} | TP: ${t.tp ?? "none"} | P&L: ${pnlStr} | R:R: ${rr} | Asset: ${t.asset_class ?? "Forex"} | Session: ${t.session ?? "N/A"} | Setup: ${t.setup || "none"} | Notes: ${t.notes || "none"}`;
     })
     .join("\n");
 
-  const prompt = `You are an expert forex trading coach analysing a trader's journal. The trader is based in Africa and trades forex, crypto, indices, and stocks.
+  const periodLabel = period === "daily" ? "today's" : period === "weekly" ? "last 7 days'" : "last 30 days'";
+  const drillLabel  = period === "daily" ? "TOMORROW'S" : period === "weekly" ? "NEXT WEEK'S" : "NEXT MONTH'S";
+  const bestLine    = bestTrade  ? `Trade ${trades.indexOf(bestTrade)  + 1} (${bestTrade.pair}  ${bestTrade.direction}, P&L: +${bestTrade.pnl?.toFixed(2)})` : "N/A";
+  const worstLine   = worstTrade ? `Trade ${trades.indexOf(worstTrade) + 1} (${worstTrade.pair} ${worstTrade.direction}, P&L: ${worstTrade.pnl?.toFixed(2)})` : "N/A";
 
-Here is their ${period} trading data:
-- Total trades: ${trades.length} | Closed: ${closedTrades.length} | Win rate: ${winRate}% | Total P&L: ${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
+  const prompt = `You are an expert forex trading coach analysing a trader's journal. The trader is based in Africa and trades forex, crypto, indices, and commodities.
+
+Here is their ${periodLabel} trading data:
+- Total trades: ${trades.length} | Closed: ${closedTrades.length} | Winners: ${winners.length} | Losers: ${losers.length} | Win rate: ${winRate}% | Total P&L: ${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
+- Best trade: ${bestLine}
+- Worst trade: ${worstLine}
 
 ${tradesSummary}
 
-Provide a structured coaching analysis using these exact section headings:
+Provide a structured coaching analysis with EXACTLY these section headings (copy them verbatim including emoji):
 
-## Performance Score
-Score this trader 0–100 based on risk management, consistency, win rate, and R:R quality. State it clearly (e.g. "Score: 72/100") and give a 2-sentence explanation.
+## 🏆 BEST TRADE
+Identify the best trade by P&L. State: pair, direction, entry, exit, P&L, and WHY it was good (setup quality, R:R, discipline). Cite the trade number.
 
-## Top 3 Strengths
-List 3 strengths. For each one, cite specific trade numbers from the data above as evidence.
+## 💀 WORST TRADE
+Identify the worst trade by P&L. State: pair, direction, entry, exit, P&L, and WHAT went wrong. Be blunt. Cite the trade number.
 
-## Top 3 Weaknesses
-List 3 weaknesses. For each one, cite specific trade numbers from the data above as evidence.
+## 📊 YOUR STRATEGY (DETECTED)
+Based on entry/exit patterns, lot sizes, sessions, and setups, identify the likely trading approach. Name it specifically (e.g. "Break & Retest on H4", "Asian session scalping", "Swing trading 1:3 R:R"). Reference specific trades as evidence.
 
-## Most Important Behavioural Pattern
-Identify the single most significant pattern in this trader's behaviour. Reference specific trades. Be direct.
+## 🛑 STOP DOING
+The single most harmful behaviour visible in this data. Be direct and cite trade numbers. One paragraph only.
 
-## 3 Actionable Recommendations
-Give 3 concrete, measurable steps this trader should implement in the next ${period === "weekly" ? "week" : "month"}. Make them specific to what you saw in the data.
+## ✅ START DOING
+The single most impactful change this trader should make immediately. Be concrete and actionable. Cite evidence from the data.
 
-Be direct and specific. Use trade numbers (Trade 1, Trade 4, etc.) when giving examples.`;
+## 🎯 FOCUS PAIRS
+Pairs with best performance (win rate or R:R): state them. Pairs to avoid based on data: state them. Format: "Trade: [pairs] | Avoid: [pairs] | Reason: [brief reason]"
+
+## ⏰ YOUR BEST SESSION
+Which session produces the best results? State it, give win rate for that session if calculable, and explain why it suits this trader's style.
+
+## ⚖️ RISK ASSESSMENT
+Evaluate lot sizing, SL/TP usage, and risk-per-trade consistency. Label as: Conservative / Disciplined / Aggressive / Reckless. Give one concrete example from the trades.
+
+## 📈 CONSISTENCY SCORE
+Score 0–100 based on: win rate, R:R quality, lot discipline, SL/TP use, and session focus. State it clearly (e.g. "Score: 68/100") with a 2-sentence explanation.
+
+## 💪 ${drillLabel} FOCUS
+One specific, measurable drill addressing the biggest weakness. Be exact — e.g. "Trade only XAUUSD London session for 5 days, minimum 1:2 R:R, max 0.05 lot, no trades without SL."
+
+Be direct, specific, and reference trade numbers (Trade 1, Trade 4, etc.) throughout. No vague advice.`;
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 1500,
+    max_tokens: 2000,
     messages: [{ role: "user", content: prompt }],
   });
 

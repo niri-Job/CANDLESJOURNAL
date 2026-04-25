@@ -32,6 +32,7 @@ interface Trade {
   asset_class: string;
   session: string;
   setup: string;
+  news_event?: string | null;
   mt5_deal_id?: string | null;
 }
 
@@ -58,6 +59,7 @@ const EMPTY_FORM = {
   asset_class: "Forex",
   session: "London",
   setup: "",
+  news_event: "",
 };
 
 const EMPTY_FILTERS: Filters = { dateFrom: "", dateTo: "", pair: "", direction: "" };
@@ -490,6 +492,7 @@ export default function TradingJournal() {
       asset_class: form.asset_class,
       session: form.session,
       setup: form.setup,
+      news_event: form.news_event.trim() || null,
     };
 
     const supabase = createClient();
@@ -518,6 +521,7 @@ export default function TradingJournal() {
       asset_class: trade.asset_class || "Forex",
       session: trade.session || "London",
       setup: trade.setup || "",
+      news_event: trade.news_event || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -552,6 +556,7 @@ export default function TradingJournal() {
       asset_class: form.asset_class,
       session: form.session,
       setup: form.setup,
+      news_event: form.news_event.trim() || null,
     };
 
     const supabase = createClient();
@@ -683,6 +688,13 @@ export default function TradingJournal() {
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-zinc-500">{currentUser.email}</span>
                 <Link
+                  href="/market"
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
+                             hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  Market
+                </Link>
+                <Link
                   href="/settings"
                   className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
                              hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
@@ -727,6 +739,14 @@ export default function TradingJournal() {
               <p className="text-[11px] text-zinc-500 truncate">{currentUser.email}</p>
             )}
             <div className="flex items-center gap-2">
+              <Link
+                href="/market"
+                onClick={() => setMenuOpen(false)}
+                className="flex-1 text-center text-xs text-zinc-300 border border-zinc-700
+                           rounded-lg px-3 py-2 hover:border-zinc-600 transition-colors"
+              >
+                Market
+              </Link>
               <Link
                 href="/settings"
                 onClick={() => setMenuOpen(false)}
@@ -1084,6 +1104,38 @@ export default function TradingJournal() {
                 onChange={(e) => setForm({ ...form, pnl: e.target.value })} />
             </label>
 
+            {/* News Event Toggle */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="label">News Event Trade?</span>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, news_event: form.news_event ? "" : " " })}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full
+                              border-2 transition-all
+                              ${form.news_event
+                                ? "bg-orange-500/20 border-orange-500"
+                                : "bg-zinc-800 border-zinc-700"
+                              }`}
+                >
+                  <span className={`inline-block h-3 w-3 rounded-full transition-transform
+                                    ${form.news_event
+                                      ? "translate-x-4 bg-orange-400"
+                                      : "translate-x-0.5 bg-zinc-600"
+                                    }`} />
+                </button>
+              </div>
+              {form.news_event !== "" && (
+                <input
+                  className="inp"
+                  placeholder="e.g. NFP, CPI, FOMC Rate Decision"
+                  value={form.news_event.trim()}
+                  onChange={(e) => setForm({ ...form, news_event: e.target.value })}
+                  autoFocus
+                />
+              )}
+            </div>
+
             {/* Notes */}
             <label className="block mb-5">
               <span className="label">Notes</span>
@@ -1199,13 +1251,20 @@ export default function TradingJournal() {
                             : "hover:bg-[var(--cj-raised)]"}`}>
 
                         <td className="px-2 py-3 border-b border-zinc-800/60">
-                          <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-mono text-xs font-semibold bg-zinc-800
                                              rounded-md px-2 py-1">
                               {t.pair}
                             </span>
                             {t.asset_class && (
-                              <span className="ml-1.5 text-[10px] text-zinc-600">{t.asset_class}</span>
+                              <span className="text-[10px] text-zinc-600">{t.asset_class}</span>
+                            )}
+                            {t.news_event && (
+                              <span className="text-[10px] font-semibold bg-orange-500/10
+                                               border border-orange-500/25 text-orange-400
+                                               px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                                📰 {t.news_event}
+                              </span>
                             )}
                           </div>
                           {(t.session || t.setup) && (

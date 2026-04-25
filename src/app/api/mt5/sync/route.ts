@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       pnl?: number;
       notes?: string;
       asset_class?: string;
+      mt5_deal_id?: string;
     };
   };
 
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing trade object in request body" }, { status: 400 });
   }
 
-  const { pair, direction, lot, date, entry, exit_price, sl, tp, pnl, notes, asset_class } = trade;
+  const { pair, direction, lot, date, entry, exit_price, sl, tp, pnl, notes, asset_class, mt5_deal_id } = trade;
 
   if (!pair || !direction || !lot || !date || entry == null || exit_price == null || pnl == null) {
     return NextResponse.json(
@@ -98,6 +99,20 @@ export async function POST(request: Request) {
       },
       { status: 400 }
     );
+  }
+
+  // ── Dedup: skip if this exact MT5 deal was already synced ────────────────
+  if (mt5_deal_id) {
+    const { data: dup } = await supabase
+      .from("trades")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("mt5_deal_id", mt5_deal_id)
+      .maybeSingle();
+    if (dup) {
+      console.log("MT5 sync: duplicate deal", mt5_deal_id, "— skipped");
+      return NextResponse.json({ success: true, duplicate: true });
+    }
   }
 
   const payload = {
@@ -115,6 +130,7 @@ export async function POST(request: Request) {
     asset_class: String(asset_class || "Forex"),
     session:     "London",
     setup:       "",
+    mt5_deal_id: mt5_deal_id ? String(mt5_deal_id) : null,
   };
 
   console.log("MT5 sync: inserting trade", JSON.stringify(payload));

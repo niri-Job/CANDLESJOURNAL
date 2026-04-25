@@ -572,6 +572,21 @@ export default function TradingJournal() {
     showToast("Trade deleted", "err");
   }
 
+  async function clearAllTrades() {
+    if (!currentUser) return;
+    const count = trades.length;
+    if (count === 0) { showToast("No trades to clear", "err"); return; }
+    if (!confirm(`Delete ALL ${count} trade${count !== 1 ? "s" : ""} for this account? This cannot be undone.`)) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("trades").delete().eq("user_id", currentUser.id);
+    if (error) { showToast("Failed to clear trades", "err"); return; }
+    setTrades([]);
+    cancelEdit();
+    showToast(`Cleared ${count} trade${count !== 1 ? "s" : ""}`, "err");
+  }
+
+  const isDev = currentUser?.email === "bangajiyainfluence@gmail.com";
+
   const isEditing = editingId !== null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -957,9 +972,21 @@ export default function TradingJournal() {
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
                 Trade History
               </p>
-              <span className="font-mono text-xs text-zinc-500">
-                {filteredTrades.length}{filteredTrades.length !== trades.length && `/${trades.length}`} trade{trades.length !== 1 ? "s" : ""}
-              </span>
+              <div className="flex items-center gap-3">
+                {isDev && trades.length > 0 && (
+                  <button
+                    onClick={clearAllTrades}
+                    className="text-[10px] text-rose-700 hover:text-rose-400 border border-rose-900/50
+                               hover:border-rose-500/50 rounded-md px-2 py-1 transition-colors"
+                    title="Developer only"
+                  >
+                    Clear all trades
+                  </button>
+                )}
+                <span className="font-mono text-xs text-zinc-500">
+                  {filteredTrades.length}{filteredTrades.length !== trades.length && `/${trades.length}`} trade{trades.length !== 1 ? "s" : ""}
+                </span>
+              </div>
             </div>
 
             {/* FILTER BAR */}

@@ -251,7 +251,8 @@ void SyncDeal(ulong dealTicket)
       + "\"asset_class\":\""  + assetClass                                + "\","
       + "\"session\":\"London\","
       + "\"setup\":\"\","
-      + "\"notes\":\"Auto-synced from MT5\""
+      + "\"notes\":\"Auto-synced from MT5\","
+      + "\"mt5_deal_id\":\""  + IntegerToString(dealTicket)               + "\""
       + "}"
       + "}";
 

@@ -1,11 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-// Anon key is fine — insert_trade_from_mt5 uses SECURITY DEFINER to bypass RLS
-const supabase = createClient(
+// Anon client — used only for token lookup (SELECT on mt5_sync_tokens)
+const anonClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+// Service role client — bypasses RLS so we can insert into trades server-side
+function serviceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -36,18 +44,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing sync token" }, { status: 400 });
   }
 
-  // Ping/connection test from EA OnInit — just validates the token
+  // ── Step 1: validate token + get user_id ─────────────────────────────────
+  const { data: tokenRow, error: tokenErr } = await anonClient
+    .from("mt5_sync_tokens")
+    .select("id, user_id")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (tokenErr) {
+    console.error("Token lookup error:", tokenErr.message);
+    return NextResponse.json({ error: "Token lookup failed" }, { status: 500 });
+  }
+  if (!tokenRow) {
+    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+  }
+
+  const userId: string = tokenRow.user_id;
+  console.log("MT5 sync: token valid, user_id =", userId);
+
+  // ── Ping / connection test ────────────────────────────────────────────────
   const b = body as { ping?: boolean };
   if (b.ping === true) {
-    const { data } = await supabase
-      .from("mt5_sync_tokens")
-      .select("id")
-      .eq("token", token)
-      .maybeSingle();
-    if (!data) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     return NextResponse.json({ pong: true });
   }
 
+  // ── Step 2: validate trade fields ────────────────────────────────────────
   if (!trade) {
     return NextResponse.json({ error: "Missing trade data" }, { status: 400 });
   }
@@ -55,33 +76,47 @@ export async function POST(request: Request) {
   const { pair, direction, lot, date, entry, exit, sl, tp, pnl, notes, asset_class } = trade;
 
   if (!pair || !direction || !lot || !date || entry == null || exit == null || pnl == null) {
+    console.error("MT5 sync: missing fields", { pair, direction, lot, date, entry, exit, pnl });
     return NextResponse.json({ error: "Missing required trade fields" }, { status: 400 });
   }
 
-  const { data, error } = await supabase.rpc("insert_trade_from_mt5", {
-    p_token:       token,
-    p_pair:        String(pair).toUpperCase().trim(),
-    p_direction:   String(direction).toUpperCase().trim(),
-    p_lot:         Number(lot),
-    p_date:        String(date),
-    p_entry:       Number(entry),
-    p_exit:        Number(exit),
-    p_sl:          sl != null ? Number(sl) : null,
-    p_tp:          tp != null ? Number(tp) : null,
-    p_pnl:         Number(pnl),
-    p_notes:       notes || "Auto-synced from MT5",
-    p_asset_class: String(asset_class || "Forex"),
-  });
+  const payload = {
+    user_id:     userId,
+    pair:        String(pair).toUpperCase().trim(),
+    direction:   String(direction).toUpperCase().trim(),
+    lot:         Number(lot),
+    date:        String(date),
+    entry:       Number(entry),
+    exit:        Number(exit),
+    sl:          sl != null ? Number(sl) : null,
+    tp:          tp != null ? Number(tp) : null,
+    pnl:         Number(pnl),
+    notes:       notes || "Auto-synced from MT5",
+    asset_class: String(asset_class || "Forex"),
+    session:     "London",
+    setup:       "",
+  };
 
-  if (error) {
-    console.error("MT5 sync error:", error);
-    return NextResponse.json({ error: "Sync failed" }, { status: 500 });
+  console.log("MT5 sync: inserting trade", JSON.stringify(payload));
+
+  // ── Step 3: insert trade (service role bypasses RLS) ─────────────────────
+  const db = serviceClient();
+  const { error: insertErr } = await db.from("trades").insert(payload);
+
+  if (insertErr) {
+    console.error("MT5 sync insert error:", insertErr.message, insertErr.details);
+    return NextResponse.json(
+      { error: "Insert failed: " + insertErr.message },
+      { status: 500 }
+    );
   }
 
-  const result = data as { error?: string; success?: boolean };
-  if (result?.error) {
-    return NextResponse.json({ error: result.error }, { status: 401 });
-  }
+  // ── Step 4: update last_sync_at ───────────────────────────────────────────
+  await db
+    .from("mt5_sync_tokens")
+    .update({ last_sync_at: new Date().toISOString() })
+    .eq("id", tokenRow.id);
 
+  console.log("MT5 sync: trade inserted successfully for", payload.pair, payload.direction);
   return NextResponse.json({ success: true });
 }

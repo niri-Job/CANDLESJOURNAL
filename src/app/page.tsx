@@ -314,6 +314,7 @@ export default function TradingJournal() {
     id: string; period: string; trade_count: number; analysis: string; created_at: string;
   }[]>([]);
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   function showToast(msg: string, type: "ok" | "err") {
     setToast({ msg, type });
@@ -624,50 +625,100 @@ export default function TradingJournal() {
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
 
       {/* HEADER */}
-      <header className="sticky top-0 z-10 flex items-center justify-between px-7 h-16
-                         bg-[var(--cj-surface)] border-b border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
-                          flex items-center justify-center text-sm font-bold text-white">
-            TJ
-          </div>
-          <span className="font-semibold text-base tracking-tight">My Trading Journal</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 bg-[var(--cj-raised)] border border-zinc-800
-                          rounded-xl px-4 py-2">
-            <span className="text-[11px] uppercase tracking-widest text-zinc-500">Total P&L</span>
-            <span className={`font-mono text-lg font-semibold ${pnlColor(totalPnl)}`}>
-              {fmt(totalPnl)}
+      <header className="sticky top-0 z-10 bg-[var(--cj-surface)] border-b border-zinc-800">
+        <div className="flex items-center justify-between px-4 sm:px-7 h-16">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
+                            flex items-center justify-center text-sm font-bold text-white shrink-0">
+              CJ
+            </div>
+            <span className="font-semibold text-base tracking-tight hidden sm:block">
+              My Trading Journal
             </span>
           </div>
-          {currentUser && (
+
+          {/* Desktop nav */}
+          <div className="hidden md:flex items-center gap-3">
+            <div className="flex items-center gap-3 bg-[var(--cj-raised)] border border-zinc-800
+                            rounded-xl px-4 py-2">
+              <span className="text-[11px] uppercase tracking-widest text-zinc-500">Total P&L</span>
+              <span className={`font-mono text-lg font-semibold ${pnlColor(totalPnl)}`}>
+                {fmt(totalPnl)}
+              </span>
+            </div>
+            {currentUser && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-zinc-500">{currentUser.email}</span>
+                <Link
+                  href="/settings"
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
+                             hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  Settings
+                </Link>
+                <ThemeToggle />
+                <button
+                  onClick={handleLogout}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
+                             hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile: compact P&L + hamburger */}
+          <div className="flex md:hidden items-center gap-2">
+            <div className="flex items-center gap-2 bg-[var(--cj-raised)] border border-zinc-800
+                            rounded-lg px-3 py-1.5">
+              <span className={`font-mono text-sm font-semibold ${pnlColor(totalPnl)}`}>
+                {fmt(totalPnl)}
+              </span>
+            </div>
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="w-9 h-9 flex items-center justify-center rounded-lg border border-zinc-700
+                         text-zinc-400 hover:text-zinc-100 hover:border-zinc-500 transition-all"
+              aria-label="Menu"
+            >
+              {menuOpen ? "✕" : "☰"}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile dropdown */}
+        {menuOpen && (
+          <div className="md:hidden border-t border-zinc-800 px-4 py-4 space-y-3">
+            {currentUser && (
+              <p className="text-[11px] text-zinc-500 truncate">{currentUser.email}</p>
+            )}
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-zinc-500 hidden sm:block">{currentUser.email}</span>
               <Link
                 href="/settings"
-                className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
-                           hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
+                onClick={() => setMenuOpen(false)}
+                className="flex-1 text-center text-xs text-zinc-300 border border-zinc-700
+                           rounded-lg px-3 py-2 hover:border-zinc-600 transition-colors"
               >
                 Settings
               </Link>
               <ThemeToggle />
               <button
-                onClick={handleLogout}
-                className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
-                           hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
+                onClick={() => { setMenuOpen(false); handleLogout(); }}
+                className="flex-1 text-center text-xs text-zinc-300 border border-zinc-700
+                           rounded-lg px-3 py-2 hover:border-zinc-600 transition-colors"
               >
                 Sign out
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </header>
 
-      <main className="max-w-[1200px] mx-auto px-6 py-7">
+      <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-5 sm:py-7">
 
         {/* STAT CARDS */}
-        <div className="grid grid-cols-4 gap-3.5 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 mb-6">
           {[
             {
               label: "Total P&L",
@@ -715,7 +766,7 @@ export default function TradingJournal() {
         </div>
 
         {/* WIN RATE + CALENDAR */}
-        <div className="grid grid-cols-2 gap-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
 
           {/* Win Rate by Pair */}
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
@@ -740,14 +791,14 @@ export default function TradingJournal() {
 
         {/* AI JOURNAL ANALYSIS */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div>
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
                 AI Journal Analysis
               </p>
               <p className="text-[10px] text-zinc-700 mt-0.5">Powered by Claude</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => runAnalysis("daily")}
                 disabled={analysisLoading}
@@ -854,7 +905,7 @@ export default function TradingJournal() {
         </div>
 
         {/* MAIN GRID */}
-        <div className="grid gap-5" style={{ gridTemplateColumns: "380px 1fr" }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-5">
 
           {/* ── FORM PANEL ── */}
           <div className={`bg-[var(--cj-surface)] border rounded-2xl p-6 transition-colors
@@ -1022,7 +1073,7 @@ export default function TradingJournal() {
             </div>
 
             {/* FILTER BAR */}
-            <div className="grid grid-cols-4 gap-2 mb-5 pb-4 border-b border-zinc-800">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5 pb-4 border-b border-zinc-800">
               <div>
                 <span className="label">From</span>
                 <input type="date" className="inp text-xs py-1.5"
@@ -1144,7 +1195,7 @@ export default function TradingJournal() {
 
                         <td className="px-2 py-3 border-b border-zinc-800/60 text-right">
                           <div className="flex items-center justify-end gap-1
-                                          opacity-0 group-hover:opacity-100 transition-opacity">
+                                          opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button onClick={() => startEdit(t)}
                               className="text-zinc-500 hover:text-blue-400 border border-zinc-800
                                          hover:border-blue-500/50 rounded-md px-2 py-1 text-xs

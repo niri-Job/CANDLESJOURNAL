@@ -89,18 +89,20 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
 
       {/* HEADER */}
-      <header className="sticky top-0 z-10 flex items-center justify-between px-7 h-16
+      <header className="sticky top-0 z-10 flex items-center justify-between px-4 sm:px-7 h-16
                          bg-[var(--cj-surface)] border-b border-zinc-800">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity shrink-0">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
                             flex items-center justify-center text-sm font-bold text-white">
-              TJ
+              CJ
             </div>
-            <span className="font-semibold text-base tracking-tight">My Trading Journal</span>
+            <span className="font-semibold text-base tracking-tight hidden sm:block">
+              My Trading Journal
+            </span>
           </Link>
-          <span className="text-zinc-700 mx-1">·</span>
-          <span className="text-sm text-zinc-400">Settings</span>
+          <span className="text-zinc-700 mx-1 hidden sm:block">·</span>
+          <span className="text-sm text-zinc-400 hidden sm:block">Settings</span>
         </div>
         <div className="flex items-center gap-3">
           {user && <span className="text-[11px] text-zinc-500 hidden sm:block">{user.email}</span>}
@@ -108,7 +110,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <main className="max-w-[680px] mx-auto px-6 py-10">
+      <main className="max-w-[680px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
         {/* MT5 SYNC TOKEN */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
@@ -197,15 +199,15 @@ export default function SettingsPage() {
 
         {/* SETUP GUIDE */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
               MT5 Setup Guide
             </p>
             <a
               href="/CandlesJournalEA.mq5"
               download
-              className="text-xs px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white
-                         font-semibold transition-all"
+              className="text-center text-xs px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white
+                         font-semibold transition-all sm:w-auto w-full"
             >
               Download EA
             </a>

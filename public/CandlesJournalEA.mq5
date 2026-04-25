@@ -16,20 +16,17 @@
 // 9. Watch the Experts tab at the bottom for confirmation messages
 //
 #property copyright "CandlesJournal"
-#property version   "1.05"
+#property version   "1.06"
 #property description "Syncs every closed trade to your CandlesJournal automatically."
 
 input string InpSyncToken = "";                                                                   // Sync Token  (paste from Settings page)
 input string InpServerURL = "https://symphonious-lily-0d7ae0.netlify.app/api/mt5/sync";           // Sync URL    (pre-filled for your live app)
 
-// GlobalVariable key — persists the highest deal ticket we have synced
-// even after MT5 is restarted or the EA is re-attached.
 #define GV_LAST_TICKET "CJ_LAST_TICKET"
 
 //+------------------------------------------------------------------+
-//  Helpers
+//  Persistence helpers
 //+------------------------------------------------------------------+
-
 ulong GetLastSyncedTicket()
 {
    if(GlobalVariableCheck(GV_LAST_TICKET))
@@ -42,6 +39,9 @@ void SetLastSyncedTicket(ulong ticket)
    GlobalVariableSet(GV_LAST_TICKET, (double)ticket);
 }
 
+//+------------------------------------------------------------------+
+//  Asset class detection (handles broker suffixes: BTCUSDm, XAUUSDm)
+//+------------------------------------------------------------------+
 string DetectAssetClass(string symbol)
 {
    string s = symbol;
@@ -62,7 +62,40 @@ string DetectAssetClass(string symbol)
 }
 
 //+------------------------------------------------------------------+
-//  SyncDeal — POST one closed deal to CandlesJournal
+//  SafeDouble — locale-independent number → JSON string
+//  MQL5 StringFormat("%.2f", x) uses the system decimal separator
+//  (comma on many Windows locales), which breaks JSON.
+//  DoubleToString always uses a period regardless of locale.
+//+------------------------------------------------------------------+
+string SafeDouble(double value, int digits)
+{
+   return DoubleToString(NormalizeDouble(value, digits), digits);
+}
+
+//+------------------------------------------------------------------+
+//  PostJSON — send a JSON string via WebRequest and return HTTP code
+//+------------------------------------------------------------------+
+int PostJSON(string json, string &responseBody)
+{
+   char   postData[];
+   char   resData[];
+   string resHeaders;
+   string reqHeaders = "Content-Type: application/json\r\nAccept: application/json\r\n";
+
+   // StringToCharArray with no count copies the full string INCLUDING the null
+   // terminator and auto-resizes the array (returns StringLen(json)+1).
+   // We then remove the null terminator before sending.
+   int sz = StringToCharArray(json, postData);
+   ArrayResize(postData, sz - 1);
+
+   ResetLastError();
+   int code = WebRequest("POST", InpServerURL, reqHeaders, 15000, postData, resData, resHeaders);
+   responseBody = CharArrayToString(resData);
+   return code;
+}
+
+//+------------------------------------------------------------------+
+//  SyncDeal — build payload and POST one closed deal
 //+------------------------------------------------------------------+
 void SyncDeal(ulong dealTicket)
 {
@@ -70,16 +103,16 @@ void SyncDeal(ulong dealTicket)
 
    if(!HistoryDealSelect(dealTicket))
    {
-      Print("CandlesJournal: HistoryDealSelect FAILED for ticket #", dealTicket, " — skipping");
+      Print("CandlesJournal: HistoryDealSelect FAILED ticket #", dealTicket, " — skipping");
       return;
    }
 
    ENUM_DEAL_ENTRY dealEntry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(dealTicket, DEAL_ENTRY);
-   Print("CandlesJournal: Deal entry type = ", EnumToString(dealEntry));
+   Print("CandlesJournal: Entry type = ", EnumToString(dealEntry));
 
    if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY)
    {
-      Print("CandlesJournal: Not a closing deal — skipping ticket #", dealTicket);
+      Print("CandlesJournal: Not a closing deal — skipping");
       return;
    }
 
@@ -92,11 +125,13 @@ void SyncDeal(ulong dealTicket)
    datetime closeTime = (datetime)HistoryDealGetInteger(dealTicket, DEAL_TIME);
    long     posId     = HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID);
 
-   Print("CandlesJournal: Closing deal details — symbol:", symbol,
-         " exit:", exitPrice, " volume:", volume,
-         " profit:", NormalizeDouble(profit,2), " posId:", posId);
+   Print("CandlesJournal: symbol=", symbol,
+         " exit=", exitPrice,
+         " vol=",  volume,
+         " pnl=",  NormalizeDouble(profit, 2),
+         " posId=", posId);
 
-   // ── find opening deal → entry price + direction ──────────────
+   // ── find opening deal → entry + direction ────────────────────
    string direction  = "BUY";
    double entryPrice = exitPrice;
    double sl = 0, tp = 0;
@@ -104,16 +139,14 @@ void SyncDeal(ulong dealTicket)
    if(HistorySelectByPosition(posId))
    {
       int n = HistoryDealsTotal();
-      Print("CandlesJournal: Position history — ", n, " deal(s) for posId ", posId);
       for(int i = 0; i < n; i++)
       {
          ulong tk = HistoryDealGetTicket(i);
-         ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
-         if(de == DEAL_ENTRY_IN)
+         if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY) == DEAL_ENTRY_IN)
          {
             direction  = (HistoryDealGetInteger(tk, DEAL_TYPE) == DEAL_TYPE_BUY) ? "BUY" : "SELL";
             entryPrice = HistoryDealGetDouble(tk, DEAL_PRICE);
-            Print("CandlesJournal: Opening deal found — direction:", direction, " entry:", entryPrice);
+            Print("CandlesJournal: Opening deal — direction:", direction, " entry:", entryPrice);
             break;
          }
       }
@@ -131,66 +164,59 @@ void SyncDeal(ulong dealTicket)
    }
    else
    {
-      Print("CandlesJournal: HistorySelectByPosition FAILED for posId ", posId,
-            " — using fallback direction/entry");
+      Print("CandlesJournal: HistorySelectByPosition FAILED — using fallback values");
    }
 
    MqlDateTime dt;
    TimeToStruct(closeTime, dt);
    string dateStr    = StringFormat("%04d-%02d-%02d", dt.year, dt.mon, dt.day);
    string assetClass = DetectAssetClass(symbol);
-   string slStr      = (sl > 0) ? StringFormat("%.5f", sl) : "null";
-   string tpStr      = (tp > 0) ? StringFormat("%.5f", tp) : "null";
 
-   string json = StringFormat(
-      "{"
-        "\"token\":\"%s\","
-        "\"trade\":{"
-          "\"pair\":\"%s\","
-          "\"direction\":\"%s\","
-          "\"lot\":%.2f,"
-          "\"date\":\"%s\","
-          "\"entry\":%.5f,"
-          "\"exit_price\":%.5f,"
-          "\"sl\":%s,"
-          "\"tp\":%s,"
-          "\"pnl\":%.2f,"
-          "\"asset_class\":\"%s\","
-          "\"notes\":\"Auto-synced from MT5\""
-        "}"
-      "}",
-      InpSyncToken,
-      symbol, direction, volume,
-      dateStr, entryPrice, exitPrice,
-      slStr, tpStr,
-      NormalizeDouble(profit, 2),
-      assetClass
-   );
+   // Null-safe SL/TP: use DoubleToString so decimal separator is always "."
+   string slStr = (sl > 0) ? SafeDouble(sl, 5) : "null";
+   string tpStr = (tp > 0) ? SafeDouble(tp, 5) : "null";
 
-   Print("CandlesJournal: Sending payload — ", json);
+   // ── Build JSON with string concatenation + DoubleToString ────
+   // CRITICAL: never use StringFormat("%.2f", x) for JSON values —
+   // StringFormat uses the system locale decimal separator (comma on
+   // many Windows setups) which produces invalid JSON like -0,77.
+   // DoubleToString always outputs a period regardless of locale.
+   string json = "{"
+      + "\"token\":\""        + InpSyncToken                          + "\","
+      + "\"trade\":{"
+      + "\"pair\":\""         + symbol                                + "\","
+      + "\"direction\":\""    + direction                             + "\","
+      + "\"lot\":"            + SafeDouble(volume, 2)                 + ","
+      + "\"date\":\""         + dateStr                               + "\","
+      + "\"entry\":"          + SafeDouble(entryPrice, 5)             + ","
+      + "\"exit_price\":"     + SafeDouble(exitPrice, 5)              + ","
+      + "\"sl\":"             + slStr                                 + ","
+      + "\"tp\":"             + tpStr                                 + ","
+      + "\"pnl\":"            + SafeDouble(NormalizeDouble(profit,2),2) + ","
+      + "\"asset_class\":\""  + assetClass                            + "\","
+      + "\"session\":\"London\","
+      + "\"setup\":\"\","
+      + "\"notes\":\"Auto-synced from MT5\""
+      + "}"
+      + "}";
 
-   char   postData[], resData[];
-   string resHeaders;
-   string reqHeaders = "Content-Type: application/json\r\nAccept: application/json\r\n";
-   int    charLen    = StringToCharArray(json, postData, 0, StringLen(json));
-   ArrayResize(postData, charLen - 1);
+   Print("CandlesJournal: Sending payload: ", json);
 
-   ResetLastError();
-   int    httpCode = WebRequest("POST", InpServerURL, reqHeaders, 15000, postData, resData, resHeaders);
-   string resp     = CharArrayToString(resData);
+   string resp;
+   int httpCode = PostJSON(json, resp);
 
    Print("CandlesJournal: Server response: HTTP ", httpCode, " | body: ", resp);
 
    if(httpCode == 200)
    {
-      // Update the persistent last-ticket marker
-      ulong lastTk = GetLastSyncedTicket();
-      if(dealTicket > lastTk) SetLastSyncedTicket(dealTicket);
+      // Update persistent last-ticket so this deal is never retried
+      ulong last = GetLastSyncedTicket();
+      if(dealTicket > last) SetLastSyncedTicket(dealTicket);
 
       Print("CandlesJournal ✓  SYNCED — ", symbol, " ", direction,
-            " | Lot:", DoubleToString(volume, 2),
-            " | P&L: $", DoubleToString(NormalizeDouble(profit, 2), 2),
-            " | LastTicket now: ", dealTicket);
+            " | Lot:", SafeDouble(volume, 2),
+            " | P&L: $", SafeDouble(NormalizeDouble(profit, 2), 2),
+            " | GlobalVar ticket now: ", dealTicket);
    }
    else if(httpCode == -1)
    {
@@ -198,61 +224,60 @@ void SyncDeal(ulong dealTicket)
       Print("CandlesJournal ✗  WebRequest FAILED — error: ", err);
       if(err == 4014)
          Print("  → Tools > Options > Expert Advisors > Allow WebRequest > Add: ", InpServerURL);
+      else
+         Print("  → Check internet connection.");
    }
    else
    {
-      Print("CandlesJournal ✗  HTTP ", httpCode, " | ", resp);
+      Print("CandlesJournal ✗  HTTP ", httpCode, " — ", resp);
+      // For 4xx errors the payload is malformed; mark as synced to stop infinite retries.
+      // The trade will need to be added manually if inspection shows a data problem.
+      if(httpCode >= 400 && httpCode < 500)
+      {
+         Print("CandlesJournal: 4xx error — marking ticket #", dealTicket,
+               " as skipped to prevent infinite retry loop.");
+         ulong last = GetLastSyncedTicket();
+         if(dealTicket > last) SetLastSyncedTicket(dealTicket);
+      }
    }
 
    Print("CandlesJournal: --- SyncDeal END ticket #", dealTicket, " ---");
 }
 
 //+------------------------------------------------------------------+
-//  ScanHistory — scan last N seconds, sync any deal ticket > lastSynced
+//  ScanHistory — find and sync all unprocessed DEAL_ENTRY_OUT deals
 //+------------------------------------------------------------------+
 void ScanHistory(int lookbackSeconds)
 {
    ulong lastTicket = GetLastSyncedTicket();
+   Print("CandlesJournal: ScanHistory lookback:", lookbackSeconds,
+         "s | lastTicket:", lastTicket);
 
-   Print("CandlesJournal: ScanHistory — lookback:", lookbackSeconds,
-         "s | lastSyncedTicket:", lastTicket);
-
-   datetime from = TimeCurrent() - lookbackSeconds;
-   if(!HistorySelect(from, TimeCurrent()))
+   if(!HistorySelect(TimeCurrent() - lookbackSeconds, TimeCurrent()))
    {
       Print("CandlesJournal: HistorySelect FAILED");
       return;
    }
 
    int total = HistoryDealsTotal();
-   Print("CandlesJournal: HistorySelect returned ", total, " deal(s) in window");
-
+   Print("CandlesJournal: ", total, " deal(s) in window");
    if(total == 0) return;
 
-   // Snapshot all qualifying tickets before calling SyncDeal
-   // (SyncDeal calls HistorySelectByPosition which replaces the pool)
+   // Snapshot qualifying tickets before SyncDeal changes the history pool
    ulong toSync[];
    int   count = 0;
-
    for(int i = 0; i < total; i++)
    {
       ulong tk = HistoryDealGetTicket(i);
-      if(tk <= lastTicket) continue; // already synced in a previous session
-
+      if(tk <= lastTicket) continue;
       ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
       if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY) continue;
-
       ArrayResize(toSync, count + 1);
       toSync[count++] = tk;
    }
 
-   if(count == 0)
-   {
-      Print("CandlesJournal: No new unsynced closing deals found");
-      return;
-   }
-
-   Print("CandlesJournal: Found ", count, " new closing deal(s) to sync");
+   if(count == 0) { Print("CandlesJournal: No new unsynced closing deals"); return; }
+   Print("CandlesJournal: ", count, " new closing deal(s) to sync");
 
    for(int i = 0; i < count; i++)
       SyncDeal(toSync[i]);
@@ -272,34 +297,27 @@ int OnInit()
       return(INIT_PARAMETERS_INCORRECT);
    }
 
-   Print("CandlesJournal: ====== EA v1.05 INITIALIZING ======");
-   Print("CandlesJournal: Token length = ", StringLen(InpSyncToken),
-         " | URL = ", InpServerURL);
-   Print("CandlesJournal: Last synced ticket from GlobalVariable = ", GetLastSyncedTicket());
+   Print("CandlesJournal: ====== EA v1.06 INITIALIZING ======");
+   Print("CandlesJournal: Token length=", StringLen(InpSyncToken),
+         " URL=", InpServerURL);
+   Print("CandlesJournal: Last synced ticket (GlobalVar) = ", GetLastSyncedTicket());
 
-   // ── Connection + token test ───────────────────────────────────
-   string hdr  = "Content-Type: application/json\r\nAccept: application/json\r\n";
-   string ping = StringFormat("{\"token\":\"%s\",\"ping\":true}", InpSyncToken);
-   char   pData[], pRes[];
-   string pHeaders;
-   int    pLen = StringToCharArray(ping, pData, 0, StringLen(ping));
-   ArrayResize(pData, pLen - 1);
+   // Connection + token ping
+   string pingJson = "{\"token\":\"" + InpSyncToken + "\",\"ping\":true}";
+   string pingResp;
+   int    pingCode = PostJSON(pingJson, pingResp);
+   Print("CandlesJournal: Ping HTTP ", pingCode, " | body: ", pingResp);
 
-   ResetLastError();
-   int code = WebRequest("POST", InpServerURL, hdr, 10000, pData, pRes, pHeaders);
-   Print("CandlesJournal: Init ping response = HTTP ", code,
-         " | body = ", CharArrayToString(pRes));
-
-   if(code == 200)
+   if(pingCode == 200)
    {
-      Print("CandlesJournal ✓  Connected. Scanning last 24 hours for any missed trades...");
+      Print("CandlesJournal ✓  Connected. Scanning last 24 hours for missed trades...");
       ScanHistory(86400);
       Print("CandlesJournal: Catchup scan complete.");
    }
-   else if(code == -1)
+   else if(pingCode == -1)
    {
       int err = GetLastError();
-      Print("CandlesJournal ✗  Cannot reach server. Error = ", err);
+      Print("CandlesJournal ✗  Cannot reach server. Error=", err);
       if(err == 4014)
          Alert("CandlesJournal: WebRequest blocked!\n\n"
                "Fix: Tools → Options → Expert Advisors\n"
@@ -309,22 +327,19 @@ int OnInit()
          Alert("CandlesJournal: Network error " + IntegerToString(err));
       return(INIT_FAILED);
    }
-   else if(code == 401)
+   else if(pingCode == 401)
    {
       Alert("CandlesJournal: Token invalid. Regenerate on the Settings page.");
       return(INIT_PARAMETERS_INCORRECT);
    }
    else
    {
-      Print("CandlesJournal: Unexpected init ping HTTP ", code);
+      Print("CandlesJournal: Unexpected ping HTTP ", pingCode);
    }
 
-   // Start 10-second timer — primary detection on Exness where OnTradeTransaction
-   // does not fire
    EventSetTimer(10);
    Print("CandlesJournal: Timer started (every 10 seconds).");
-   Print("CandlesJournal: ====== EA v1.05 READY ======");
-
+   Print("CandlesJournal: ====== EA v1.06 READY ======");
    return(INIT_SUCCEEDED);
 }
 
@@ -334,38 +349,29 @@ void OnDeinit(const int reason)
    Print("CandlesJournal: EA removed. Timer stopped.");
 }
 
-//+------------------------------------------------------------------+
-//  OnTimer — fires every 10 seconds, scans last 24 hours
-//  PRIMARY method for Exness demo where OnTradeTransaction is broken
-//+------------------------------------------------------------------+
+// PRIMARY — fires every 10 seconds, works on Exness where OnTradeTransaction is broken
 void OnTimer()
 {
-   static int timerFires = 0;
-   timerFires++;
-   Print("CandlesJournal: OnTimer #", timerFires, " — scanning last 24 hours...");
+   static int fires = 0;
+   fires++;
+   Print("CandlesJournal: OnTimer #", fires);
    ScanHistory(86400);
 }
 
-//+------------------------------------------------------------------+
-//  OnTrade — fires on any account trade event (positions/deals/orders)
-//  Secondary method, complements OnTimer
-//+------------------------------------------------------------------+
+// SECONDARY — fires on any trade event
 void OnTrade()
 {
-   Print("CandlesJournal: OnTrade fired — scanning last 24 hours...");
+   Print("CandlesJournal: OnTrade fired");
    ScanHistory(86400);
 }
 
-//+------------------------------------------------------------------+
-//  OnTradeTransaction — kept as tertiary fallback for other brokers
-//+------------------------------------------------------------------+
+// TERTIARY — fallback for brokers where this works
 void OnTradeTransaction(const MqlTradeTransaction& trans,
                         const MqlTradeRequest&     request,
                         const MqlTradeResult&      result)
 {
-   Print("CandlesJournal: OnTradeTransaction fired — type:", EnumToString(trans.type),
-         " symbol:", trans.symbol, " deal:", trans.deal);
-
+   Print("CandlesJournal: OnTradeTransaction type=", EnumToString(trans.type),
+         " symbol=", trans.symbol, " deal=", trans.deal);
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
       ScanHistory(86400);
 }

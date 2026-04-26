@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import Link from "next/link";
+import { Sidebar } from "@/components/Sidebar";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -316,7 +317,6 @@ export default function TradingJournal() {
     id: string; period: string; trade_count: number; analysis: string; created_at: string;
   }[]>([]);
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
 
@@ -450,11 +450,6 @@ export default function TradingJournal() {
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
-  const tradesThisMonth = useMemo(() => {
-    const month = new Date().toISOString().slice(0, 7);
-    return trades.filter((t) => t.date.startsWith(month)).length;
-  }, [trades]);
-
   // ── Handlers ───────────────────────────────────────────────────────────────
   async function handleLogout() {
     const supabase = createClient();
@@ -463,7 +458,6 @@ export default function TradingJournal() {
   }
 
   async function addTrade() {
-    if (!isPro && tradesThisMonth >= 20) { setUpgradeReason("trades"); return; }
     if (!form.pair.trim()) return showToast("Enter a currency pair", "err");
     if (!form.lot || +form.lot <= 0) return showToast("Enter a valid lot size", "err");
     if (!form.entry || !form.exit_price) return showToast("Enter entry and exit prices", "err");
@@ -664,129 +658,9 @@ export default function TradingJournal() {
   return (
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
 
-      {/* HEADER */}
-      <header className="sticky top-0 z-10 bg-[var(--cj-surface)] border-b border-zinc-800">
-        <div className="flex items-center justify-between px-4 sm:px-7 h-16">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
-                            flex items-center justify-center text-sm font-bold text-white shrink-0">
-              CJ
-            </div>
-            <span className="font-semibold text-base tracking-tight hidden sm:block">
-              My Trading Journal
-            </span>
-          </div>
+      <Sidebar user={currentUser} onSignOut={handleLogout} />
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-3">
-            <div className="flex items-center gap-3 bg-[var(--cj-raised)] border border-zinc-800
-                            rounded-xl px-4 py-2">
-              <span className="text-[11px] uppercase tracking-widest text-zinc-500">Total P&L</span>
-              <span className={`font-mono text-lg font-semibold ${pnlColor(totalPnl)}`}>
-                {fmt(totalPnl)}
-              </span>
-            </div>
-            {currentUser && (
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-zinc-500">{currentUser.email}</span>
-                <Link
-                  href="/market"
-                  className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
-                             hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
-                >
-                  Market
-                </Link>
-                <Link
-                  href="/settings"
-                  className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
-                             hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
-                >
-                  Settings
-                </Link>
-                <ThemeToggle />
-                <button
-                  onClick={handleLogout}
-                  className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
-                             hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors"
-                >
-                  Sign out
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile: compact P&L + hamburger */}
-          <div className="flex md:hidden items-center gap-2">
-            <div className="flex items-center gap-2 bg-[var(--cj-raised)] border border-zinc-800
-                            rounded-lg px-3 py-1.5">
-              <span className={`font-mono text-sm font-semibold ${pnlColor(totalPnl)}`}>
-                {fmt(totalPnl)}
-              </span>
-            </div>
-            <button
-              onClick={() => setMenuOpen((o) => !o)}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-zinc-700
-                         text-zinc-400 hover:text-zinc-100 hover:border-zinc-500 transition-all"
-              aria-label="Menu"
-            >
-              {menuOpen ? "✕" : "☰"}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile dropdown */}
-        {menuOpen && (
-          <div className="md:hidden border-t border-zinc-800 px-4 py-4 space-y-3">
-            {currentUser && (
-              <p className="text-[11px] text-zinc-500 truncate">{currentUser.email}</p>
-            )}
-            <div className="flex items-center gap-2">
-              <Link
-                href="/market"
-                onClick={() => setMenuOpen(false)}
-                className="flex-1 text-center text-xs text-zinc-300 border border-zinc-700
-                           rounded-lg px-3 py-2 hover:border-zinc-600 transition-colors"
-              >
-                Market
-              </Link>
-              <Link
-                href="/settings"
-                onClick={() => setMenuOpen(false)}
-                className="flex-1 text-center text-xs text-zinc-300 border border-zinc-700
-                           rounded-lg px-3 py-2 hover:border-zinc-600 transition-colors"
-              >
-                Settings
-              </Link>
-              <ThemeToggle />
-              <button
-                onClick={() => { setMenuOpen(false); handleLogout(); }}
-                className="flex-1 text-center text-xs text-zinc-300 border border-zinc-700
-                           rounded-lg px-3 py-2 hover:border-zinc-600 transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        )}
-      </header>
-
-      {/* Free plan upgrade banner */}
-      {!isPro && !loading && (
-        <div className="bg-blue-500/10 border-b border-blue-500/20 px-4 sm:px-7 py-2.5
-                        flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="text-sm text-zinc-400">
-            Free plan ·{" "}
-            <span className="font-mono text-blue-400 font-semibold">{tradesThisMonth}/20</span>
-            {" "}trades this month
-          </span>
-          <Link href="/pricing"
-            className="text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white
-                       px-4 py-1.5 rounded-lg transition-all shrink-0">
-            Upgrade to Pro →
-          </Link>
-        </div>
-      )}
-
+      <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-5 sm:py-7">
 
         {/* STAT CARDS */}
@@ -1344,17 +1218,12 @@ export default function TradingJournal() {
               <span className="text-4xl">🚀</span>
               <h3 className="text-lg font-bold mt-3 mb-2">Upgrade to Pro</h3>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                {upgradeReason === "trades" &&
-                  `You've used all 20 trades for this month on the Free plan.`}
-                {upgradeReason === "analysis" &&
-                  "AI coaching analysis is a Pro feature."}
-                {upgradeReason === "mt5" &&
-                  "MT5 auto-sync is a Pro feature."}
+                AI coaching analysis is a Pro feature.
               </p>
             </div>
             <ul className="space-y-2 mb-6 text-sm text-zinc-400">
-              {["Unlimited trades", "AI analysis (daily, weekly, monthly)",
-                "MT5 auto-sync", "Full charts & analytics"].map((f) => (
+              {["AI analysis (daily, weekly, monthly)",
+                "Full charts & analytics", "Priority support"].map((f) => (
                 <li key={f} className="flex items-center gap-2">
                   <span className="text-blue-400 shrink-0">✓</span>{f}
                 </li>
@@ -1383,6 +1252,7 @@ export default function TradingJournal() {
           {toast.msg}
         </div>
       )}
+      </div>{/* end md:ml-[240px] wrapper */}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Sidebar } from "@/components/Sidebar";
+import type { User } from "@supabase/supabase-js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CalendarEvent {
@@ -244,6 +244,13 @@ export default function MarketPage() {
   const [newsError, setNewsError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<string>("");
   const [nextEvent, setNextEvent] = useState<CalendarEvent | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
 
   // ── Auth + preferences ────────────────────────────────────────────────────
   useEffect(() => {
@@ -251,6 +258,7 @@ export default function MarketPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { window.location.href = "/login"; return; }
+      setCurrentUser(user);
 
       const { data: raw } = await supabase
         .from("user_profiles")
@@ -343,38 +351,9 @@ export default function MarketPage() {
   return (
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
 
-      {/* HEADER */}
-      <header className="sticky top-0 z-10 bg-[var(--cj-surface)] border-b border-zinc-800">
-        <div className="flex items-center justify-between px-4 sm:px-7 h-16">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
-                              flex items-center justify-center text-sm font-bold text-white">
-                CJ
-              </div>
-              <span className="font-semibold text-base tracking-tight hidden sm:block">
-                My Trading Journal
-              </span>
-            </Link>
-            <span className="text-zinc-700 hidden sm:block">·</span>
-            <span className="text-sm text-zinc-400 hidden sm:block">Market</span>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/"
-              className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
-                         hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/settings"
-              className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
-                         hover:border-zinc-600 rounded-lg px-3 py-1.5 transition-colors hidden sm:block">
-              Settings
-            </Link>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <Sidebar user={currentUser} onSignOut={handleLogout} />
 
+      <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
 
         {/* COUNTDOWN SKELETON while calendar loads */}
@@ -665,6 +644,7 @@ export default function MarketPage() {
         )}
 
       </main>
+      </div>{/* end md:ml-[240px] wrapper */}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Sidebar } from "@/components/Sidebar";
 import type { User } from "@supabase/supabase-js";
 
 interface SubState { status: string; end: string | null; }
@@ -18,6 +18,12 @@ interface SyncToken {
 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
   const [syncToken, setSyncToken] = useState<SyncToken | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -106,28 +112,9 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
 
-      {/* HEADER */}
-      <header className="sticky top-0 z-10 flex items-center justify-between px-4 sm:px-7 h-16
-                         bg-[var(--cj-surface)] border-b border-zinc-800">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
-                            flex items-center justify-center text-sm font-bold text-white">
-              CJ
-            </div>
-            <span className="font-semibold text-base tracking-tight hidden sm:block">
-              My Trading Journal
-            </span>
-          </Link>
-          <span className="text-zinc-700 mx-1 hidden sm:block">·</span>
-          <span className="text-sm text-zinc-400 hidden sm:block">Settings</span>
-        </div>
-        <div className="flex items-center gap-3">
-          {user && <span className="text-[11px] text-zinc-500 hidden sm:block">{user.email}</span>}
-          <ThemeToggle />
-        </div>
-      </header>
+      <Sidebar user={user} onSignOut={handleLogout} />
 
+      <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[680px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
         {/* SUBSCRIPTION */}
@@ -327,6 +314,7 @@ export default function SettingsPage() {
         </div>
 
       </main>
+      </div>{/* end md:ml-[240px] wrapper */}
     </div>
   );
 }

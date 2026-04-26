@@ -26,18 +26,17 @@ declare global {
 
 // ─── Plan content ─────────────────────────────────────────────────────────────
 const FREE_FEATURES = [
-  "Up to 20 trades per month",
-  "Manual trade entry only",
+  "Unlimited trades",
+  "Manual trade entry",
+  "MT5 auto-sync (EA integration)",
   "Basic dashboard & equity curve",
 ];
 const FREE_MISSING = [
   "No AI analysis",
-  "No MT5 auto-sync",
   "No advanced charts",
 ];
 const PRO_FEATURES = [
-  "Unlimited trades",
-  "MT5 auto-sync (EA integration)",
+  "Everything in Free",
   "AI analysis — daily, weekly, monthly",
   "Full charts: win rate, calendar heatmap",
   "Priority support",

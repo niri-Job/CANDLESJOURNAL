@@ -31,25 +31,11 @@ export default function LoginPage() {
     setLoading(true);
 
     if (mode === "login") {
-      const { error, data: authData } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { setError(error.message); setLoading(false); return; }
 
-      // Check profile AND trade count in parallel — existing users skip onboarding
-      const [profileRes, countRes] = await Promise.all([
-        supabase
-          .from("user_profiles")
-          .select("onboarding_completed")
-          .eq("user_id", authData.user!.id)
-          .maybeSingle(),
-        supabase
-          .from("trades")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", authData.user!.id),
-      ]);
-
-      const isExisting =
-        !!(profileRes.data?.onboarding_completed) || (countRes.count ?? 0) > 0;
-      window.location.href = isExisting ? "/" : "/onboarding";
+      // Middleware handles onboarding vs dashboard routing after login
+      window.location.href = "/";
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) { setError(error.message); setLoading(false); return; }

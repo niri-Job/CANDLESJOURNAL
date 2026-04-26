@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export const revalidate = 300;
+export const revalidate = 900;
 
 const TIMEOUT_MS = 5000;
 

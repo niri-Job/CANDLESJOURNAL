@@ -16,13 +16,14 @@
 // 9. Watch the Experts tab at the bottom for confirmation messages
 //
 #property copyright "CandlesJournal"
-#property version   "1.07"
+#property version   "1.08"
 #property description "Syncs every closed trade to your CandlesJournal automatically."
 
 input string InpSyncToken = "";                                                                   // Sync Token  (paste from Settings page)
 input string InpServerURL = "https://symphonious-lily-0d7ae0.netlify.app/api/mt5/sync";           // Sync URL    (pre-filled for your live app)
 
-#define GV_LAST_TICKET "CJ_LAST_TICKET"
+#define GV_LAST_TICKET    "CJ_LAST_TICKET"
+#define GV_LAST_SYNC_TIME "CJ_LAST_SYNC_TIME"   // close-time of last successfully synced deal
 
 //+------------------------------------------------------------------+
 //  Persistence helpers
@@ -37,6 +38,18 @@ ulong GetLastSyncedTicket()
 void SetLastSyncedTicket(ulong ticket)
 {
    GlobalVariableSet(GV_LAST_TICKET, (double)ticket);
+}
+
+datetime GetLastSyncTime()
+{
+   if(GlobalVariableCheck(GV_LAST_SYNC_TIME))
+      return (datetime)GlobalVariableGet(GV_LAST_SYNC_TIME);
+   return 0;
+}
+
+void SetLastSyncTime(datetime t)
+{
+   GlobalVariableSet(GV_LAST_SYNC_TIME, (double)t);
 }
 
 //+------------------------------------------------------------------+
@@ -176,7 +189,8 @@ void SyncDeal(ulong dealTicket)
 
    Print("CandlesJournal: raw=", rawSymbol, " stripped=", symbol,
          " exit=", exitPrice, " vol=", volume,
-         " pnl=",  NormalizeDouble(profit, 2), " posId=", posId);
+         " pnl=",  NormalizeDouble(profit, 2), " posId=", posId,
+         " closeTime=", TimeToString(closeTime, TIME_DATE|TIME_SECONDS));
 
    // ── Find opening deal → entry price + direction ───────────────
    string direction  = "BUY";
@@ -265,19 +279,33 @@ void SyncDeal(ulong dealTicket)
 
    if(httpCode == 200)
    {
-      ulong last = GetLastSyncedTicket();
-      if(dealTicket > last) SetLastSyncedTicket(dealTicket);
+      // Update both checkpoints — use MAX so they never go backwards
+      ulong    lastTk   = GetLastSyncedTicket();
+      datetime lastTime = GetLastSyncTime();
+      if(dealTicket > lastTk)   SetLastSyncedTicket(dealTicket);
+      if(closeTime  > lastTime) SetLastSyncTime(closeTime);
 
-      Print("CandlesJournal ✓  SYNCED — ", symbol, " (", rawSymbol, ") ", direction,
-            " | Lot:", SafeDouble(volume, 2),
-            " | P&L: $", SafeDouble(NormalizeDouble(profit, 2), 2),
-            " | AssetClass:", assetClass,
-            " | Ticket:", dealTicket);
+      bool isDuplicate = (StringFind(resp, "\"duplicate\":true") >= 0);
+      if(isDuplicate)
+      {
+         Print("CandlesJournal: INFO  Duplicate — #", dealTicket, " (", symbol, ") already in journal.",
+               " closeTime:", TimeToString(closeTime, TIME_DATE|TIME_SECONDS),
+               " — checkpoints updated");
+      }
+      else
+      {
+         Print("CandlesJournal: SYNCED ✓  #", dealTicket,
+               " | ", symbol, " (", rawSymbol, ") ",  direction,
+               " | Lot:", SafeDouble(volume, 2),
+               " | P&L: $", SafeDouble(NormalizeDouble(profit, 2), 2),
+               " | CloseTime: ", TimeToString(closeTime, TIME_DATE|TIME_SECONDS),
+               " | AssetClass:", assetClass);
+      }
    }
    else if(httpCode == -1)
    {
       int err = GetLastError();
-      Print("CandlesJournal ✗  WebRequest FAILED — error: ", err);
+      Print("CandlesJournal: WebRequest FAILED — error: ", err);
       if(err == 4014)
          Print("  → Tools > Options > Expert Advisors > Allow WebRequest > Add: ", InpServerURL);
       else
@@ -285,13 +313,15 @@ void SyncDeal(ulong dealTicket)
    }
    else
    {
-      Print("CandlesJournal ✗  HTTP ", httpCode, " — ", resp);
-      // 4xx = bad payload → mark as skipped to prevent infinite retry
+      Print("CandlesJournal: HTTP ", httpCode, " — ", resp);
+      // 4xx = bad payload → advance checkpoints to prevent infinite retry
       if(httpCode >= 400 && httpCode < 500)
       {
-         Print("CandlesJournal: 4xx error — marking ticket #", dealTicket, " as skipped.");
-         ulong last = GetLastSyncedTicket();
-         if(dealTicket > last) SetLastSyncedTicket(dealTicket);
+         Print("CandlesJournal: 4xx — advancing checkpoints past #", dealTicket, " to prevent retry loop");
+         ulong    lastTk   = GetLastSyncedTicket();
+         datetime lastTime = GetLastSyncTime();
+         if(dealTicket > lastTk)   SetLastSyncedTicket(dealTicket);
+         if(closeTime  > lastTime) SetLastSyncTime(closeTime);
       }
    }
 
@@ -300,12 +330,24 @@ void SyncDeal(ulong dealTicket)
 
 //+------------------------------------------------------------------+
 //  ScanHistory — find and sync all unprocessed closing deals
+//
+//  Skip logic (v1.08):
+//  A deal is skipped only when BOTH conditions are true:
+//    (a) ticket number <= lastSyncedTicket  (seen before)
+//    (b) closeTime < lastSyncTime           (closed before our time checkpoint)
+//
+//  This means a new closing deal is ALWAYS attempted even if its ticket
+//  number is <= lastSyncedTicket (possible after broker migrations or on
+//  netting accounts). The server's mt5_deal_id field handles true deduplication.
 //+------------------------------------------------------------------+
 void ScanHistory(int lookbackSeconds)
 {
-   ulong lastTicket = GetLastSyncedTicket();
+   ulong    lastTicket   = GetLastSyncedTicket();
+   datetime lastSyncTime = GetLastSyncTime();
+
    Print("CandlesJournal: ScanHistory lookback:", lookbackSeconds,
-         "s | lastTicket:", lastTicket);
+         "s | lastTicket:", lastTicket,
+         " | lastSyncTime:", TimeToString(lastSyncTime, TIME_DATE|TIME_SECONDS));
 
    if(!HistorySelect(TimeCurrent() - lookbackSeconds, TimeCurrent()))
    {
@@ -319,19 +361,63 @@ void ScanHistory(int lookbackSeconds)
 
    // Snapshot qualifying tickets before SyncDeal changes the history pool
    ulong toSync[];
-   int   count = 0;
+   int   count      = 0;
+   int   skipped    = 0;
+   int   nonClosing = 0;
+
    for(int i = 0; i < total; i++)
    {
       ulong tk = HistoryDealGetTicket(i);
-      if(tk <= lastTicket) continue;
+
       ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
-      if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY) continue;
+      if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY)
+      {
+         nonClosing++;
+         continue;  // not a closing deal — don't log every open deal, just count
+      }
+
+      datetime closeTime = (datetime)HistoryDealGetInteger(tk, DEAL_TIME);
+      string   sym       = HistoryDealGetString(tk, DEAL_SYMBOL);
+
+      // Skip only when BOTH: ticket previously seen AND closed before time checkpoint
+      bool ticketSeen    = (tk <= lastTicket);
+      bool beforeCheckpt = (closeTime < lastSyncTime);
+
+      if(ticketSeen && beforeCheckpt)
+      {
+         Print("CandlesJournal: SKIP #", tk, " (", sym, ")",
+               " closeTime=", TimeToString(closeTime, TIME_DATE|TIME_SECONDS),
+               " — ticket ", tk, " <= lastTicket ", lastTicket,
+               " AND closeTime < lastSyncTime ", TimeToString(lastSyncTime, TIME_DATE|TIME_SECONDS));
+         skipped++;
+         continue;
+      }
+
+      if(ticketSeen && !beforeCheckpt)
+      {
+         // Ticket seen before but close time is at/after checkpoint — could be a re-check
+         // after a restart. Let it through; server dedup will reject true duplicates.
+         Print("CandlesJournal: RE-CHECK #", tk, " (", sym, ")",
+               " closeTime=", TimeToString(closeTime, TIME_DATE|TIME_SECONDS),
+               " — ticket seen (", tk, "<=", lastTicket, ") but closeTime >= checkpoint; server will dedup");
+      }
+
       ArrayResize(toSync, count + 1);
       toSync[count++] = tk;
    }
 
-   if(count == 0) { Print("CandlesJournal: No new unsynced closing deals"); return; }
-   Print("CandlesJournal: ", count, " new closing deal(s) to sync");
+   if(count == 0)
+   {
+      Print("CandlesJournal: No new unsynced closing deals",
+            " — window: ", total, " deal(s), ",
+            nonClosing, " non-closing (opens/internal), ",
+            skipped, " already synced (ticket<=", lastTicket,
+            " AND closeTime<", TimeToString(lastSyncTime, TIME_DATE|TIME_SECONDS), ")");
+      return;
+   }
+
+   Print("CandlesJournal: ", count, " closing deal(s) to sync (",
+         skipped, " skipped as already synced)");
 
    for(int i = 0; i < count; i++)
       SyncDeal(toSync[i]);
@@ -351,10 +437,12 @@ int OnInit()
       return(INIT_PARAMETERS_INCORRECT);
    }
 
-   Print("CandlesJournal: ====== EA v1.07 INITIALIZING ======");
+   Print("CandlesJournal: ====== EA v1.08 INITIALIZING ======");
    Print("CandlesJournal: Token length=", StringLen(InpSyncToken),
          " URL=", InpServerURL);
    Print("CandlesJournal: Last synced ticket (GlobalVar) = ", GetLastSyncedTicket());
+   Print("CandlesJournal: Last sync time   (GlobalVar) = ",
+         TimeToString(GetLastSyncTime(), TIME_DATE|TIME_SECONDS));
 
    // ── Broker & account diagnostics ──────────────────────────────
    string broker   = AccountInfoString(ACCOUNT_COMPANY);
@@ -387,14 +475,14 @@ int OnInit()
 
    if(pingCode == 200)
    {
-      Print("CandlesJournal ✓  Connected. Scanning last 24 hours for missed trades...");
-      ScanHistory(86400);
+      Print("CandlesJournal: Connected. Scanning last 7 days for missed trades...");
+      ScanHistory(604800);
       Print("CandlesJournal: Catchup scan complete.");
    }
    else if(pingCode == -1)
    {
       int err = GetLastError();
-      Print("CandlesJournal ✗  Cannot reach server. Error=", err);
+      Print("CandlesJournal: Cannot reach server. Error=", err);
       if(err == 4014)
          Alert("CandlesJournal: WebRequest blocked!\n\n"
                "Fix: Tools → Options → Expert Advisors\n"
@@ -416,7 +504,7 @@ int OnInit()
 
    EventSetTimer(10);
    Print("CandlesJournal: Timer started (every 10 seconds).");
-   Print("CandlesJournal: ====== EA v1.07 READY ======");
+   Print("CandlesJournal: ====== EA v1.08 READY ======");
    return(INIT_SUCCEEDED);
 }
 
@@ -432,14 +520,14 @@ void OnTimer()
    static int fires = 0;
    fires++;
    Print("CandlesJournal: OnTimer #", fires);
-   ScanHistory(86400);
+   ScanHistory(604800);
 }
 
 // SECONDARY — fires on any trade event
 void OnTrade()
 {
    Print("CandlesJournal: OnTrade fired");
-   ScanHistory(86400);
+   ScanHistory(604800);
 }
 
 // TERTIARY — fallback for brokers where this works
@@ -450,6 +538,6 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
    Print("CandlesJournal: OnTradeTransaction type=", EnumToString(trans.type),
          " symbol=", trans.symbol, " deal=", trans.deal);
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
-      ScanHistory(86400);
+      ScanHistory(604800);
 }
 //+------------------------------------------------------------------+

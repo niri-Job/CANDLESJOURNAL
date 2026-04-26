@@ -168,7 +168,7 @@ export default function SettingsPage() {
               ) : (
                 <div>
                   <p className="text-xs text-zinc-500 mb-4">
-                    You are on the Free plan — up to 20 trades/month, no AI analysis, no MT5 sync.
+                    You are on the Free plan — up to 20 trades/month, no AI analysis.
                     Upgrade to unlock everything.
                   </p>
                   <Link href="/pricing"
@@ -263,14 +263,6 @@ export default function SettingsPage() {
                 {generating ? "Generating..." : "Generate Token"}
               </button>
               {genError && <p className="mt-3 text-xs text-rose-400">{genError}</p>}
-              {sub.status !== "pro" && (
-                <p className="mt-4 text-[11px] text-amber-700 leading-relaxed">
-                  MT5 auto-sync is a Pro feature. Free plan allows up to 20 trades/month via the EA.{" "}
-                  <Link href="/pricing" className="underline hover:text-amber-500 transition-colors">
-                    Upgrade →
-                  </Link>
-                </p>
-              )}
             </div>
           )}
         </div>

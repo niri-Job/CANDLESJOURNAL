@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-export const revalidate = 300; // 5 minutes
+export const revalidate = 300;
+
+const TIMEOUT_MS = 5000;
 
 interface NewsItem {
   title: string;
@@ -16,7 +18,6 @@ const FEEDS: { url: string; source: string }[] = [
 ];
 
 function extractTag(xml: string, tag: string): string {
-  // Try CDATA first, then plain text
   const cdata = xml.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[(.*?)\\]\\]><\\/${tag}>`, "s"));
   if (cdata) return cdata[1].trim();
   const plain = xml.match(new RegExp(`<${tag}[^>]*>(.*?)<\\/${tag}>`, "s"));
@@ -33,7 +34,6 @@ function parseRSS(xml: string, source: string): NewsItem[] {
     const title = extractTag(chunk, "title");
     if (!title) continue;
 
-    // <link> in RSS can be a self-closing tag before the text node
     const linkMatch =
       chunk.match(/<link>(https?:\/\/[^<]+)<\/link>/) ||
       chunk.match(/<guid[^>]*>(https?:\/\/[^<]+)<\/guid>/);
@@ -48,25 +48,33 @@ function parseRSS(xml: string, source: string): NewsItem[] {
   return items.slice(0, 15);
 }
 
-export async function GET() {
-  const results = await Promise.allSettled(
-    FEEDS.map(async ({ url, source }) => {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": "CandlesJournal/1.0 (forex news aggregator)",
-          "Accept": "application/rss+xml, application/xml, text/xml",
-        },
-        next: { revalidate: 300 },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status} from ${source}`);
-      const xml = await res.text();
-      return parseRSS(xml, source);
-    })
-  );
+async function fetchFeed(url: string, source: string): Promise<NewsItem[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "CandlesJournal/1.0 (forex news aggregator)",
+        "Accept": "application/rss+xml, application/xml, text/xml",
+      },
+      signal: controller.signal,
+      next: { revalidate: 300 },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${source}`);
+    const xml = await res.text();
+    return parseRSS(xml, source);
+  } catch (err) {
+    clearTimeout(timeout);
+    const isTimeout = (err as Error).name === "AbortError";
+    console.error(`news proxy [${source}]:`, isTimeout ? "timed out after 5s" : (err as Error).message);
+    return [];
+  }
+}
 
-  const all: NewsItem[] = results
-    .filter((r): r is PromiseFulfilledResult<NewsItem[]> => r.status === "fulfilled")
-    .flatMap((r) => r.value);
+export async function GET() {
+  const results = await Promise.all(FEEDS.map((f) => fetchFeed(f.url, f.source)));
+  const all: NewsItem[] = results.flat();
 
   all.sort((a, b) => {
     const da = a.pubDate ? new Date(a.pubDate).getTime() : 0;

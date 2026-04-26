@@ -81,18 +81,37 @@ export default function OnboardingPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
-      const { data: raw } = await supabase
-        .from("user_profiles")
-        .select(
-          "onboarding_completed, name, broker, account_size, preferred_pairs, " +
-          "experience_level, trading_style, preferred_sessions, monthly_target"
-        )
-        .eq("user_id", user.id)
-        .maybeSingle();
+      const [profileRes, countRes] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select(
+            "onboarding_completed, name, broker, account_size, preferred_pairs, " +
+            "experience_level, trading_style, preferred_sessions, monthly_target"
+          )
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("trades")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id),
+      ]);
 
-      const profile = raw as ProfileRow | null;
+      const profile = profileRes.data as ProfileRow | null;
+      const hasTrades = (countRes.count ?? 0) > 0;
 
-      if (profile?.onboarding_completed) { window.location.href = "/"; return; }
+      // Skip onboarding for existing users — mark complete so they never see it again
+      if (profile?.onboarding_completed || hasTrades) {
+        if (hasTrades && !profile?.onboarding_completed) {
+          await supabase
+            .from("user_profiles")
+            .upsert(
+              { user_id: user.id, onboarding_completed: true, updated_at: new Date().toISOString() },
+              { onConflict: "user_id" }
+            );
+        }
+        window.location.href = "/";
+        return;
+      }
 
       if (profile) {
         setData({

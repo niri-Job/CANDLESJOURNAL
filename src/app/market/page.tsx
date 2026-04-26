@@ -157,6 +157,79 @@ function ImpactBadge({ impact }: { impact: string }) {
   );
 }
 
+// ─── Skeleton loaders ─────────────────────────────────────────────────────────
+function CalendarSkeleton() {
+  return (
+    <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl overflow-hidden animate-pulse">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-zinc-800">
+              {[60, 52, 52, 80, 200, 52, 52, 52].map((w, i) => (
+                <th key={i} className="px-4 py-3.5">
+                  <div className={`h-2 bg-zinc-800 rounded`} style={{ width: w }} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 9 }).map((_, row) => (
+              <tr key={row} className="border-b border-zinc-800/60">
+                {[60, 44, 44, 70, 180, 44, 44, 44].map((w, col) => (
+                  <td key={col} className="px-4 py-3.5">
+                    <div
+                      className="h-3 bg-zinc-800/70 rounded"
+                      style={{ width: w, opacity: 1 - row * 0.07 }}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-5 py-3 border-t border-zinc-800">
+        <div className="h-2 bg-zinc-800 rounded w-56" />
+      </div>
+    </div>
+  );
+}
+
+function NewsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-pulse">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="bg-[var(--cj-surface)] border border-zinc-800 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-2.5 bg-zinc-800 rounded w-20" />
+            <div className="h-2.5 bg-zinc-800 rounded w-12" />
+          </div>
+          <div className="space-y-2 mb-3">
+            <div className="h-3.5 bg-zinc-800 rounded w-full" />
+            <div className="h-3.5 bg-zinc-800 rounded w-4/5" />
+            <div className="h-3.5 bg-zinc-800 rounded w-3/5" />
+          </div>
+          <div className="h-2 bg-zinc-800 rounded w-32" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CountdownSkeleton() {
+  return (
+    <div className="mb-5 bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl px-5 py-4
+                    flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-pulse">
+      <div className="space-y-2">
+        <div className="h-2.5 bg-zinc-800 rounded w-40" />
+        <div className="h-4 bg-zinc-800 rounded w-56" />
+        <div className="h-2.5 bg-zinc-800 rounded w-36" />
+      </div>
+      <div className="h-10 bg-zinc-800 rounded w-28 shrink-0" />
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function MarketPage() {
   const [tab, setTab] = useState<"calendar" | "news">("calendar");
@@ -304,8 +377,11 @@ export default function MarketPage() {
 
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
 
+        {/* COUNTDOWN SKELETON while calendar loads */}
+        {calLoading && <CountdownSkeleton />}
+
         {/* NEXT HIGH-IMPACT EVENT COUNTDOWN */}
-        {nextEvent && (
+        {!calLoading && nextEvent && (
           <div className="mb-5 bg-red-500/8 border border-red-500/20 rounded-2xl px-5 py-4
                           flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -383,12 +459,7 @@ export default function MarketPage() {
               )}
             </div>
 
-            {calLoading && (
-              <div className="flex items-center justify-center gap-3 py-20 text-zinc-500">
-                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">Loading economic calendar...</span>
-              </div>
-            )}
+            {calLoading && <CalendarSkeleton />}
 
             {calError && (
               <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl px-5 py-4
@@ -515,12 +586,7 @@ export default function MarketPage() {
               ))}
             </div>
 
-            {newsLoading && (
-              <div className="flex items-center justify-center gap-3 py-20 text-zinc-500">
-                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">Loading market news...</span>
-              </div>
-            )}
+            {newsLoading && <NewsSkeleton />}
 
             {newsError && (
               <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl px-5 py-4

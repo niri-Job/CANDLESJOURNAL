@@ -334,30 +334,39 @@ export default function TradingJournal() {
       if (!user) { window.location.href = "/login"; return; }
       setCurrentUser(user);
 
-      const { data: rawProfile } = await supabase
-        .from("user_profiles")
-        .select("onboarding_completed, subscription_status, subscription_end")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const profile = rawProfile as {
+      // Fetch profile and trades in parallel — faster load, and lets us check
+      // existing-user status from either source before deciding on onboarding.
+      const [profileRes, tradesRes] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select("onboarding_completed, subscription_status, subscription_end")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("trades")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      const profile = profileRes.data as {
         onboarding_completed: boolean;
         subscription_status: string | null;
         subscription_end: string | null;
       } | null;
-      if (!profile?.onboarding_completed) { window.location.href = "/onboarding"; return; }
+
+      // Existing user = already completed onboarding OR already has trades
+      const isExisting =
+        !!(profile?.onboarding_completed) || (tradesRes.data?.length ?? 0) > 0;
+      if (!isExisting) { window.location.href = "/onboarding"; return; }
+
       const pro = profile?.subscription_status === "pro" &&
                   !!profile?.subscription_end &&
                   new Date(profile.subscription_end) > new Date();
       setIsPro(pro);
 
-      const { data, error } = await supabase
-        .from("trades")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) showToast("Failed to load trades", "err");
-      else if (data) setTrades(data as Trade[]);
+      if (tradesRes.error) showToast("Failed to load trades", "err");
+      else if (tradesRes.data) setTrades(tradesRes.data as Trade[]);
       setLoading(false);
 
       const { data: analyses } = await supabase

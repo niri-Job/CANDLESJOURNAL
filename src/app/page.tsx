@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   AreaChart,
   Area,
@@ -14,6 +13,9 @@ import {
 } from "recharts";
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
+import { RiskDistribution } from "@/components/RiskDistribution";
+import { TradeNoteModal } from "@/components/TradeNoteModal";
+import { PerformanceBadge } from "@/components/PerformanceBadge";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -30,6 +32,7 @@ interface Trade {
   tp: number | null;
   pnl: number;
   notes: string;
+  screenshot_url?: string | null;
   asset_class: string;
   session: string;
   setup: string;
@@ -72,7 +75,7 @@ const pnlColor = (v: number) =>
 const fmt = (v: number) =>
   (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(2);
 
-// ─── Tooltip components (module-level — must not be defined inside render) ────
+// ─── Tooltip components ───────────────────────────────────────────────────────
 function EquityTooltip({ active, payload, label }: {
   active?: boolean; payload?: { value: number }[]; label?: string;
 }) {
@@ -224,75 +227,136 @@ function WinRateChart({ data }: {
 }
 
 // ─── Calendar Heatmap ─────────────────────────────────────────────────────────
-function CalendarHeatmap({ dailyPnl }: { dailyPnl: Record<string, number> }) {
-  const [tip, setTip] = useState<{ date: string; pnl: number; x: number; y: number } | null>(null);
+function CalendarHeatmap({
+  dailyData,
+}: {
+  dailyData: Record<string, { pnl: number; count: number }>;
+}) {
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [tip, setTip] = useState<{
+    date: string; pnl: number; count: number; x: number; y: number;
+  } | null>(null);
 
-  const months = useMemo(() => {
-    const now = new Date();
-    return Array.from({ length: 3 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (2 - i), 1);
-      return { year: d.getFullYear(), month: d.getMonth() };
-    });
-  }, []);
+  const canGoNext =
+    viewYear < today.getFullYear() ||
+    (viewYear === today.getFullYear() && viewMonth < today.getMonth());
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); }
+    else setViewMonth((m) => m - 1);
+  }
+  function nextMonth() {
+    if (!canGoNext) return;
+    if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); }
+    else setViewMonth((m) => m + 1);
+  }
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+
+  // Find max abs pnl this month for intensity scaling
+  const monthEntries = Object.entries(dailyData).filter(([ds]) => {
+    const [y, mo] = ds.split("-").map(Number);
+    return y === viewYear && mo === viewMonth + 1;
+  });
+  const maxAbs = monthEntries.reduce((max, [, v]) => Math.max(max, Math.abs(v.pnl)), 0.01);
+
+  const cells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const todayStr = today.toISOString().split("T")[0];
+  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleString("default", {
+    month: "long", year: "numeric",
+  });
 
   return (
-    <div className="flex gap-3 h-full items-start">
-      {months.map(({ year, month }) => {
-        const label = new Date(year, month, 1).toLocaleString("default", {
-          month: "short", year: "2-digit",
-        });
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDay = new Date(year, month, 1).getDay();
-        const cells: (number | null)[] = [
-          ...Array(firstDay).fill(null),
-          ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-        ];
-        while (cells.length % 7 !== 0) cells.push(null);
+    <div className="h-full flex flex-col">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={prevMonth}
+          className="w-6 h-6 flex items-center justify-center text-zinc-500
+                     hover:text-zinc-200 transition-colors rounded-md hover:bg-zinc-800"
+        >
+          ‹
+        </button>
+        <span className="text-[11px] text-zinc-400 font-medium">{monthLabel}</span>
+        <button
+          onClick={nextMonth}
+          disabled={!canGoNext}
+          className="w-6 h-6 flex items-center justify-center text-zinc-500
+                     hover:text-zinc-200 transition-colors rounded-md hover:bg-zinc-800
+                     disabled:opacity-25 disabled:cursor-default disabled:hover:bg-transparent"
+        >
+          ›
+        </button>
+      </div>
 
-        return (
-          <div key={`${year}-${month}`} className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2 font-medium">
-              {label}
-            </p>
-            <div className="grid grid-cols-7 gap-px mb-px">
-              {["S","M","T","W","T","F","S"].map((d, i) => (
-                <div key={i} className="text-[9px] text-zinc-700 text-center pb-1">{d}</div>
-              ))}
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 gap-px mb-1">
+        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d, i) => (
+          <div key={i} className="text-[9px] text-zinc-600 text-center">{d}</div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-px flex-1">
+        {cells.map((day, i) => {
+          if (day === null) return <div key={i} />;
+          const ds = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const entry = dailyData[ds];
+          const isToday = ds === todayStr;
+
+          let bg: string;
+          if (!entry) {
+            bg = "rgba(39,39,42,0.5)";
+          } else if (entry.pnl > 0) {
+            const intensity = 0.25 + (Math.abs(entry.pnl) / maxAbs) * 0.65;
+            bg = `rgba(52,211,153,${intensity.toFixed(2)})`;
+          } else if (entry.pnl < 0) {
+            const intensity = 0.25 + (Math.abs(entry.pnl) / maxAbs) * 0.65;
+            bg = `rgba(248,113,113,${intensity.toFixed(2)})`;
+          } else {
+            bg = "rgba(113,113,122,0.35)";
+          }
+
+          return (
+            <div
+              key={i}
+              className={`aspect-square rounded-[3px] flex items-end justify-end
+                          cursor-default hover:opacity-80 transition-opacity
+                          ${isToday ? "ring-1 ring-blue-400 ring-offset-[1px] ring-offset-[var(--cj-surface)]" : ""}`}
+              style={{ background: bg }}
+              onMouseEnter={(e) =>
+                entry && setTip({ date: ds, pnl: entry.pnl, count: entry.count, x: e.clientX, y: e.clientY })
+              }
+              onMouseMove={(e) =>
+                entry && setTip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)
+              }
+              onMouseLeave={() => setTip(null)}
+            >
+              <span className="text-[8px] text-white/30 leading-none pr-[2px] pb-[1px]">{day}</span>
             </div>
-            <div className="grid grid-cols-7 gap-px">
-              {cells.map((day, i) => {
-                if (day === null) return <div key={i} className="aspect-square" />;
-                const ds = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                const pnl = dailyPnl[ds];
-                const bg = pnl === undefined
-                  ? "bg-zinc-800/40"
-                  : pnl > 0
-                  ? "bg-emerald-500/55"
-                  : pnl < 0
-                  ? "bg-rose-500/55"
-                  : "bg-zinc-500/50";
-                return (
-                  <div
-                    key={i}
-                    className={`aspect-square rounded-[2px] ${bg} transition-opacity hover:opacity-75 cursor-default`}
-                    onMouseEnter={(e) => pnl !== undefined && setTip({ date: ds, pnl, x: e.clientX, y: e.clientY })}
-                    onMouseLeave={() => setTip(null)}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
       {tip && (
         <div
-          className="fixed z-50 bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl pointer-events-none"
-          style={{ left: tip.x + 14, top: tip.y - 36 }}
+          className="fixed z-50 bg-[var(--cj-raised)] border border-zinc-700 rounded-lg
+                     px-3 py-2 text-xs shadow-xl pointer-events-none"
+          style={{ left: tip.x + 14, top: tip.y - 42 }}
         >
           <p className="text-zinc-400 mb-0.5">{tip.date}</p>
           <p className={`font-mono font-semibold ${tip.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {fmt(tip.pnl)}
           </p>
+          <p className="text-zinc-600 mt-0.5">{tip.count} trade{tip.count !== 1 ? "s" : ""}</p>
         </div>
       )}
     </div>
@@ -319,12 +383,13 @@ export default function TradingJournal() {
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const [isPro, setIsPro] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
+  const [noteModalTrade, setNoteModalTrade] = useState<Trade | null>(null);
 
   function showToast(msg: string, type: "ok" | "err") {
     setToast({ msg, type });
   }
 
-  // Load user and trades on mount; subscribe to realtime MT5 inserts
+  // Load user and trades; subscribe to realtime INSERT / UPDATE / DELETE
   useEffect(() => {
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | undefined;
@@ -334,7 +399,6 @@ export default function TradingJournal() {
       if (!user) { window.location.href = "/login"; return; }
       setCurrentUser(user);
 
-      // Fetch profile and trades in parallel for fast load
       const [profileRes, tradesRes] = await Promise.all([
         supabase
           .from("user_profiles")
@@ -353,9 +417,10 @@ export default function TradingJournal() {
         subscription_end: string | null;
       } | null;
 
-      const pro = profile?.subscription_status === "pro" &&
-                  !!profile?.subscription_end &&
-                  new Date(profile.subscription_end) > new Date();
+      const pro =
+        profile?.subscription_status === "pro" &&
+        !!profile?.subscription_end &&
+        new Date(profile.subscription_end) > new Date();
       setIsPro(pro);
 
       if (tradesRes.error) showToast("Failed to load trades", "err");
@@ -370,18 +435,35 @@ export default function TradingJournal() {
         .limit(5);
       if (analyses) setPastAnalyses(analyses);
 
-      // Realtime: auto-prepend trades inserted by the MT5 EA
+      // Realtime subscription — INSERT, UPDATE, DELETE
       channel = supabase
-        .channel("trades-realtime")
+        .channel(`trades-realtime-${user.id}`)
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "trades", filter: `user_id=eq.${user.id}` },
           (payload) => {
             const t = payload.new as Trade;
-            if (t.mt5_deal_id) {
-              setTrades((prev) => [t, ...prev]);
-              showToast("New trade synced from MT5", "ok");
-            }
+            setTrades((prev) => {
+              if (prev.some((e) => e.id === t.id)) return prev;
+              if (t.mt5_deal_id) showToast("New trade synced from MT5", "ok");
+              return [t, ...prev];
+            });
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "trades", filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const t = payload.new as Trade;
+            setTrades((prev) => prev.map((e) => (e.id === t.id ? { ...e, ...t } : e)));
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "trades", filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const old = payload.old as { id: string };
+            setTrades((prev) => prev.filter((e) => e.id !== old.id));
           }
         )
         .subscribe();
@@ -429,10 +511,12 @@ export default function TradingJournal() {
       .sort((a, b) => b.winRate - a.winRate);
   }, [trades]);
 
-  const dailyPnlMap = useMemo(() => {
-    const map: Record<string, number> = {};
+  const dailyData = useMemo(() => {
+    const map: Record<string, { pnl: number; count: number }> = {};
     for (const t of trades) {
-      map[t.date] = parseFloat(((map[t.date] || 0) + t.pnl).toFixed(2));
+      if (!map[t.date]) map[t.date] = { pnl: 0, count: 0 };
+      map[t.date].pnl = parseFloat((map[t.date].pnl + t.pnl).toFixed(2));
+      map[t.date].count++;
     }
     return map;
   }, [trades]);
@@ -467,9 +551,10 @@ export default function TradingJournal() {
     if (form.pnl !== "") {
       pnl = parseFloat(form.pnl);
     } else {
-      const diff = direction === "BUY"
-        ? parseFloat(form.exit_price) - parseFloat(form.entry)
-        : parseFloat(form.entry) - parseFloat(form.exit_price);
+      const diff =
+        direction === "BUY"
+          ? parseFloat(form.exit_price) - parseFloat(form.entry)
+          : parseFloat(form.entry) - parseFloat(form.exit_price);
       pnl = parseFloat((diff * parseFloat(form.lot) * 10000).toFixed(2));
     }
 
@@ -495,7 +580,11 @@ export default function TradingJournal() {
     const { data, error } = await supabase.from("trades").insert(payload).select().single();
     if (error) { showToast("Failed to save trade", "err"); return; }
 
-    setTrades((prev) => [data as Trade, ...prev]);
+    // Dedup guard: realtime INSERT may also fire for this row
+    setTrades((prev) => {
+      if (prev.some((e) => e.id === (data as Trade).id)) return prev;
+      return [data as Trade, ...prev];
+    });
     setForm({ ...EMPTY_FORM, date: new Date().toISOString().split("T")[0] });
     setDirection("BUY");
     showToast(`${payload.pair} added — ${fmt(pnl)}`, "ok");
@@ -532,9 +621,10 @@ export default function TradingJournal() {
     if (form.pnl !== "") {
       pnl = parseFloat(form.pnl);
     } else {
-      const diff = direction === "BUY"
-        ? parseFloat(form.exit_price) - parseFloat(form.entry)
-        : parseFloat(form.entry) - parseFloat(form.exit_price);
+      const diff =
+        direction === "BUY"
+          ? parseFloat(form.exit_price) - parseFloat(form.entry)
+          : parseFloat(form.entry) - parseFloat(form.exit_price);
       pnl = parseFloat((diff * parseFloat(form.lot) * 10000).toFixed(2));
     }
 
@@ -563,7 +653,7 @@ export default function TradingJournal() {
       .eq("user_id", currentUser.id);
     if (error) { showToast("Failed to update trade", "err"); return; }
 
-    setTrades((prev) => prev.map((t) => t.id === editingId ? { ...t, ...updates } : t));
+    setTrades((prev) => prev.map((t) => (t.id === editingId ? { ...t, ...updates } : t)));
     setEditingId(null);
     setForm({ ...EMPTY_FORM, date: new Date().toISOString().split("T")[0] });
     setDirection("BUY");
@@ -574,6 +664,15 @@ export default function TradingJournal() {
     setEditingId(null);
     setForm({ ...EMPTY_FORM, date: new Date().toISOString().split("T")[0] });
     setDirection("BUY");
+  }
+
+  function handleNoteSave(notes: string, screenshotUrl: string | null) {
+    if (!noteModalTrade) return;
+    setTrades((prev) =>
+      prev.map((t) =>
+        t.id === noteModalTrade.id ? { ...t, notes, screenshot_url: screenshotUrl } : t
+      )
+    );
   }
 
   async function loadPastAnalyses() {
@@ -600,10 +699,7 @@ export default function TradingJournal() {
         body: JSON.stringify({ period }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        showToast(data.error || "Analysis failed", "err");
-        return;
-      }
+      if (!res.ok) { showToast(data.error || "Analysis failed", "err"); return; }
       setCurrentAnalysis({
         analysis: data.analysis,
         period,
@@ -691,15 +787,20 @@ export default function TradingJournal() {
               sub: "Per closed trade",
             },
           ].map((card) => (
-            <div key={card.label}
+            <div
+              key={card.label}
               className="bg-[var(--cj-surface)] border border-zinc-800 rounded-xl px-5 py-4
-                         hover:border-zinc-700 transition-colors">
+                         hover:border-zinc-700 transition-colors"
+            >
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 mb-2">{card.label}</p>
               <p className={`font-mono text-2xl font-semibold ${card.cls}`}>{card.value}</p>
               <p className="text-[11px] text-zinc-500 mt-1">{card.sub}</p>
             </div>
           ))}
         </div>
+
+        {/* PERFORMANCE BADGE */}
+        <PerformanceBadge trades={trades} />
 
         {/* EQUITY CURVE */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 mb-5">
@@ -714,7 +815,6 @@ export default function TradingJournal() {
         {/* WIN RATE + CALENDAR */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
 
-          {/* Win Rate by Pair */}
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
               Win Rate by Pair
@@ -724,16 +824,18 @@ export default function TradingJournal() {
             </div>
           </div>
 
-          {/* Calendar Heatmap */}
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
               Daily P&L Calendar
             </p>
-            <div style={{ height: 200 }}>
-              <CalendarHeatmap dailyPnl={dailyPnlMap} />
+            <div style={{ height: 220 }}>
+              <CalendarHeatmap dailyData={dailyData} />
             </div>
           </div>
         </div>
+
+        {/* RISK & DISTRIBUTION */}
+        <RiskDistribution trades={trades} />
 
         {/* AI JOURNAL ANALYSIS */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
@@ -788,7 +890,11 @@ export default function TradingJournal() {
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-[10px] uppercase tracking-widest text-blue-500/70
                                  bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md">
-                  {currentAnalysis.period === "daily" ? "Today" : currentAnalysis.period === "weekly" ? "Last 7 days" : "Last 30 days"}
+                  {currentAnalysis.period === "daily"
+                    ? "Today"
+                    : currentAnalysis.period === "weekly"
+                    ? "Last 7 days"
+                    : "Last 30 days"}
                 </span>
                 <span className="text-[10px] text-zinc-700">
                   {new Date(currentAnalysis.created_at).toLocaleDateString("en-GB", {
@@ -864,22 +970,22 @@ export default function TradingJournal() {
                 {isEditing ? "Edit Trade" : "New Trade"}
               </p>
               {isEditing && (
-                <button onClick={cancelEdit}
+                <button
+                  onClick={cancelEdit}
                   className="text-[11px] text-zinc-500 hover:text-zinc-300 border border-zinc-700
-                             rounded-lg px-2.5 py-1 transition-colors">
+                             rounded-lg px-2.5 py-1 transition-colors"
+                >
                   Cancel
                 </button>
               )}
             </div>
 
-            {/* Pair */}
             <label className="block mb-4">
               <span className="label">Currency Pair</span>
               <input className="inp" placeholder="e.g. EURUSD" value={form.pair}
                 onChange={(e) => setForm({ ...form, pair: e.target.value })} />
             </label>
 
-            {/* Direction */}
             <div className="mb-4">
               <span className="label">Direction</span>
               <div className="flex gap-2 mt-1.5">
@@ -888,18 +994,17 @@ export default function TradingJournal() {
                     className={`flex-1 py-2.5 rounded-lg font-mono text-xs font-semibold
                                 tracking-widest border transition-all
                                 ${direction === d
-                        ? d === "BUY"
-                          ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
-                          : "bg-rose-500/15 border-rose-500 text-rose-400"
-                        : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-500 hover:border-zinc-600"
-                      }`}>
+                      ? d === "BUY"
+                        ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
+                        : "bg-rose-500/15 border-rose-500 text-rose-400"
+                      : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                    }`}>
                     {d === "BUY" ? "▲ " : "▼ "}{d}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Asset Class + Session */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               <label>
                 <span className="label">Asset Class</span>
@@ -917,7 +1022,6 @@ export default function TradingJournal() {
               </label>
             </div>
 
-            {/* Setup */}
             <label className="block mb-4">
               <span className="label">Setup Type</span>
               <input className="inp" placeholder="e.g. Break & Retest, OB, Liquidity Sweep"
@@ -925,7 +1029,6 @@ export default function TradingJournal() {
                 onChange={(e) => setForm({ ...form, setup: e.target.value })} />
             </label>
 
-            {/* Lot + Date */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               <label>
                 <span className="label">Lot Size</span>
@@ -940,7 +1043,6 @@ export default function TradingJournal() {
               </label>
             </div>
 
-            {/* Entry + Exit */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               <label>
                 <span className="label">Entry Price</span>
@@ -956,7 +1058,6 @@ export default function TradingJournal() {
               </label>
             </div>
 
-            {/* SL + TP */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               <label>
                 <span className="label">Stop Loss</span>
@@ -972,7 +1073,6 @@ export default function TradingJournal() {
               </label>
             </div>
 
-            {/* P&L Override */}
             <label className="block mb-4">
               <span className="label">P&L Override ($)</span>
               <input className="inp" type="number" step="0.01"
@@ -980,7 +1080,6 @@ export default function TradingJournal() {
                 onChange={(e) => setForm({ ...form, pnl: e.target.value })} />
             </label>
 
-            {/* News Event Toggle */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="label">News Event Trade?</span>
@@ -1012,7 +1111,6 @@ export default function TradingJournal() {
               )}
             </div>
 
-            {/* Notes */}
             <label className="block mb-5">
               <span className="label">Notes</span>
               <textarea className="inp resize-none h-16"
@@ -1020,9 +1118,11 @@ export default function TradingJournal() {
                 onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </label>
 
-            <button onClick={isEditing ? saveEdit : addTrade}
+            <button
+              onClick={isEditing ? saveEdit : addTrade}
               className="w-full py-2.5 rounded-xl text-white font-semibold text-sm
-                         tracking-wide transition-all active:scale-[0.98] bg-blue-600 hover:bg-blue-500">
+                         tracking-wide transition-all active:scale-[0.98] bg-blue-600 hover:bg-blue-500"
+            >
               {isEditing ? "💾 Save Changes" : "+ Add Trade"}
             </button>
           </div>
@@ -1030,7 +1130,6 @@ export default function TradingJournal() {
           {/* ── TABLE PANEL ── */}
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
 
-            {/* Table header + filter count */}
             <div className="flex items-center justify-between mb-4">
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
                 Trade History
@@ -1083,7 +1182,6 @@ export default function TradingJournal() {
               </div>
             </div>
 
-            {/* Clear filters */}
             {activeFilterCount > 0 && (
               <div className="mb-3 -mt-2">
                 <button onClick={() => setFilters(EMPTY_FILTERS)}
@@ -1101,7 +1199,9 @@ export default function TradingJournal() {
                   {trades.length === 0 ? "No trades yet" : "No trades match filters"}
                 </p>
                 <p className="text-sm">
-                  {trades.length === 0 ? "Add your first trade using the form" : "Try adjusting the filters above"}
+                  {trades.length === 0
+                    ? "Add your first trade using the form"
+                    : "Try adjusting the filters above"}
                 </p>
               </div>
             ) : (
@@ -1109,10 +1209,12 @@ export default function TradingJournal() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr>
-                      {["Pair", "Dir", "Date", "Lot", "Entry", "Exit", "P&L", "Actions"].map((h) => (
-                        <th key={h}
+                      {["Pair", "Dir", "Date", "Lot", "Entry", "Exit", "P&L", "Notes", "Actions"].map((h) => (
+                        <th
+                          key={h}
                           className="text-[10px] uppercase tracking-widest text-zinc-600 font-medium
-                                     text-left pb-3 border-b border-zinc-800 px-2 last:text-right">
+                                     text-left pb-3 border-b border-zinc-800 px-2 last:text-right"
+                        >
                           {h}
                         </th>
                       ))}
@@ -1120,16 +1222,17 @@ export default function TradingJournal() {
                   </thead>
                   <tbody>
                     {filteredTrades.map((t) => (
-                      <tr key={t.id}
+                      <tr
+                        key={t.id}
                         className={`group transition-colors
                                     ${editingId === t.id
                             ? "bg-blue-500/5 border-l-2 border-l-blue-500"
-                            : "hover:bg-[var(--cj-raised)]"}`}>
+                            : "hover:bg-[var(--cj-raised)]"}`}
+                      >
 
                         <td className="px-2 py-3 border-b border-zinc-800/60">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-xs font-semibold bg-zinc-800
-                                             rounded-md px-2 py-1">
+                            <span className="font-mono text-xs font-semibold bg-zinc-800 rounded-md px-2 py-1">
                               {t.pair}
                             </span>
                             {t.asset_class && (
@@ -1180,19 +1283,41 @@ export default function TradingJournal() {
                           {fmt(t.pnl)}
                         </td>
 
+                        {/* Note / screenshot indicator */}
+                        <td className="px-2 py-3 border-b border-zinc-800/60 text-center">
+                          <button
+                            onClick={() => setNoteModalTrade(t)}
+                            title={t.notes?.trim() || t.screenshot_url ? "View / edit note" : "Add note"}
+                            className="text-sm leading-none hover:scale-110 transition-transform"
+                          >
+                            {t.screenshot_url && t.notes?.trim()
+                              ? "📝📸"
+                              : t.screenshot_url
+                              ? "📸"
+                              : t.notes?.trim()
+                              ? "📝"
+                              : <span className="text-zinc-700 text-xs border border-zinc-800 rounded px-1.5 py-0.5 hover:border-zinc-600 hover:text-zinc-500">+note</span>
+                            }
+                          </button>
+                        </td>
+
                         <td className="px-2 py-3 border-b border-zinc-800/60 text-right">
                           <div className="flex items-center justify-end gap-1
                                           opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => startEdit(t)}
+                            <button
+                              onClick={() => startEdit(t)}
                               className="text-zinc-500 hover:text-blue-400 border border-zinc-800
                                          hover:border-blue-500/50 rounded-md px-2 py-1 text-xs
-                                         transition-all">
+                                         transition-all"
+                            >
                               ✏️
                             </button>
-                            <button onClick={() => deleteTrade(t.id)}
+                            <button
+                              onClick={() => deleteTrade(t.id)}
                               className="text-zinc-600 hover:text-rose-400 border border-zinc-800
                                          hover:border-rose-500/50 rounded-md px-2 py-1 text-xs
-                                         transition-all">
+                                         transition-all"
+                            >
                               ✕
                             </button>
                           </div>
@@ -1207,13 +1332,27 @@ export default function TradingJournal() {
         </div>
       </main>
 
+      {/* TRADE NOTE MODAL */}
+      {noteModalTrade && currentUser && (
+        <TradeNoteModal
+          trade={noteModalTrade}
+          userId={currentUser.id}
+          onClose={() => setNoteModalTrade(null)}
+          onSave={handleNoteSave}
+        />
+      )}
+
       {/* UPGRADE MODAL */}
       {upgradeReason && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-             style={{ background: "rgba(0,0,0,0.75)" }}
-             onClick={() => setUpgradeReason(null)}>
-          <div className="bg-[var(--cj-surface)] border border-zinc-700 rounded-2xl p-7 max-w-sm w-full"
-               onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.75)" }}
+          onClick={() => setUpgradeReason(null)}
+        >
+          <div
+            className="bg-[var(--cj-surface)] border border-zinc-700 rounded-2xl p-7 max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="text-center mb-5">
               <span className="text-4xl">🚀</span>
               <h3 className="text-lg font-bold mt-3 mb-2">Upgrade to Pro</h3>
@@ -1229,13 +1368,17 @@ export default function TradingJournal() {
                 </li>
               ))}
             </ul>
-            <Link href="/pricing"
+            <Link
+              href="/pricing"
               className="block w-full text-center py-3 rounded-xl bg-blue-600 hover:bg-blue-500
-                         text-white font-semibold text-sm transition-all mb-3">
+                         text-white font-semibold text-sm transition-all mb-3"
+            >
               View Plans — ₦5,000/month →
             </Link>
-            <button onClick={() => setUpgradeReason(null)}
-              className="w-full text-center text-sm text-zinc-600 hover:text-zinc-400 transition-colors">
+            <button
+              onClick={() => setUpgradeReason(null)}
+              className="w-full text-center text-sm text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
               Maybe later
             </button>
           </div>

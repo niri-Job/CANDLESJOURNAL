@@ -27,6 +27,7 @@ interface Trade {
   pnl: number;
   notes: string;
   screenshot_url?: string | null;
+  emotion?: string | null;
   asset_class: string;
   session: string;
   setup: string;
@@ -70,6 +71,11 @@ const EMPTY_FORM = {
 const EMPTY_FILTERS: Filters = { dateFrom: "", dateTo: "", pair: "", direction: "" };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+const EMOTION_EMOJI: Record<string, string> = {
+  revenge: "😤", fear: "😰", greedy: "🤑",
+  confident: "😎", bored: "😴", news: "📰",
+};
+
 const pnlColor = (v: number) =>
   v > 0 ? "text-emerald-400" : v < 0 ? "text-rose-400" : "text-zinc-300";
 
@@ -646,10 +652,10 @@ export default function TradingJournal() {
     setDirection("BUY");
   }
 
-  function handleNoteSave(notes: string, screenshotUrl: string | null) {
+  function handleNoteSave(notes: string, screenshotUrl: string | null, emotion: string | null) {
     if (!noteModalTrade) return;
     setTrades((prev) =>
-      prev.map((t) => t.id === noteModalTrade.id ? { ...t, notes, screenshot_url: screenshotUrl } : t)
+      prev.map((t) => t.id === noteModalTrade.id ? { ...t, notes, screenshot_url: screenshotUrl, emotion } : t)
     );
   }
 
@@ -1163,7 +1169,7 @@ export default function TradingJournal() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr>
-                      {["Pair", "Dir", "Date", "Lot", "Entry", "Exit", "P&L", "Notes", "Actions"].map((h) => (
+                      {["Pair", "Dir", "Date", "Lot", "Entry", "Exit", "P&L", "Notes & Media", "Emotion", "Actions"].map((h) => (
                         <th key={h} className="text-[10px] uppercase tracking-widest text-zinc-600 font-medium
                                                text-left pb-3 border-b border-zinc-800 px-2 last:text-right">
                           {h}
@@ -1210,17 +1216,42 @@ export default function TradingJournal() {
                           {fmt(t.pnl)}
                         </td>
 
-                        {/* Note / screenshot indicator */}
+                        {/* Notes & Media column */}
                         <td className="px-2 py-3 border-b border-zinc-800/60 text-center">
-                          <button onClick={() => setNoteModalTrade(t)}
-                            title={t.notes?.trim() || t.screenshot_url ? "View / edit note" : "Add note"}
-                            className="text-sm leading-none hover:scale-110 transition-transform">
-                            {t.screenshot_url && t.notes?.trim() ? "📝📸"
-                              : t.screenshot_url ? "📸"
-                              : t.notes?.trim() ? "📝"
-                              : <span className="text-zinc-700 text-xs border border-zinc-800 rounded px-1.5 py-0.5
-                                                 hover:border-zinc-600 hover:text-zinc-500">+note</span>}
-                          </button>
+                          {t.notes?.trim() || t.screenshot_url ? (
+                            <button
+                              onClick={() => setNoteModalTrade(t)}
+                              title="View / edit journal entry"
+                              className="inline-flex items-center gap-1 hover:scale-110 transition-transform"
+                            >
+                              {t.notes?.trim() && (
+                                <span className="text-base text-emerald-400" title="Has notes">📝</span>
+                              )}
+                              {t.screenshot_url && (
+                                <span className="text-base text-blue-400" title="Has screenshot">📸</span>
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setNoteModalTrade(t)}
+                              className="text-[10px] font-semibold text-zinc-400 bg-zinc-800 hover:bg-zinc-700
+                                         hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500
+                                         rounded-md px-2 py-1 transition-all whitespace-nowrap"
+                            >
+                              + Add
+                            </button>
+                          )}
+                        </td>
+
+                        {/* Emotion column */}
+                        <td className="px-2 py-3 border-b border-zinc-800/60 text-center">
+                          {t.emotion && EMOTION_EMOJI[t.emotion] ? (
+                            <span className="text-base" title={t.emotion}>
+                              {EMOTION_EMOJI[t.emotion]}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-800 text-xs">—</span>
+                          )}
                         </td>
 
                         <td className="px-2 py-3 border-b border-zinc-800/60 text-right">

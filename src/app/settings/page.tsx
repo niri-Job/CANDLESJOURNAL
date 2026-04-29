@@ -16,6 +16,20 @@ interface SyncToken {
   created_at: string;
 }
 
+interface TradingAccount {
+  id: string;
+  account_signature: string;
+  account_label: string | null;
+  broker_name: string | null;
+  account_login: string | null;
+  account_server: string | null;
+  account_currency: string;
+  account_type: string;
+  is_cent: boolean;
+  current_balance: number | null;
+  last_synced_at: string | null;
+}
+
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
 
@@ -31,6 +45,9 @@ export default function SettingsPage() {
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [sub, setSub] = useState<SubState>({ status: "free", end: null });
+  const [tradingAccounts, setTradingAccounts] = useState<TradingAccount[]>([]);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
   const [syncUrl] = useState(() =>
     typeof window !== "undefined" ? window.location.origin + "/api/mt5/sync" : ""
   );
@@ -60,10 +77,45 @@ export default function SettingsPage() {
       const subData = subRaw as { subscription_status: string | null; subscription_end: string | null } | null;
       setSub({ status: subData?.subscription_status ?? "free", end: subData?.subscription_end ?? null });
 
+      const { data: accounts } = await supabase
+        .from("trading_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (accounts) setTradingAccounts(accounts as TradingAccount[]);
+
       setLoading(false);
     }
     init();
   }, []);
+
+  async function saveLabel(accountId: string) {
+    if (!user) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("trading_accounts")
+      .update({ account_label: editLabel.trim() || null })
+      .eq("id", accountId)
+      .eq("user_id", user.id);
+    if (!error) {
+      setTradingAccounts((prev) =>
+        prev.map((a) => a.id === accountId ? { ...a, account_label: editLabel.trim() || null } : a)
+      );
+    }
+    setEditingAccountId(null);
+  }
+
+  async function deleteAccount(accountId: string) {
+    if (!user) return;
+    if (!confirm("Disconnect this account? Its trade history will remain, but the account card will be removed.")) return;
+    const supabase = createClient();
+    await supabase
+      .from("trading_accounts")
+      .delete()
+      .eq("id", accountId)
+      .eq("user_id", user.id);
+    setTradingAccounts((prev) => prev.filter((a) => a.id !== accountId));
+  }
 
   async function generateToken() {
     if (!user) return;
@@ -250,6 +302,144 @@ export default function SettingsPage() {
                 {generating ? "Generating..." : "Generate Token"}
               </button>
               {genError && <p className="mt-3 text-xs text-rose-400">{genError}</p>}
+            </div>
+          )}
+        </div>
+
+        {/* CONNECTED ACCOUNTS */}
+        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-5">
+            Connected Accounts
+          </p>
+
+          {tradingAccounts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="w-10 h-10 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
+                              flex items-center justify-center text-lg mb-3">
+                📊
+              </div>
+              <p className="text-sm text-zinc-500 mb-1">No accounts connected yet</p>
+              <p className="text-xs text-zinc-600">
+                Once your EA syncs its first trade, your account will appear here automatically.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {tradingAccounts.map((acct) => (
+                <div
+                  key={acct.id}
+                  className="bg-[var(--cj-raised)] border border-zinc-800 rounded-xl p-4"
+                >
+                  {/* Header row */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      {editingAccountId === acct.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={editLabel}
+                            onChange={(e) => setEditLabel(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") saveLabel(acct.id); if (e.key === "Escape") setEditingAccountId(null); }}
+                            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5
+                                       text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
+                            placeholder="Account label"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => saveLabel(acct.id)}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingAccountId(null)}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-all"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-zinc-100 truncate">
+                            {acct.account_label || acct.broker_name || acct.account_login || "Unknown Account"}
+                          </p>
+                          <button
+                            onClick={() => { setEditingAccountId(acct.id); setEditLabel(acct.account_label || ""); }}
+                            className="text-[10px] text-zinc-600 hover:text-blue-400 transition-colors"
+                          >
+                            Rename
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
+                        ${acct.account_type === "demo"
+                          ? "bg-yellow-500/15 border border-yellow-500/30 text-yellow-400"
+                          : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                        }`}>
+                        {acct.account_type}
+                      </span>
+                      {acct.is_cent && (
+                        <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
+                          bg-orange-500/15 border border-orange-500/30 text-orange-400">
+                          Cent
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Detail grid */}
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs mb-3">
+                    {acct.broker_name && (
+                      <>
+                        <span className="text-zinc-600">Broker</span>
+                        <span className="text-zinc-300 truncate">{acct.broker_name}</span>
+                      </>
+                    )}
+                    {acct.account_login && (
+                      <>
+                        <span className="text-zinc-600">Login</span>
+                        <span className="font-mono text-zinc-300">{acct.account_login}</span>
+                      </>
+                    )}
+                    {acct.account_server && (
+                      <>
+                        <span className="text-zinc-600">Server</span>
+                        <span className="text-zinc-300 truncate">{acct.account_server}</span>
+                      </>
+                    )}
+                    <span className="text-zinc-600">Currency</span>
+                    <span className="text-zinc-300">{acct.account_currency}</span>
+                    {acct.current_balance != null && (
+                      <>
+                        <span className="text-zinc-600">Balance</span>
+                        <span className="text-zinc-300 font-mono">
+                          {acct.current_balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                          {acct.account_currency}
+                        </span>
+                      </>
+                    )}
+                    {acct.last_synced_at && (
+                      <>
+                        <span className="text-zinc-600">Last sync</span>
+                        <span className="text-zinc-400">
+                          {new Date(acct.last_synced_at).toLocaleString()}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Disconnect */}
+                  <div className="border-t border-zinc-800 pt-3">
+                    <button
+                      onClick={() => deleteAccount(acct.id)}
+                      className="text-[11px] text-zinc-700 hover:text-rose-400 transition-colors"
+                    >
+                      Disconnect account
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

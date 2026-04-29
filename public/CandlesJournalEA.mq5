@@ -1,202 +1,206 @@
 //+------------------------------------------------------------------+
-//|                                       CandlesJournalEA.mq5      |
-//|          Automatically syncs closed trades to CandlesJournal     |
+//|                                    CandlesJournalEA.mq5          |
+//|     Production EA v2.00 — Multi-Account, Cent-Safe, Async        |
 //+------------------------------------------------------------------+
 //
 // HOW TO INSTALL:
-// 1. Copy this file to your MT5 data folder:
-//       File → Open Data Folder → MQL5 → Experts
-// 2. Open MetaEditor: press F4 inside MT5 (or Tools → MetaEditor)
-// 3. In MetaEditor: File → Open → find CandlesJournalEA.mq5
-// 4. Press F5 (or Build → Compile) — must show "0 errors, 0 warnings"
-// 5. Back in MT5 Navigator: right-click Experts → Refresh
-// 6. Drag CandlesJournalEA onto any chart (e.g. EURUSD H1)
-// 7. In the EA Inputs tab paste your Sync Token from the Settings page
-// 8. Enable "Allow Algo Trading" (green button in MT5 toolbar)
-// 9. Watch the Experts tab at the bottom for confirmation messages
+// 1. File → Open Data Folder → MQL5 → Experts → paste this file
+// 2. Press F5 in MetaEditor to compile (must show 0 errors)
+// 3. Navigator panel → right-click Experts → Refresh
+// 4. Drag CandlesJournalEA onto any chart (e.g. EURUSD H1)
+// 5. Inputs tab: paste SyncToken and SyncURL from Settings page
+// 6. Common tab: enable "Allow algo trading"
+// 7. Tools → Options → Expert Advisors → Allow WebRequest → add your URL
 //
 #property copyright "CandlesJournal"
-#property version   "1.08"
-#property description "Syncs every closed trade to your CandlesJournal automatically."
+#property version   "2.00"
+#property description "Syncs closed trades to CandlesJournal — multi-account, cent-safe, async."
 
-input string InpSyncToken = "";                                                                   // Sync Token  (paste from Settings page)
-input string InpServerURL = "https://symphonious-lily-0d7ae0.netlify.app/api/mt5/sync";           // Sync URL    (pre-filled for your live app)
+//--- Input parameters
+input string InpSyncToken        = "";                 // Sync Token  (from Settings page)
+input string InpSyncURL          = "";                 // Sync URL    (from Settings page)
+input string InpAccountLabel     = "My MT5 Account";  // Label for this account
+input int    InpSyncIntervalSecs = 30;                 // Sync interval in seconds
 
-#define GV_LAST_TICKET    "CJ_LAST_TICKET"
-#define GV_LAST_SYNC_TIME "CJ_LAST_SYNC_TIME"   // close-time of last successfully synced deal
+//--- Persistence keys (v2 — separate from v1 to avoid checkpoint collisions)
+#define GV_LAST_TICKET    "CJ2_LAST_TICKET"
+#define GV_LAST_SYNC_TIME "CJ2_LAST_SYNC_TIME"
+
+//--- In-session dedup: "closeTime_ticket" keys prevent re-sending same deal
+#define MAX_SYNCED_KEYS 5000
+string g_syncedKeys[];
+int    g_syncedCount = 0;
+
+//--- Pending sync queue
+ulong g_queue[];
+int   g_queueCount = 0;
+
+//--- Rate limiting
+datetime g_lastSyncAt = 0;
 
 //+------------------------------------------------------------------+
 //  Persistence helpers
 //+------------------------------------------------------------------+
 ulong GetLastSyncedTicket()
 {
-   if(GlobalVariableCheck(GV_LAST_TICKET))
-      return (ulong)GlobalVariableGet(GV_LAST_TICKET);
+   if(GlobalVariableCheck(GV_LAST_TICKET)) return (ulong)GlobalVariableGet(GV_LAST_TICKET);
    return 0;
 }
-
-void SetLastSyncedTicket(ulong ticket)
-{
-   GlobalVariableSet(GV_LAST_TICKET, (double)ticket);
-}
+void SetLastSyncedTicket(ulong t) { GlobalVariableSet(GV_LAST_TICKET, (double)t); }
 
 datetime GetLastSyncTime()
 {
-   if(GlobalVariableCheck(GV_LAST_SYNC_TIME))
-      return (datetime)GlobalVariableGet(GV_LAST_SYNC_TIME);
+   if(GlobalVariableCheck(GV_LAST_SYNC_TIME)) return (datetime)GlobalVariableGet(GV_LAST_SYNC_TIME);
    return 0;
 }
+void SetLastSyncTime(datetime t) { GlobalVariableSet(GV_LAST_SYNC_TIME, (double)t); }
 
-void SetLastSyncTime(datetime t)
+//+------------------------------------------------------------------+
+//  In-session dedup helpers
+//+------------------------------------------------------------------+
+string MakeSyncKey(ulong ticket, datetime closeTime)
 {
-   GlobalVariableSet(GV_LAST_SYNC_TIME, (double)t);
+   return IntegerToString((long)closeTime) + "_" + IntegerToString(ticket);
+}
+
+bool WasSyncedThisSession(ulong ticket, datetime closeTime)
+{
+   string key = MakeSyncKey(ticket, closeTime);
+   for(int i = 0; i < g_syncedCount; i++)
+      if(g_syncedKeys[i] == key) return true;
+   return false;
+}
+
+void MarkSyncedThisSession(ulong ticket, datetime closeTime)
+{
+   if(g_syncedCount >= MAX_SYNCED_KEYS) return;
+   string key = MakeSyncKey(ticket, closeTime);
+   ArrayResize(g_syncedKeys, g_syncedCount + 1);
+   g_syncedKeys[g_syncedCount++] = key;
 }
 
 //+------------------------------------------------------------------+
-//  StripSuffix — removes broker-specific suffixes from symbol names
-//
-//  Handles all common formats:
-//    BTCUSDm   → BTCUSD   (Exness: trailing lowercase letters)
-//    EURUSD.r  → EURUSD   (ICMarkets: dot + extension)
-//    EURUSD.pro→ EURUSD   (dot + word)
-//    EURUSD_raw→ EURUSD   (underscore + word)
-//    XAUUSDm   → XAUUSD
-//    GBPJPYm   → GBPJPY
+//  EscapeJSON — safely escape a string for embedding in JSON
+//+------------------------------------------------------------------+
+string EscapeJSON(string s)
+{
+   string out = "";
+   int len = StringLen(s);
+   for(int i = 0; i < len; i++)
+   {
+      ushort c = StringGetCharacter(s, i);
+      if     (c == '"')  out += "\\\"";
+      else if(c == '\\') out += "\\\\";
+      else if(c == '\n') out += "\\n";
+      else if(c == '\r') out += "\\r";
+      else if(c == '\t') out += "\\t";
+      else               out += ShortToString(c);
+   }
+   return out;
+}
+
+//+------------------------------------------------------------------+
+//  SafeDouble — locale-independent number → string
+//+------------------------------------------------------------------+
+string SafeDouble(double v, int d) { return DoubleToString(NormalizeDouble(v, d), d); }
+
+//+------------------------------------------------------------------+
+//  IsCentAccount — detect cent/micro accounts
+//+------------------------------------------------------------------+
+bool IsCentAccount()
+{
+   string cur = AccountInfoString(ACCOUNT_CURRENCY);
+   StringToUpper(cur);
+   if(StringFind(cur, "USC") >= 0 || StringFind(cur, "CENT") >= 0) return true;
+   // Heuristic: standard forex contract = 100,000; cent = 1,000
+   double cs = SymbolInfoDouble(Symbol(), SYMBOL_TRADE_CONTRACT_SIZE);
+   if(cs > 0 && cs < 10000) return true;
+   return false;
+}
+
+//+------------------------------------------------------------------+
+//  StripSuffix — remove broker-specific symbol extensions
+//  e.g. EURUSDm → EURUSD,  EURUSD.r → EURUSD,  XAUUSDpro → XAUUSD
 //+------------------------------------------------------------------+
 string StripSuffix(string raw)
 {
    string s = raw;
-
-   // Remove everything from '.' onwards  (.r, .pro, .ecn, .mt5, etc.)
-   int dotPos = StringFind(s, ".");
-   if(dotPos >= 0)
-      s = StringSubstr(s, 0, dotPos);
-
-   // Remove everything from '_' onwards  (_raw, _pro, _SB, etc.)
-   int underPos = StringFind(s, "_");
-   if(underPos >= 0)
-      s = StringSubstr(s, 0, underPos);
-
-   // Strip trailing lowercase letters  (m, mt, pro → gone; uppercase safe)
+   int p = StringFind(s, ".");
+   if(p >= 0) s = StringSubstr(s, 0, p);
+   int u = StringFind(s, "_");
+   if(u >= 0) s = StringSubstr(s, 0, u);
    int len = StringLen(s);
    while(len > 0)
    {
-      ushort ch = StringGetCharacter(s, len - 1);
-      if(ch >= 'a' && ch <= 'z')
-         len--;
-      else
-         break;
+      ushort c = StringGetCharacter(s, len - 1);
+      if(c >= 'a' && c <= 'z') len--;
+      else break;
    }
    return StringSubstr(s, 0, len);
 }
 
 //+------------------------------------------------------------------+
-//  DetectAssetClass — works on the STRIPPED symbol
+//  DetectAssetClass — classify a stripped symbol
 //+------------------------------------------------------------------+
-string DetectAssetClass(string stripped)
+string DetectAssetClass(string sym)
 {
-   string s = stripped;
+   string s = sym;
    StringToUpper(s);
-
-   // Crypto
-   if(StringFind(s,"BTC")  >= 0 || StringFind(s,"ETH")  >= 0 || StringFind(s,"XRP")  >= 0 ||
-      StringFind(s,"BNB")  >= 0 || StringFind(s,"SOL")  >= 0 || StringFind(s,"DOGE") >= 0 ||
-      StringFind(s,"ADA")  >= 0 || StringFind(s,"LTC")  >= 0 || StringFind(s,"LINK") >= 0 ||
-      StringFind(s,"DOT")  >= 0 || StringFind(s,"AVAX") >= 0 || StringFind(s,"MATIC")>= 0 ||
-      StringFind(s,"UNI")  >= 0 || StringFind(s,"ATOM") >= 0 || StringFind(s,"TRX")  >= 0)
+   if(StringFind(s,"BTC")>=0 || StringFind(s,"ETH")>=0 || StringFind(s,"XRP")>=0 ||
+      StringFind(s,"BNB")>=0 || StringFind(s,"SOL")>=0 || StringFind(s,"DOGE")>=0 ||
+      StringFind(s,"ADA")>=0 || StringFind(s,"LTC")>=0 || StringFind(s,"LINK")>=0)
       return "Crypto";
-
-   // Metals / Commodities
-   if(StringFind(s,"XAU")   >= 0 || StringFind(s,"XAG")   >= 0 || StringFind(s,"GOLD")  >= 0 ||
-      StringFind(s,"SILVER")>= 0 || StringFind(s,"OIL")   >= 0 || StringFind(s,"WTI")   >= 0 ||
-      StringFind(s,"BRENT") >= 0 || StringFind(s,"USOIL") >= 0 || StringFind(s,"UKOIL") >= 0 ||
-      StringFind(s,"NGAS")  >= 0 || StringFind(s,"COPPER")>= 0 || StringFind(s,"XPTUSD")>= 0)
+   if(StringFind(s,"XAU")>=0 || StringFind(s,"XAG")>=0 || StringFind(s,"GOLD")>=0 ||
+      StringFind(s,"OIL")>=0 || StringFind(s,"WTI")>=0 || StringFind(s,"BRENT")>=0 ||
+      StringFind(s,"USOIL")>=0 || StringFind(s,"UKOIL")>=0 || StringFind(s,"NGAS")>=0)
       return "Metals";
-
-   // Indices
-   if(StringFind(s,"SPX")   >= 0 || StringFind(s,"SP500") >= 0 || StringFind(s,"NAS")   >= 0 ||
-      StringFind(s,"NDX")   >= 0 || StringFind(s,"US30")  >= 0 || StringFind(s,"DJ30")  >= 0 ||
-      StringFind(s,"DAX")   >= 0 || StringFind(s,"FTSE")  >= 0 || StringFind(s,"CAC")   >= 0 ||
-      StringFind(s,"UK100") >= 0 || StringFind(s,"GER")   >= 0 || StringFind(s,"AUS200")>= 0 ||
-      StringFind(s,"JP225") >= 0 || StringFind(s,"HK50")  >= 0 || StringFind(s,"US500") >= 0 ||
-      StringFind(s,"US100") >= 0 || StringFind(s,"VIX")   >= 0 || StringFind(s,"CHINA") >= 0)
+   if(StringFind(s,"SPX")>=0 || StringFind(s,"NAS")>=0 || StringFind(s,"US30")>=0 ||
+      StringFind(s,"DAX")>=0 || StringFind(s,"FTSE")>=0 || StringFind(s,"UK100")>=0 ||
+      StringFind(s,"US100")>=0 || StringFind(s,"US500")>=0 || StringFind(s,"GER")>=0 ||
+      StringFind(s,"JP225")>=0 || StringFind(s,"HK50")>=0 || StringFind(s,"VIX")>=0)
       return "Indices";
-
    return "Forex";
 }
 
 //+------------------------------------------------------------------+
-//  SafeDouble — locale-independent number → JSON string
-//  DoubleToString always uses a period regardless of system locale.
-//+------------------------------------------------------------------+
-string SafeDouble(double value, int digits)
-{
-   return DoubleToString(NormalizeDouble(value, digits), digits);
-}
-
-//+------------------------------------------------------------------+
-//  PostJSON — send a JSON string via WebRequest and return HTTP code
+//  PostJSON — HTTP POST; returns HTTP code; fills responseBody
 //+------------------------------------------------------------------+
 int PostJSON(string json, string &responseBody)
 {
-   char   postData[];
-   char   resData[];
+   char   postData[], resData[];
    string resHeaders;
    string reqHeaders = "Content-Type: application/json\r\nAccept: application/json\r\n";
-
-   // StringToCharArray with no count includes null terminator (returns len+1).
-   // Remove null before sending.
    int sz = StringToCharArray(json, postData);
-   ArrayResize(postData, sz - 1);
-
+   ArrayResize(postData, sz - 1);   // strip null terminator
    ResetLastError();
-   int code = WebRequest("POST", InpServerURL, reqHeaders, 15000, postData, resData, resHeaders);
+   int code = WebRequest("POST", InpSyncURL, reqHeaders, 5000, postData, resData, resHeaders);
    responseBody = CharArrayToString(resData);
    return code;
 }
 
 //+------------------------------------------------------------------+
-//  SyncDeal — build payload and POST one closed deal
+//  BuildPayload — construct full JSON for one closing deal
+//  Returns "" if the deal is not a closing deal.
 //+------------------------------------------------------------------+
-void SyncDeal(ulong dealTicket)
+string BuildPayload(ulong ticket)
 {
-   Print("CandlesJournal: --- SyncDeal START ticket #", dealTicket, " ---");
+   if(!HistoryDealSelect(ticket)) return "";
+   ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(ticket, DEAL_ENTRY);
+   if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY) return "";
 
-   if(!HistoryDealSelect(dealTicket))
-   {
-      Print("CandlesJournal: HistoryDealSelect FAILED ticket #", dealTicket, " — skipping");
-      return;
-   }
+   string rawSym    = HistoryDealGetString(ticket, DEAL_SYMBOL);
+   string sym       = StripSuffix(rawSym);
+   double exitPrice = HistoryDealGetDouble(ticket, DEAL_PRICE);
+   double volume    = HistoryDealGetDouble(ticket, DEAL_VOLUME);
+   double profit    = HistoryDealGetDouble(ticket, DEAL_PROFIT)
+                    + HistoryDealGetDouble(ticket, DEAL_SWAP)
+                    + HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+   datetime closeTime = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+   long posId       = HistoryDealGetInteger(ticket, DEAL_POSITION_ID);
 
-   ENUM_DEAL_ENTRY dealEntry = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(dealTicket, DEAL_ENTRY);
-   Print("CandlesJournal: Entry type = ", EnumToString(dealEntry));
-
-   if(dealEntry != DEAL_ENTRY_OUT && dealEntry != DEAL_ENTRY_OUT_BY)
-   {
-      Print("CandlesJournal: Not a closing deal — skipping");
-      return;
-   }
-
-   string   rawSymbol = HistoryDealGetString(dealTicket, DEAL_SYMBOL);
-   string   symbol    = StripSuffix(rawSymbol);          // clean pair sent to journal
-   double   exitPrice = HistoryDealGetDouble(dealTicket, DEAL_PRICE);
-   double   volume    = HistoryDealGetDouble(dealTicket, DEAL_VOLUME);
-   double   profit    = HistoryDealGetDouble(dealTicket, DEAL_PROFIT)
-                      + HistoryDealGetDouble(dealTicket, DEAL_SWAP)
-                      + HistoryDealGetDouble(dealTicket, DEAL_COMMISSION);
-   datetime closeTime = (datetime)HistoryDealGetInteger(dealTicket, DEAL_TIME);
-   long     posId     = HistoryDealGetInteger(dealTicket, DEAL_POSITION_ID);
-
-   Print("CandlesJournal: raw=", rawSymbol, " stripped=", symbol,
-         " exit=", exitPrice, " vol=", volume,
-         " pnl=",  NormalizeDouble(profit, 2), " posId=", posId,
-         " closeTime=", TimeToString(closeTime, TIME_DATE|TIME_SECONDS));
-
-   // ── Find opening deal → entry price + direction ───────────────
    string direction  = "BUY";
    double entryPrice = exitPrice;
    double sl = 0, tp = 0;
-   bool   foundOpen  = false;
 
    if(HistorySelectByPosition(posId))
    {
@@ -204,20 +208,13 @@ void SyncDeal(ulong dealTicket)
       for(int i = 0; i < n; i++)
       {
          ulong tk = HistoryDealGetTicket(i);
-         ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
-         // DEAL_ENTRY_IN  = normal open (hedging + netting)
-         // DEAL_ENTRY_INOUT = netting position reversal (first side is the close, ignored here)
-         if(de == DEAL_ENTRY_IN)
+         if((ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY) == DEAL_ENTRY_IN)
          {
             direction  = (HistoryDealGetInteger(tk, DEAL_TYPE) == DEAL_TYPE_BUY) ? "BUY" : "SELL";
             entryPrice = HistoryDealGetDouble(tk, DEAL_PRICE);
-            foundOpen  = true;
-            Print("CandlesJournal: Opening deal — direction:", direction,
-                  " entry:", entryPrice, " entry_type:", EnumToString(de));
             break;
          }
       }
-      // Try to find SL/TP from the position's orders
       int no = HistoryOrdersTotal();
       for(int i = 0; i < no; i++)
       {
@@ -230,314 +227,291 @@ void SyncDeal(ulong dealTicket)
          break;
       }
    }
-
-   if(!foundOpen)
+   else
    {
-      // Fallback for netting accounts or when position history is unavailable:
-      // The closing deal type is the OPPOSITE of the original position direction.
-      // e.g. DEAL_TYPE_SELL to close → original position was BUY
-      long dealType = HistoryDealGetInteger(dealTicket, DEAL_TYPE);
-      direction     = (dealType == DEAL_TYPE_SELL) ? "BUY" : "SELL";
-      Print("CandlesJournal: Opening deal not found — netting fallback direction:", direction);
+      // Netting fallback: closing deal type is opposite of original direction
+      direction = (HistoryDealGetInteger(ticket, DEAL_TYPE) == DEAL_TYPE_SELL) ? "BUY" : "SELL";
    }
 
-   MqlDateTime dt;
-   TimeToStruct(closeTime, dt);
-   string dateStr    = StringFormat("%04d-%02d-%02d", dt.year, dt.mon, dt.day);
-   string assetClass = DetectAssetClass(symbol);          // on stripped symbol
+   MqlDateTime mdt;
+   TimeToStruct(closeTime, mdt);
+   string dateStr = StringFormat("%04d-%02d-%02d", mdt.year, mdt.mon, mdt.day);
 
-   string slStr = (sl > 0) ? SafeDouble(sl, 5) : "null";
-   string tpStr = (tp > 0) ? SafeDouble(tp, 5) : "null";
+   // Account metadata
+   string broker      = AccountInfoString(ACCOUNT_COMPANY);
+   string currency    = AccountInfoString(ACCOUNT_CURRENCY);
+   string server      = AccountInfoString(ACCOUNT_SERVER);
+   long   login       = AccountInfoInteger(ACCOUNT_LOGIN);
+   bool   isDemo      = (AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO);
+   double balance     = AccountInfoDouble(ACCOUNT_BALANCE);
+   bool   isCent      = IsCentAccount();
+   double contractSz  = SymbolInfoDouble(rawSym, SYMBOL_TRADE_CONTRACT_SIZE);
+   double tickVal     = SymbolInfoDouble(rawSym, SYMBOL_TRADE_TICK_VALUE);
+   string acctSig     = IntegerToString(login) + "_" + EscapeJSON(server);
 
-   // ── Build JSON (string concat + DoubleToString only — never StringFormat for floats) ──
-   string json = "{"
-      + "\"token\":\""        + InpSyncToken                              + "\","
-      + "\"trade\":{"
-      + "\"pair\":\""         + symbol                                    + "\","
-      + "\"direction\":\""    + direction                                 + "\","
-      + "\"lot\":"            + SafeDouble(volume, 2)                     + ","
-      + "\"date\":\""         + dateStr                                   + "\","
-      + "\"entry\":"          + SafeDouble(entryPrice, 5)                 + ","
-      + "\"exit_price\":"     + SafeDouble(exitPrice, 5)                  + ","
-      + "\"sl\":"             + slStr                                     + ","
-      + "\"tp\":"             + tpStr                                     + ","
-      + "\"pnl\":"            + SafeDouble(NormalizeDouble(profit, 2), 2) + ","
-      + "\"asset_class\":\""  + assetClass                                + "\","
-      + "\"session\":\"London\","
-      + "\"setup\":\"\","
-      + "\"notes\":\"Auto-synced from MT5\","
-      + "\"mt5_deal_id\":\""  + IntegerToString(dealTicket)               + "\""
-      + "}"
-      + "}";
+   // Build JSON using EscapeJSON for every string value
+   string j = "{";
+   j += "\"token\":\""        + EscapeJSON(InpSyncToken) + "\",";
+   j += "\"account\":{";
+   j += "\"account_signature\":\"" + acctSig                    + "\",";
+   j += "\"account_label\":\""     + EscapeJSON(InpAccountLabel) + "\",";
+   j += "\"account_login\":\""     + IntegerToString(login)      + "\",";
+   j += "\"account_server\":\""    + EscapeJSON(server)          + "\",";
+   j += "\"broker_name\":\""       + EscapeJSON(broker)          + "\",";
+   j += "\"account_currency\":\""  + EscapeJSON(currency)        + "\",";
+   j += "\"account_type\":\""      + (isDemo ? "demo" : "real")  + "\",";
+   j += "\"is_cent\":"             + (isCent ? "true" : "false") + ",";
+   j += "\"current_balance\":"     + SafeDouble(balance, 2);
+   j += "},";
+   j += "\"trade\":{";
+   j += "\"pair\":\""         + EscapeJSON(sym)                            + "\",";
+   j += "\"direction\":\""    + direction                                   + "\",";
+   j += "\"lot\":"            + SafeDouble(volume, 2)                       + ",";
+   j += "\"date\":\""         + dateStr                                     + "\",";
+   j += "\"entry\":"          + SafeDouble(entryPrice, 5)                   + ",";
+   j += "\"exit_price\":"     + SafeDouble(exitPrice, 5)                    + ",";
+   j += "\"sl\":"             + (sl > 0 ? SafeDouble(sl, 5) : "null")      + ",";
+   j += "\"tp\":"             + (tp > 0 ? SafeDouble(tp, 5) : "null")      + ",";
+   j += "\"pnl\":"            + SafeDouble(NormalizeDouble(profit, 2), 2)   + ",";
+   j += "\"asset_class\":\""  + DetectAssetClass(sym)                       + "\",";
+   j += "\"is_cent\":"        + (isCent ? "true" : "false")                 + ",";
+   j += "\"contract_size\":"  + SafeDouble(contractSz, 2)                   + ",";
+   j += "\"tick_value\":"     + SafeDouble(tickVal, 5)                      + ",";
+   j += "\"session\":\"London\",";
+   j += "\"setup\":\"\",";
+   j += "\"notes\":\"Auto-synced from MT5\",";
+   j += "\"mt5_deal_id\":\"" + IntegerToString(ticket) + "\"";
+   j += "}";
+   j += "}";
+   return j;
+}
 
-   Print("CandlesJournal: Sending payload: ", json);
+//+------------------------------------------------------------------+
+//  EnqueueIfNew — add ticket to queue if not already tracked
+//+------------------------------------------------------------------+
+void EnqueueIfNew(ulong ticket)
+{
+   if(!HistoryDealSelect(ticket)) return;
+   ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(ticket, DEAL_ENTRY);
+   if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY) return;
+
+   datetime closeTime = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+
+   // In-session dedup
+   if(WasSyncedThisSession(ticket, closeTime)) return;
+
+   // Persistent dedup: skip only when BOTH ticket AND time are behind checkpoints
+   ulong    lastTk = GetLastSyncedTicket();
+   datetime lastTm = GetLastSyncTime();
+   if(ticket <= lastTk && closeTime < lastTm) return;
+
+   // Queue dedup
+   for(int i = 0; i < g_queueCount; i++)
+      if(g_queue[i] == ticket) return;
+
+   ArrayResize(g_queue, g_queueCount + 1);
+   g_queue[g_queueCount++] = ticket;
+   Print("CandlesJournal: Queued #", ticket, " (", HistoryDealGetString(ticket, DEAL_SYMBOL), ")");
+}
+
+//+------------------------------------------------------------------+
+//  ProcessOneFromQueue — pop and sync one deal; called from OnTimer
+//+------------------------------------------------------------------+
+void ProcessOneFromQueue()
+{
+   if(g_queueCount == 0) return;
+
+   // 500 ms throttle between syncs
+   if(TimeCurrent() - g_lastSyncAt < 1) { Sleep(500); }
+
+   ulong ticket = g_queue[0];
+   for(int i = 0; i < g_queueCount - 1; i++) g_queue[i] = g_queue[i + 1];
+   g_queueCount--;
+   ArrayResize(g_queue, MathMax(0, g_queueCount));
+
+   // Need history loaded to read deal details
+   if(!HistoryDealSelect(ticket))
+   {
+      Print("CandlesJournal: HistoryDealSelect failed for queued #", ticket, " — skipping");
+      return;
+   }
+
+   datetime closeTime = (datetime)HistoryDealGetInteger(ticket, DEAL_TIME);
+   string   rawSym    = HistoryDealGetString(ticket, DEAL_SYMBOL);
+   double   profit    = HistoryDealGetDouble(ticket, DEAL_PROFIT)
+                      + HistoryDealGetDouble(ticket, DEAL_SWAP)
+                      + HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+
+   // Re-select the history range so BuildPayload can call HistorySelectByPosition
+   HistorySelect(closeTime - 86400, TimeCurrent());
+
+   string json = BuildPayload(ticket);
+   if(json == "")
+   {
+      Print("CandlesJournal: Ticket #", ticket, " is not a closing deal — skipped");
+      return;
+   }
 
    string resp;
    int httpCode = PostJSON(json, resp);
-
-   Print("CandlesJournal: Server response: HTTP ", httpCode, " | body: ", resp);
+   g_lastSyncAt = TimeCurrent();
 
    if(httpCode == 200)
    {
-      // Update both checkpoints — use MAX so they never go backwards
-      ulong    lastTk   = GetLastSyncedTicket();
-      datetime lastTime = GetLastSyncTime();
-      if(dealTicket > lastTk)   SetLastSyncedTicket(dealTicket);
-      if(closeTime  > lastTime) SetLastSyncTime(closeTime);
-
-      bool isDuplicate = (StringFind(resp, "\"duplicate\":true") >= 0);
-      if(isDuplicate)
-      {
-         Print("CandlesJournal: INFO  Duplicate — #", dealTicket, " (", symbol, ") already in journal.",
-               " closeTime:", TimeToString(closeTime, TIME_DATE|TIME_SECONDS),
-               " — checkpoints updated");
-      }
+      bool isDup = (StringFind(resp, "\"duplicate\":true") >= 0);
+      MarkSyncedThisSession(ticket, closeTime);
+      if(ticket > GetLastSyncedTicket()) SetLastSyncedTicket(ticket);
+      if(closeTime > GetLastSyncTime())  SetLastSyncTime(closeTime);
+      if(isDup)
+         Print("CandlesJournal: Duplicate #", ticket, " (", StripSuffix(rawSym), ") already in journal");
       else
-      {
-         Print("CandlesJournal: SYNCED ✓  #", dealTicket,
-               " | ", symbol, " (", rawSymbol, ") ",  direction,
-               " | Lot:", SafeDouble(volume, 2),
-               " | P&L: $", SafeDouble(NormalizeDouble(profit, 2), 2),
-               " | CloseTime: ", TimeToString(closeTime, TIME_DATE|TIME_SECONDS),
-               " | AssetClass:", assetClass);
-      }
+         Print("CandlesJournal: SYNCED ✓  #", ticket,
+               " | ", StripSuffix(rawSym),
+               " | P&L $", SafeDouble(NormalizeDouble(profit, 2), 2));
    }
    else if(httpCode == -1)
    {
       int err = GetLastError();
-      Print("CandlesJournal: WebRequest FAILED — error: ", err);
+      Print("CandlesJournal: WebRequest FAILED error=", err);
       if(err == 4014)
-         Print("  → Tools > Options > Expert Advisors > Allow WebRequest > Add: ", InpServerURL);
+         Print("CandlesJournal: ACTION REQUIRED → Tools > Options > Expert Advisors > Allow WebRequest > Add: ", InpSyncURL);
+      // Retry once after 2 s
+      Sleep(2000);
+      string resp2;
+      int code2 = PostJSON(json, resp2);
+      if(code2 == 200)
+      {
+         MarkSyncedThisSession(ticket, closeTime);
+         Print("CandlesJournal: SYNCED (retry) ✓  #", ticket);
+      }
       else
-         Print("  → Check internet connection.");
+         Print("CandlesJournal: Retry also failed HTTP=", code2, " | ", resp2);
+   }
+   else if(httpCode == 401 || httpCode == 403)
+   {
+      Print("CandlesJournal: Invalid token (HTTP ", httpCode, ") — check Settings page and regenerate token");
+   }
+   else if(httpCode == 429)
+   {
+      Print("CandlesJournal: Rate limited (429) — re-queuing ticket #", ticket);
+      ArrayResize(g_queue, g_queueCount + 1);
+      g_queue[g_queueCount++] = ticket;
    }
    else
    {
-      Print("CandlesJournal: HTTP ", httpCode, " — ", resp);
-      // 4xx = bad payload → advance checkpoints to prevent infinite retry
+      Print("CandlesJournal: HTTP ", httpCode, " | ", resp);
+      // Advance checkpoints past 4xx to prevent infinite retry loop
       if(httpCode >= 400 && httpCode < 500)
       {
-         Print("CandlesJournal: 4xx — advancing checkpoints past #", dealTicket, " to prevent retry loop");
-         ulong    lastTk   = GetLastSyncedTicket();
-         datetime lastTime = GetLastSyncTime();
-         if(dealTicket > lastTk)   SetLastSyncedTicket(dealTicket);
-         if(closeTime  > lastTime) SetLastSyncTime(closeTime);
+         MarkSyncedThisSession(ticket, closeTime);
+         if(ticket > GetLastSyncedTicket()) SetLastSyncedTicket(ticket);
+         if(closeTime > GetLastSyncTime())  SetLastSyncTime(closeTime);
       }
    }
-
-   Print("CandlesJournal: --- SyncDeal END ticket #", dealTicket, " ---");
 }
 
 //+------------------------------------------------------------------+
-//  ScanHistory — find and sync all unprocessed closing deals
-//
-//  Skip logic (v1.08):
-//  A deal is skipped only when BOTH conditions are true:
-//    (a) ticket number <= lastSyncedTicket  (seen before)
-//    (b) closeTime < lastSyncTime           (closed before our time checkpoint)
-//
-//  This means a new closing deal is ALWAYS attempted even if its ticket
-//  number is <= lastSyncedTicket (possible after broker migrations or on
-//  netting accounts). The server's mt5_deal_id field handles true deduplication.
+//  ScanHistory — find unprocessed closing deals and queue them
 //+------------------------------------------------------------------+
 void ScanHistory(int lookbackSeconds)
 {
-   ulong    lastTicket   = GetLastSyncedTicket();
-   datetime lastSyncTime = GetLastSyncTime();
-
-   Print("CandlesJournal: ScanHistory lookback:", lookbackSeconds,
-         "s | lastTicket:", lastTicket,
-         " | lastSyncTime:", TimeToString(lastSyncTime, TIME_DATE|TIME_SECONDS));
-
-   if(!HistorySelect(TimeCurrent() - lookbackSeconds, TimeCurrent()))
-   {
-      Print("CandlesJournal: HistorySelect FAILED");
-      return;
-   }
-
+   if(!HistorySelect(TimeCurrent() - lookbackSeconds, TimeCurrent())) return;
    int total = HistoryDealsTotal();
-   Print("CandlesJournal: ", total, " deal(s) in window");
-   if(total == 0) return;
-
-   // Snapshot qualifying tickets before SyncDeal changes the history pool
-   ulong toSync[];
-   int   count      = 0;
-   int   skipped    = 0;
-   int   nonClosing = 0;
-
    for(int i = 0; i < total; i++)
-   {
-      ulong tk = HistoryDealGetTicket(i);
-
-      ENUM_DEAL_ENTRY de = (ENUM_DEAL_ENTRY)HistoryDealGetInteger(tk, DEAL_ENTRY);
-      if(de != DEAL_ENTRY_OUT && de != DEAL_ENTRY_OUT_BY)
-      {
-         nonClosing++;
-         continue;  // not a closing deal — don't log every open deal, just count
-      }
-
-      datetime closeTime = (datetime)HistoryDealGetInteger(tk, DEAL_TIME);
-      string   sym       = HistoryDealGetString(tk, DEAL_SYMBOL);
-
-      // Skip only when BOTH: ticket previously seen AND closed before time checkpoint
-      bool ticketSeen    = (tk <= lastTicket);
-      bool beforeCheckpt = (closeTime < lastSyncTime);
-
-      if(ticketSeen && beforeCheckpt)
-      {
-         Print("CandlesJournal: SKIP #", tk, " (", sym, ")",
-               " closeTime=", TimeToString(closeTime, TIME_DATE|TIME_SECONDS),
-               " — ticket ", tk, " <= lastTicket ", lastTicket,
-               " AND closeTime < lastSyncTime ", TimeToString(lastSyncTime, TIME_DATE|TIME_SECONDS));
-         skipped++;
-         continue;
-      }
-
-      if(ticketSeen && !beforeCheckpt)
-      {
-         // Ticket seen before but close time is at/after checkpoint — could be a re-check
-         // after a restart. Let it through; server dedup will reject true duplicates.
-         Print("CandlesJournal: RE-CHECK #", tk, " (", sym, ")",
-               " closeTime=", TimeToString(closeTime, TIME_DATE|TIME_SECONDS),
-               " — ticket seen (", tk, "<=", lastTicket, ") but closeTime >= checkpoint; server will dedup");
-      }
-
-      ArrayResize(toSync, count + 1);
-      toSync[count++] = tk;
-   }
-
-   if(count == 0)
-   {
-      Print("CandlesJournal: No new unsynced closing deals",
-            " — window: ", total, " deal(s), ",
-            nonClosing, " non-closing (opens/internal), ",
-            skipped, " already synced (ticket<=", lastTicket,
-            " AND closeTime<", TimeToString(lastSyncTime, TIME_DATE|TIME_SECONDS), ")");
-      return;
-   }
-
-   Print("CandlesJournal: ", count, " closing deal(s) to sync (",
-         skipped, " skipped as already synced)");
-
-   for(int i = 0; i < count; i++)
-      SyncDeal(toSync[i]);
+      EnqueueIfNew(HistoryDealGetTicket(i));
 }
 
+//+------------------------------------------------------------------+
+//  OnInit
 //+------------------------------------------------------------------+
 int OnInit()
 {
    if(InpSyncToken == "")
    {
-      Alert("CandlesJournal: Paste your Sync Token in the EA inputs.\nGet it: Settings page → Generate Token");
-      return(INIT_PARAMETERS_INCORRECT);
+      Alert("CandlesJournal: Paste your Sync Token in the EA inputs.\nGet it from: Settings page → Generate Token");
+      return INIT_PARAMETERS_INCORRECT;
    }
-   if(InpServerURL == "")
+   if(InpSyncURL == "")
    {
-      Alert("CandlesJournal: Sync URL is empty.");
-      return(INIT_PARAMETERS_INCORRECT);
+      Alert("CandlesJournal: Sync URL is empty.\nCopy it from the Settings page.");
+      return INIT_PARAMETERS_INCORRECT;
    }
 
-   Print("CandlesJournal: ====== EA v1.08 INITIALIZING ======");
-   Print("CandlesJournal: Token length=", StringLen(InpSyncToken),
-         " URL=", InpServerURL);
-   Print("CandlesJournal: Last synced ticket (GlobalVar) = ", GetLastSyncedTicket());
-   Print("CandlesJournal: Last sync time   (GlobalVar) = ",
-         TimeToString(GetLastSyncTime(), TIME_DATE|TIME_SECONDS));
+   Print("CandlesJournal: ====== EA v2.00 INITIALIZING ======");
+   Print("CandlesJournal: Account: ",   AccountInfoInteger(ACCOUNT_LOGIN),
+         "@",                            AccountInfoString(ACCOUNT_SERVER),
+         " | Broker: ",                  AccountInfoString(ACCOUNT_COMPANY),
+         " | Currency: ",                AccountInfoString(ACCOUNT_CURRENCY),
+         " | Type: ",                    (AccountInfoInteger(ACCOUNT_TRADE_MODE)==ACCOUNT_TRADE_MODE_DEMO) ? "Demo" : "Real",
+         " | Cent: ",                    IsCentAccount() ? "Yes" : "No",
+         " | Balance: ",                 SafeDouble(AccountInfoDouble(ACCOUNT_BALANCE), 2));
 
-   // ── Broker & account diagnostics ──────────────────────────────
-   string broker   = AccountInfoString(ACCOUNT_COMPANY);
-   string currency = AccountInfoString(ACCOUNT_CURRENCY);
-   long   modeRaw  = AccountInfoInteger(ACCOUNT_MARGIN_MODE);
-   string modeStr  = (modeRaw == 0) ? "Netting (0)" :
-                     (modeRaw == 2) ? "Hedging (2)" :
-                                      "Exchange (" + IntegerToString(modeRaw) + ")";
-   string acctType = (AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO)
-                     ? "Demo" : "Live";
-
-   Print("CandlesJournal: Broker=",   broker,
-         " | Currency=", currency,
-         " | Mode=",     modeStr,
-         " | Type=",     acctType);
-
-   // Suffix-strip sanity check on the chart symbol
-   string rawChart     = Symbol();
-   string cleanChart   = StripSuffix(rawChart);
-   string acClass      = DetectAssetClass(cleanChart);
-   Print("CandlesJournal: Chart symbol raw=", rawChart,
-         " stripped=", cleanChart,
-         " asset_class=", acClass);
-
-   // ── Connection + token ping ────────────────────────────────────
-   string pingJson = "{\"token\":\"" + InpSyncToken + "\",\"ping\":true}";
+   // Ping the server to validate token and connectivity
+   string pingJson  = "{\"token\":\"" + EscapeJSON(InpSyncToken) + "\",\"ping\":true}";
    string pingResp;
-   int    pingCode = PostJSON(pingJson, pingResp);
-   Print("CandlesJournal: Ping HTTP ", pingCode, " | body: ", pingResp);
+   int    pingCode  = PostJSON(pingJson, pingResp);
+   Print("CandlesJournal: Ping HTTP ", pingCode, " | ", pingResp);
 
    if(pingCode == 200)
    {
       Print("CandlesJournal: Connected. Scanning last 7 days for missed trades...");
       ScanHistory(604800);
-      Print("CandlesJournal: Catchup scan complete.");
+      Print("CandlesJournal: Initial scan complete — ", g_queueCount, " deal(s) queued");
    }
    else if(pingCode == -1)
    {
       int err = GetLastError();
-      Print("CandlesJournal: Cannot reach server. Error=", err);
       if(err == 4014)
-         Alert("CandlesJournal: WebRequest blocked!\n\n"
+         Alert("CandlesJournal: WebRequest is blocked!\n\n"
                "Fix: Tools → Options → Expert Advisors\n"
                "  ✓ Allow WebRequest for listed URL\n"
-               "  + Add: " + InpServerURL);
+               "  + Add: " + InpSyncURL);
       else
-         Alert("CandlesJournal: Network error " + IntegerToString(err));
-      return(INIT_FAILED);
+         Alert("CandlesJournal: Network error " + IntegerToString(err) + ". Check internet connection.");
+      return INIT_FAILED;
    }
-   else if(pingCode == 401)
+   else if(pingCode == 401 || pingCode == 403)
    {
-      Alert("CandlesJournal: Token invalid. Regenerate on the Settings page.");
-      return(INIT_PARAMETERS_INCORRECT);
+      Alert("CandlesJournal: Invalid token (HTTP " + IntegerToString(pingCode) + ").\nRegenerate on the Settings page.");
+      return INIT_PARAMETERS_INCORRECT;
    }
    else
    {
       Print("CandlesJournal: Unexpected ping HTTP ", pingCode, " | ", pingResp);
    }
 
-   EventSetTimer(10);
-   Print("CandlesJournal: Timer started (every 10 seconds).");
-   Print("CandlesJournal: ====== EA v1.08 READY ======");
-   return(INIT_SUCCEEDED);
+   int interval = (InpSyncIntervalSecs > 0 && InpSyncIntervalSecs <= 300) ? InpSyncIntervalSecs : 30;
+   EventSetTimer(interval);
+   Print("CandlesJournal: Timer set to ", interval, "s");
+   Print("CandlesJournal: ====== EA v2.00 READY ======");
+   return INIT_SUCCEEDED;
 }
 
 void OnDeinit(const int reason)
 {
    EventKillTimer();
-   Print("CandlesJournal: EA removed. Timer stopped.");
+   Print("CandlesJournal: EA removed. Reason=", reason);
 }
 
-// PRIMARY — fires every 10 seconds, works on Exness where OnTradeTransaction is broken
+//--- PRIMARY: timer tick — scan for new deals, then process one from queue
 void OnTimer()
 {
-   static int fires = 0;
-   fires++;
-   Print("CandlesJournal: OnTimer #", fires);
    ScanHistory(604800);
+   ProcessOneFromQueue();
 }
 
-// SECONDARY — fires on any trade event
+//--- SECONDARY: trade event fires — only scan (no WebRequest here, avoids blocking)
 void OnTrade()
 {
-   Print("CandlesJournal: OnTrade fired");
-   ScanHistory(604800);
+   ScanHistory(86400);
 }
 
-// TERTIARY — fallback for brokers where this works
+//--- TERTIARY: immediate notification on deal add for supported brokers
 void OnTradeTransaction(const MqlTradeTransaction& trans,
-                        const MqlTradeRequest&     request,
-                        const MqlTradeResult&      result)
+                        const MqlTradeRequest&     req,
+                        const MqlTradeResult&      res)
 {
-   Print("CandlesJournal: OnTradeTransaction type=", EnumToString(trans.type),
-         " symbol=", trans.symbol, " deal=", trans.deal);
    if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
-      ScanHistory(604800);
+      ScanHistory(86400);
 }
 //+------------------------------------------------------------------+

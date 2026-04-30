@@ -158,17 +158,17 @@ export function PerformanceBadge({ trades }: { trades: Trade[] }) {
           </div>
 
           <div className="text-center">
-            <p className={`font-semibold text-sm ${badge.color}`}>{badge.name}</p>
-            <p className="text-xs text-zinc-600 mt-0.5">{badge.tagline}</p>
+            <p className={`font-semibold text-xl ${badge.color}`}>{badge.name}</p>
+            <p className="text-sm text-zinc-600 mt-0.5">{badge.tagline}</p>
           </div>
 
           {nextBadge && (
-            <p className="text-[10px] text-zinc-600 text-center">
+            <p className="text-[13px] text-zinc-600 text-center">
               {nextBadge.min - score} pts to {nextBadge.icon} {nextBadge.name}
             </p>
           )}
           {!nextBadge && score >= 86 && (
-            <p className="text-[10px] text-center" style={{ color: "var(--cj-gold-muted)" }}>
+            <p className="text-[13px] text-center" style={{ color: "var(--cj-gold-muted)" }}>
               Maximum rank achieved
             </p>
           )}
@@ -178,7 +178,7 @@ export function PerformanceBadge({ trades }: { trades: Trade[] }) {
         <div className="flex-1 w-full space-y-3">
           {breakdownItems.map(({ label, pts, max }) => (
             <div key={label}>
-              <div className="flex justify-between text-[10px] mb-1">
+              <div className="flex justify-between text-[13px] mb-1">
                 <span className="text-zinc-500">{label}</span>
                 <span className="font-mono text-zinc-400">{pts}/{max}</span>
               </div>

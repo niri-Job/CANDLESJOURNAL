@@ -242,7 +242,7 @@ function CalendarHeatmap({ dailyData }: {
                      hover:text-zinc-200 transition-colors rounded hover:bg-zinc-800">
           ‹
         </button>
-        <span className="text-[11px] text-zinc-400 font-medium">{monthLabel}</span>
+        <span className="text-sm text-zinc-400 font-medium">{monthLabel}</span>
         <button onClick={nextMonth} disabled={!canGoNext}
           className="w-7 h-7 flex items-center justify-center text-lg text-zinc-500
                      hover:text-zinc-200 transition-colors rounded hover:bg-zinc-800
@@ -254,7 +254,7 @@ function CalendarHeatmap({ dailyData }: {
       {/* Weekday headers */}
       <div className="grid grid-cols-7 gap-[3px] mb-[3px]">
         {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d, i) => (
-          <div key={i} className="text-[9px] text-zinc-600 text-center">{d}</div>
+          <div key={i} className="text-[13px] text-zinc-600 text-center">{d}</div>
         ))}
       </div>
 
@@ -286,7 +286,7 @@ function CalendarHeatmap({ dailyData }: {
               onMouseMove={(e)  => entry && setTip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
               onMouseLeave={() => setTip(null)}
             >
-              <span className="text-[8px] text-white/25 leading-none pr-[3px] pb-[2px]">{day}</span>
+              <span className="text-[13px] text-white/40 leading-none pr-[3px] pb-[2px]">{day}</span>
             </div>
           );
         })}
@@ -821,9 +821,9 @@ export default function TradingJournal() {
             <div key={card.label}
               className="bg-[var(--cj-surface)] border border-zinc-800 rounded-xl px-5 py-4
                          hover:border-zinc-700 transition-colors">
-              <p className="text-[11px] uppercase tracking-widest text-zinc-500 mb-2">{card.label}</p>
+              <p className="text-sm uppercase tracking-widest text-zinc-500 font-semibold mb-2">{card.label}</p>
               <p className={`font-mono text-2xl font-semibold ${card.cls}`}>{card.value}</p>
-              <p className="text-[11px] text-zinc-500 mt-1">{card.sub}</p>
+              <p className="text-xs text-zinc-500 mt-1">{card.sub}</p>
             </div>
           ))}
         </div>
@@ -1173,7 +1173,7 @@ export default function TradingJournal() {
                   <thead>
                     <tr>
                       {["Pair", "Dir", "Date", "Lot", "Entry", "Exit", "P&L", "Notes & Media", "Emotion", "Actions"].map((h) => (
-                        <th key={h} className="text-[10px] uppercase tracking-[0.08em] text-zinc-500 font-medium
+                        <th key={h} className="text-[13px] uppercase tracking-[0.08em] text-zinc-500 font-medium
                                                text-left pb-3 px-2 last:text-right"
                             style={{ borderBottom: "1px solid var(--cj-gold-muted)" }}>
                           {h}

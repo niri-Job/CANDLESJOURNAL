@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "./ThemeToggle";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 import type { User } from "@supabase/supabase-js";
 
 const NAV_ITEMS = [
@@ -29,7 +29,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             key={href}
             href={href}
             onClick={onClick}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-medium
                         transition-all
                         ${pathname === href
                           ? "bg-[var(--cj-gold-glow)] border-l-[3px] border-l-[var(--cj-gold)] text-[var(--cj-gold)] pl-[10px]"
@@ -51,15 +51,13 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         {user && (
           <p className="text-[11px] text-zinc-500 truncate">{user.email}</p>
         )}
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <button
-            onClick={onSignOutClick}
-            className="text-xs text-zinc-500 hover:text-rose-400 transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
+        <ThemeSwitcher user={user} />
+        <button
+          onClick={onSignOutClick}
+          className="text-xs text-zinc-500 hover:text-rose-400 transition-colors mt-1"
+        >
+          Sign out
+        </button>
       </div>
     );
   }

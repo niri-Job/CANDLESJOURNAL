@@ -111,10 +111,66 @@ body {
 
   /* Section card header — gold-muted label */
   .card-label {
-    font-size: 11px;
+    font-size: 14px;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-weight: 500;
+    letter-spacing: 0.08em;
+    font-weight: 600;
     color: var(--cj-gold-muted);
   }
+}
+
+/* ─── Light theme ────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --cj-bg:           #FAF7F0;
+  --cj-surface:      #FFFFFF;
+  --cj-raised:       #F2EDE3;
+  --cj-border:       #DDD0B8;
+  --cj-border-light: #E8DEC8;
+  --cj-text:         #1A1410;
+  --cj-text-muted:   #7A6545;
+  --cj-gold:         #C9A227;
+  --cj-gold-deep:    #A88620;
+  --cj-gold-muted:   #8B6914;
+  --cj-gold-glow:    rgba(201,162,39,0.15);
+
+  /* Zinc scale inverted for light background — lower = darker text, higher = lighter bg */
+  --color-zinc-100: #1A1410;
+  --color-zinc-200: #2A2018;
+  --color-zinc-300: #4A3E30;
+  --color-zinc-400: #6B5C44;
+  --color-zinc-500: #8B7560;
+  --color-zinc-600: #A89070;
+  --color-zinc-700: #C8B898;
+  --color-zinc-800: #E0D5C0;
+  --color-zinc-900: #F0E8D5;
+  --color-zinc-950: #FAF7F0;
+  --color-zinc-50:  #100B08;
+}
+
+/* ─── Midnight theme ─────────────────────────────────────────────────────────── */
+[data-theme="midnight"] {
+  --cj-bg:           #080613;
+  --cj-surface:      #100D1C;
+  --cj-raised:       #0D0A18;
+  --cj-border:       #2A2040;
+  --cj-border-light: #3A2E58;
+  --cj-text:         #EAE0FF;
+  --cj-text-muted:   #8A7AAD;
+  --cj-gold:         #F5C518;
+  --cj-gold-deep:    #C9A227;
+  --cj-gold-muted:   #8B6914;
+  --cj-gold-glow:    rgba(245,197,24,0.12);
+
+  /* Zinc scale with purple-dark tints */
+  --color-zinc-950: #06040F;
+  --color-zinc-900: #0D0B18;
+  --color-zinc-800: #2A2040;
+  --color-zinc-700: #3A2E58;
+  --color-zinc-600: #60508A;
+  --color-zinc-500: #9B7E2E;
+  --color-zinc-400: #9A8ABE;
+  --color-zinc-300: #C4B8E0;
+  --color-zinc-200: #D8D0F0;
+  --color-zinc-100: #EEE8FF;
+  --color-zinc-50:  #FAF6FF;
 }

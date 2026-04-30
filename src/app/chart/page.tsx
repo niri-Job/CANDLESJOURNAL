@@ -18,6 +18,8 @@ interface Trade {
   direction: "BUY" | "SELL";
   lot: number;
   date: string;
+  opened_at?: string | null;   // ISO timestamp of trade open (from MT5)
+  closed_at?: string | null;   // ISO timestamp of trade close (from MT5)
   entry: number;
   exit_price: number;
   sl: number | null;
@@ -91,6 +93,32 @@ function calcPips(pair: string, entry: number, exit: number): string {
 function calcRR(entry: number, sl: number | null, tp: number | null): string | null {
   if (sl == null || tp == null || entry === sl) return null;
   return Math.abs((tp - entry) / (entry - sl)).toFixed(2);
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// One pip in price units for a given pair
+function pipUnit(pair: string): number {
+  const p = pair.toUpperCase();
+  if (p.includes("JPY"))  return 0.01;
+  if (p === "XAUUSD")     return 0.1;
+  if (p.includes("XAG"))  return 0.01;
+  if (p.includes("BTC") || p.includes("ETH")) return 1;
+  if (p.includes("US30") || p.includes("NAS") || p.includes("SPX")) return 1;
+  return 0.0001;
+}
+
+// Auto-select review interval based on trade duration
+function autoSelectInterval(trade: Trade): string {
+  if (trade.opened_at && trade.closed_at) {
+    const mins =
+      (new Date(trade.closed_at).getTime() - new Date(trade.opened_at).getTime()) / 60_000;
+    if (mins < 30)   return "5";
+    if (mins < 240)  return "15";
+    if (mins < 1440) return "60";
+    return "240";
+  }
+  return "60"; // Default 1H when no precise timestamps available
 }
 
 // ─── MODE 1: TradingView Live Market Widget ───────────────────────────────────
@@ -200,40 +228,111 @@ function LightweightChartWidget({
       const d = dataRef.current;
       if (!s || !c || !d.length) return;
 
-      // Price lines
+      // ── Find nearest candle to any Unix timestamp ─────────────────────────
+      function nearestCandle(ts: number): CandleData {
+        return d.reduce((a, b) =>
+          Math.abs(a.time - ts) < Math.abs(b.time - ts) ? a : b
+        );
+      }
+
+      // ── Entry candle ──────────────────────────────────────────────────────
+      // Use opened_at if available; otherwise first candle of trade date
+      let entryTs: number;
+      if (trade.opened_at) {
+        entryTs = Math.floor(new Date(trade.opened_at).getTime() / 1000);
+      } else {
+        entryTs = Math.floor(new Date(trade.date + "T00:00:00Z").getTime() / 1000);
+      }
+      const entryCandle = nearestCandle(entryTs);
+
+      // ── Exit candle ───────────────────────────────────────────────────────
+      // Use closed_at if available; otherwise last candle of trade date
+      let exitTs: number;
+      if (trade.closed_at) {
+        exitTs = Math.floor(new Date(trade.closed_at).getTime() / 1000);
+      } else {
+        const dayStart = Math.floor(new Date(trade.date + "T00:00:00Z").getTime() / 1000);
+        const dayEnd   = dayStart + 86400;
+        const dayCandies = d.filter((pt) => pt.time >= dayStart && pt.time < dayEnd);
+        exitTs = dayCandies.length > 0
+          ? dayCandies[dayCandies.length - 1].time
+          : nearestCandle(dayEnd - 1).time;
+      }
+      const exitCandle = nearestCandle(exitTs);
+
+      // ── Minimum visual price separation (10 pip gap) ──────────────────────
+      const pip = pipUnit(trade.pair);
+      const minSep = pip * 10;
+      let displayEntry = trade.entry;
+      let displayExit  = trade.exit_price;
+      if (Math.abs(trade.entry - trade.exit_price) < pip * 5) {
+        // Spread displayed lines apart while keeping real prices in titles
+        if (trade.entry >= trade.exit_price) {
+          displayEntry += minSep;
+          displayExit  -= minSep;
+        } else {
+          displayEntry -= minSep;
+          displayExit  += minSep;
+        }
+      }
+      const entryLabel = displayEntry !== trade.entry
+        ? `Entry @ ${trade.entry}` : "Entry";
+      const exitLabel  = displayExit  !== trade.exit_price
+        ? `Exit @ ${trade.exit_price}` : "Exit";
+
+      // ── Price lines ───────────────────────────────────────────────────────
+      // Entry: solid green 2px | Exit: solid orange 2px
+      // SL: dashed red 1px    | TP: dashed blue 1px
       const lines: any[] = [
-        s.createPriceLine({ price: trade.entry,      color: "#34d399", lineWidth: 2, lineStyle: LineStyle.Solid,  axisLabelVisible: true, title: "Entry" }),
-        s.createPriceLine({ price: trade.exit_price, color: "#f97316", lineWidth: 2, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Exit"  }),
+        s.createPriceLine({ price: displayEntry, color: "#34d399", lineWidth: 2, lineStyle: LineStyle.Solid,  axisLabelVisible: true, title: entryLabel }),
+        s.createPriceLine({ price: displayExit,  color: "#f97316", lineWidth: 2, lineStyle: LineStyle.Solid,  axisLabelVisible: true, title: exitLabel  }),
       ];
-      if (trade.sl != null) lines.push(s.createPriceLine({ price: trade.sl, color: "#f87171", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: "SL" }));
-      if (trade.tp != null) lines.push(s.createPriceLine({ price: trade.tp, color: "#93c5fd", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: "TP" }));
+      if (trade.sl != null) lines.push(s.createPriceLine({ price: trade.sl, color: "#f87171", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "SL" }));
+      if (trade.tp != null) lines.push(s.createPriceLine({ price: trade.tp, color: "#93c5fd", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "TP" }));
       priceLinesRef.current = lines;
 
-      // Closest candle to trade date
-      const dayStart = Math.floor(new Date(trade.date + "T00:00:00Z").getTime() / 1000);
-      const dayEnd   = dayStart + 86400;
-      const tradeCandle: CandleData =
-        d.find((pt) => pt.time >= dayStart && pt.time < dayEnd) ??
-        d.reduce((a, b) => Math.abs(a.time - dayStart) < Math.abs(b.time - dayStart) ? a : b);
+      // ── Direction-correct arrow markers ───────────────────────────────────
+      // BUY:  Entry = green ▲ below bar | Exit = orange ▼ above bar
+      // SELL: Entry = red   ▼ above bar | Exit = orange ▲ below bar
+      const isBuy = trade.direction === "BUY";
+      const markers = [
+        {
+          time:     entryCandle.time,
+          position: isBuy ? "belowBar" : "aboveBar",
+          color:    isBuy ? "#34d399"  : "#f87171",
+          shape:    isBuy ? "arrowUp"  : "arrowDown",
+          text:     "Entry",
+        },
+        {
+          time:     exitCandle.time,
+          position: isBuy ? "aboveBar" : "belowBar",
+          color:    "#f97316",
+          shape:    isBuy ? "arrowDown" : "arrowUp",
+          text:     "Exit",
+        },
+      ] as const;
+      // Lightweight Charts requires markers sorted by time
+      const sorted = [...markers].sort((a, b) => a.time - b.time);
+      markersRef.current = createSeriesMarkers(s, sorted);
 
-      // Arrow markers
-      markersRef.current = createSeriesMarkers(s, [
-        { time: tradeCandle.time, position: "belowBar", color: "#34d399", shape: "arrowUp",   text: "Entry" },
-        { time: tradeCandle.time, position: "aboveBar", color: "#f97316", shape: "arrowDown", text: "Exit"  },
-      ]);
-
-      // Shade band
+      // ── Shade band (profit = green, loss = red) ───────────────────────────
       const shadeHigh  = Math.max(trade.entry, trade.exit_price);
       const shadeLow   = Math.min(trade.entry, trade.exit_price);
-      const shadeColor = trade.pnl >= 0 ? "rgba(52,211,153,0.18)" : "rgba(248,113,113,0.18)";
-      const shade = c.addSeries(HistogramSeries, { base: shadeLow, lastValueVisible: false, priceLineVisible: false });
+      const shadeColor = trade.pnl >= 0 ? "rgba(52,211,153,0.15)" : "rgba(248,113,113,0.15)";
+      const shade = c.addSeries(HistogramSeries, {
+        base: shadeLow, lastValueVisible: false, priceLineVisible: false,
+      });
       shade.setData(d.map((pt) => ({ time: pt.time, value: shadeHigh, color: shadeColor })));
       shadeRef.current = shade;
 
-      // Navigate to trade date
+      // ── Navigate to show both entry and exit candles ──────────────────────
+      const rangeMin = Math.min(entryCandle.time, exitCandle.time);
+      const rangeMax = Math.max(entryCandle.time, exitCandle.time);
+      // Pad by 30% of the trade span, minimum 3 hours each side
+      const padding  = Math.max((rangeMax - rangeMin) * 0.3, 3 * 3600);
       c.timeScale().setVisibleRange({
-        from: tradeCandle.time - 20 * 3600,
-        to:   tradeCandle.time + 20 * 3600,
+        from: rangeMin - padding,
+        to:   rangeMax + padding,
       });
     });
   }
@@ -422,7 +521,8 @@ export default function ChartPage() {
     }
     setSelected(t);
     if (t.pair.toUpperCase() !== symbol.toUpperCase()) setSymbol(t.pair.toUpperCase());
-    setIntervalVal("60");
+    // Auto-select best timeframe for this trade's duration
+    setIntervalVal(autoSelectInterval(t));
     setChartMode("review");
   }
 

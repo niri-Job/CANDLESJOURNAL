@@ -1530,20 +1530,36 @@ export default function ReportsPage() {
       if (!u) { setLoading(false); return; }
       setUser(u);
 
-      const [{ data: tData }, { data: aData }] = await Promise.all([
-        supabase.from("trades")
-          .select("id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,asset_class,session,setup,account_signature,account_label,opened_at,closed_at")
-          .eq("user_id", u.id)
-          .order("date", { ascending: true }),
-        supabase.from("trading_accounts")
-          .select("id,account_signature,account_label,account_type,account_currency,current_balance")
-          .eq("user_id", u.id),
+      // Try with opened_at/closed_at; fall back without them if the columns don't exist yet
+      const FULL_COLS     = "id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,asset_class,session,setup,account_signature,account_label,opened_at,closed_at";
+      const FALLBACK_COLS = "id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,asset_class,session,setup,account_signature,account_label";
+
+      const [tradesRes, { data: aData }] = await Promise.all([
+        supabase.from("trades").select(FULL_COLS).eq("user_id", u.id).order("date", { ascending: true }),
+        supabase.from("trading_accounts").select("id,account_signature,account_label,account_type,account_currency,current_balance").eq("user_id", u.id),
       ]);
 
-      setTrades((tData as Trade[]) || []);
+      let loadedTrades: Trade[] = [];
+
+      if (tradesRes.error) {
+        console.warn("[Reports] Full query failed, retrying without opened_at/closed_at:", tradesRes.error.message);
+        const { data: fallbackData, error: fallbackErr } = await supabase
+          .from("trades").select(FALLBACK_COLS).eq("user_id", u.id).order("date", { ascending: true });
+        if (fallbackErr) {
+          console.error("[Reports] Fallback query also failed:", fallbackErr.message);
+        } else {
+          loadedTrades = (fallbackData as Trade[]) || [];
+        }
+      } else {
+        loadedTrades = (tradesRes.data as Trade[]) || [];
+      }
+
+      console.log(`[Reports] Loaded ${loadedTrades.length} trades for user ${u.id}`);
+
+      setTrades(loadedTrades);
       setAccounts((aData as TradingAccount[]) || []);
 
-      // Default to real accounts; fall back to demo if no real
+      // Default to real accounts; fall back to demo-only if user has no real accounts
       const real = (aData || []).filter((a: TradingAccount) => a.account_type !== "demo");
       const demo = (aData || []).filter((a: TradingAccount) => a.account_type === "demo");
       if (!real.length && demo.length) setSelAccount("__all_demo__");
@@ -1558,13 +1574,24 @@ export default function ReportsPage() {
     const demoAccts = accounts.filter(a => a.account_type === "demo");
 
     let base = trades;
+
     if (accounts.length > 0) {
       if (selAccount === "__all_real__") {
-        const sigs = new Set(realAccts.map(a => a.account_signature));
-        base = trades.filter(t => !t.account_signature || sigs.has(t.account_signature));
+        if (realAccts.length === 0) {
+          // No real accounts — show everything (unfiltered by account)
+          base = trades;
+        } else {
+          const sigs = new Set(realAccts.map(a => a.account_signature));
+          // Include manually-logged trades (no account_signature) + trades from real accounts
+          base = trades.filter(t => !t.account_signature || sigs.has(t.account_signature));
+        }
       } else if (selAccount === "__all_demo__") {
-        const sigs = new Set(demoAccts.map(a => a.account_signature));
-        base = trades.filter(t => Boolean(t.account_signature) && sigs.has(t.account_signature!));
+        if (demoAccts.length === 0) {
+          base = trades;
+        } else {
+          const sigs = new Set(demoAccts.map(a => a.account_signature));
+          base = trades.filter(t => Boolean(t.account_signature) && sigs.has(t.account_signature!));
+        }
       } else {
         base = trades.filter(t => t.account_signature === selAccount);
       }
@@ -1574,6 +1601,7 @@ export default function ReportsPage() {
       ? { from: customFrom, to: customTo }
       : rangeFor(datePreset);
 
+    // "ALL" → rangeFor returns { from: "", to: "" } → inRange passes everything
     return base.filter(t => inRange(t.date, from, to));
   }, [trades, accounts, selAccount, datePreset, customFrom, customTo]);
 

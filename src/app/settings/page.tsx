@@ -403,17 +403,20 @@ export default function SettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                    Broker / Server <span className="text-rose-500">*</span>
+                    Broker Server Name <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={qcForm.server}
                     onChange={(e) => setQcForm((f) => ({ ...f, server: e.target.value }))}
-                    placeholder="Exness-MT5Real8"
+                    placeholder="Your broker's MT5 server name"
                     className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
                                text-sm text-zinc-100 placeholder-zinc-600
                                focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
                   />
+                  <p className="mt-1.5 text-[11px] text-zinc-600">
+                    e.g. ICMarkets-MT5, Deriv-Server, HFM-Live · Find in MT5 → File → Open an Account
+                  </p>
                 </div>
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">

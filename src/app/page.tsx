@@ -363,7 +363,10 @@ function AccountCard({
 export default function TradingJournal() {
   const [trades,            setTrades]            = useState<Trade[]>([]);
   const [tradingAccounts,   setTradingAccounts]   = useState<TradingAccount[]>([]);
-  const [selectedAccountSig, setSelectedAccountSig] = useState<string | null>(null);
+  // "__all_real__" = all live accounts combined (default)
+  // "__all_demo__" = all demo accounts combined
+  // any other string = specific account_signature
+  const [selectedAccountSig, setSelectedAccountSig] = useState<string>("__all_real__");
   const [form,              setForm]              = useState(EMPTY_FORM);
   const [direction,         setDirection]         = useState<"BUY" | "SELL">("BUY");
   const [toast,             setToast]             = useState<{ msg: string; type: "ok" | "err" } | null>(null);
@@ -410,8 +413,15 @@ export default function TradingJournal() {
           .order("created_at", { ascending: true }),
       ]);
 
-      if (tradesRes.data)  setTrades(tradesRes.data as Trade[]);
-      if (accountsRes.data) setTradingAccounts(accountsRes.data as TradingAccount[]);
+      if (tradesRes.data) setTrades(tradesRes.data as Trade[]);
+      if (accountsRes.data) {
+        const accounts = accountsRes.data as TradingAccount[];
+        setTradingAccounts(accounts);
+        // If the user has only demo accounts, default the view to demo
+        const hasReal = accounts.some((a) => a.account_type !== "demo");
+        const hasDemo = accounts.some((a) => a.account_type === "demo");
+        if (!hasReal && hasDemo) setSelectedAccountSig("__all_demo__");
+      }
       if (tradesRes.error) showToast("Failed to load trades", "err");
       setLoading(false);
 
@@ -483,9 +493,23 @@ export default function TradingJournal() {
 
   // ── Account-filtered trade set (used for all stats and charts) ─────────────
   const accountTrades = useMemo(() => {
-    if (!selectedAccountSig) return trades;
+    const realAccts = tradingAccounts.filter((a) => a.account_type !== "demo");
+    const demoAccts = tradingAccounts.filter((a) => a.account_type === "demo");
+
+    if (selectedAccountSig === "__all_real__") {
+      // No accounts connected yet — show all manually-entered trades
+      if (tradingAccounts.length === 0) return trades;
+      const realSigs = new Set(realAccts.map((a) => a.account_signature));
+      // Include trades with no account_signature (manually entered) + real account trades
+      return trades.filter((t) => !t.account_signature || realSigs.has(t.account_signature));
+    }
+    if (selectedAccountSig === "__all_demo__") {
+      const demoSigs = new Set(demoAccts.map((a) => a.account_signature));
+      return trades.filter((t) => Boolean(t.account_signature) && demoSigs.has(t.account_signature!));
+    }
+    // Specific account
     return trades.filter((t) => t.account_signature === selectedAccountSig);
-  }, [trades, selectedAccountSig]);
+  }, [trades, selectedAccountSig, tradingAccounts]);
 
   // ── Computed stats (based on account-filtered trades) ─────────────────────
   const totalPnl = accountTrades.reduce((s, t) => s + t.pnl, 0);
@@ -701,21 +725,17 @@ export default function TradingJournal() {
 
   async function clearAllTrades() {
     if (!currentUser) return;
-    const count = accountTrades.length;
-    if (count === 0) { showToast("No trades to clear", "err"); return; }
-    if (!confirm(`Delete ALL ${count} trade${count !== 1 ? "s" : ""}? This cannot be undone.`)) return;
+    const tradeIds = accountTrades.map((t) => t.id);
+    if (tradeIds.length === 0) { showToast("No trades to clear", "err"); return; }
+    if (!confirm(`Delete ALL ${tradeIds.length} trade${tradeIds.length !== 1 ? "s" : ""}? This cannot be undone.`)) return;
     const supabase = createClient();
-    let query = supabase.from("trades").delete().eq("user_id", currentUser.id);
-    if (selectedAccountSig) query = query.eq("account_signature", selectedAccountSig) as typeof query;
-    const { error } = await query;
+    const { error } = await supabase.from("trades").delete()
+      .eq("user_id", currentUser.id).in("id", tradeIds);
     if (error) { showToast("Failed to clear trades", "err"); return; }
-    if (selectedAccountSig) {
-      setTrades((prev) => prev.filter((t) => t.account_signature !== selectedAccountSig));
-    } else {
-      setTrades([]);
-    }
+    const deleted = new Set(tradeIds);
+    setTrades((prev) => prev.filter((t) => !deleted.has(t.id)));
     cancelEdit();
-    showToast(`Cleared ${count} trade${count !== 1 ? "s" : ""}`, "err");
+    showToast(`Cleared ${tradeIds.length} trade${tradeIds.length !== 1 ? "s" : ""}`, "err");
   }
 
   const isEditing = editingId !== null;
@@ -739,56 +759,112 @@ export default function TradingJournal() {
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-5 sm:py-7">
 
         {/* ACCOUNT SWITCHER ── only shown when MT5 accounts are connected */}
-        {tradingAccounts.length > 0 && (
-          <div className="mb-5">
-            <div className="flex items-center gap-2 flex-wrap mb-4">
-              <button
-                onClick={() => setSelectedAccountSig(null)}
-                className={`text-xs px-3 py-1.5 rounded-lg border transition-all
-                  ${selectedAccountSig === null
-                    ? "bg-blue-600 border-blue-600 text-white"
-                    : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:border-zinc-600"
-                  }`}
-              >
-                All Accounts
-              </button>
-              {tradingAccounts.map((acc) => (
-                <button
-                  key={acc.id}
-                  onClick={() => setSelectedAccountSig(
-                    selectedAccountSig === acc.account_signature ? null : acc.account_signature
-                  )}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5
-                    ${selectedAccountSig === acc.account_signature
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:border-zinc-600"
-                    }`}
-                >
-                  <span>{acc.account_label || acc.broker_name || "MT5"}</span>
-                  <span className={`text-[9px] font-bold px-1 py-0.5 rounded
-                    ${acc.account_type === "demo" ? "bg-yellow-500/30" : "bg-emerald-500/30"}`}>
-                    {acc.account_type.toUpperCase()}
-                  </span>
-                </button>
-              ))}
-            </div>
+        {tradingAccounts.length > 0 && (() => {
+          const realAccts = tradingAccounts.filter((a) => a.account_type !== "demo");
+          const demoAccts = tradingAccounts.filter((a) => a.account_type === "demo");
 
-            {/* Account cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {tradingAccounts.map((acc) => (
-                <AccountCard
-                  key={acc.id}
-                  acc={acc}
-                  trades={trades}
-                  selected={selectedAccountSig === acc.account_signature}
-                  onClick={() => setSelectedAccountSig(
-                    selectedAccountSig === acc.account_signature ? null : acc.account_signature
-                  )}
-                />
-              ))}
+          // Which account cards to show below the tabs
+          const visibleCards = selectedAccountSig === "__all_real__" ? realAccts
+            : selectedAccountSig === "__all_demo__" ? demoAccts
+            : tradingAccounts.filter((a) => a.account_signature === selectedAccountSig);
+
+          return (
+            <div className="mb-5">
+              {/* Tabs */}
+              <div className="flex items-center gap-2 flex-wrap mb-4">
+
+                {/* All Real Accounts (shown when any real accounts exist) */}
+                {realAccts.length > 0 && (
+                  <button
+                    onClick={() => setSelectedAccountSig("__all_real__")}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all
+                      ${selectedAccountSig === "__all_real__"
+                        ? "text-[#0A0A0F] border-transparent"
+                        : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:border-zinc-600"}`}
+                    style={selectedAccountSig === "__all_real__"
+                      ? { background: "linear-gradient(135deg,#F5C518,#C9A227)" }
+                      : undefined}
+                  >
+                    All Real Accounts
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                      LIVE
+                    </span>
+                  </button>
+                )}
+
+                {/* All Demo Accounts (shown when any demo accounts exist) */}
+                {demoAccts.length > 0 && (
+                  <button
+                    onClick={() => setSelectedAccountSig("__all_demo__")}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all
+                      ${selectedAccountSig === "__all_demo__"
+                        ? "bg-yellow-500/20 border-yellow-500/60 text-yellow-300"
+                        : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:border-zinc-600"}`}
+                  >
+                    All Demo Accounts
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400">
+                      DEMO
+                    </span>
+                  </button>
+                )}
+
+                {/* Divider */}
+                {tradingAccounts.length > 0 && (
+                  <div className="w-px h-5 bg-zinc-800 shrink-0" />
+                )}
+
+                {/* Individual account tabs */}
+                {tradingAccounts.map((acc) => {
+                  const isDemo = acc.account_type === "demo";
+                  const isSelected = selectedAccountSig === acc.account_signature;
+                  return (
+                    <button
+                      key={acc.id}
+                      onClick={() => setSelectedAccountSig(
+                        isSelected
+                          ? (isDemo ? "__all_demo__" : "__all_real__")
+                          : acc.account_signature
+                      )}
+                      className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all
+                        ${isSelected
+                          ? isDemo
+                            ? "bg-yellow-500/15 border-yellow-500/50 text-yellow-300"
+                            : "bg-blue-600 border-blue-600 text-white"
+                          : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:border-zinc-600"}`}
+                    >
+                      <span>{acc.account_label || acc.broker_name || acc.account_login || "MT5"}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full
+                        ${isDemo
+                          ? "bg-yellow-500/25 text-yellow-400"
+                          : "bg-emerald-500/20 text-emerald-400"}`}>
+                        {isDemo ? "DEMO" : "LIVE"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Account cards — filtered to current view */}
+              {visibleCards.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {visibleCards.map((acc) => (
+                    <AccountCard
+                      key={acc.id}
+                      acc={acc}
+                      trades={trades}
+                      selected={selectedAccountSig === acc.account_signature}
+                      onClick={() => setSelectedAccountSig(
+                        selectedAccountSig === acc.account_signature
+                          ? (acc.account_type === "demo" ? "__all_demo__" : "__all_real__")
+                          : acc.account_signature
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* STAT CARDS */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 mb-6">

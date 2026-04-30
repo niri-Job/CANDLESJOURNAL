@@ -52,6 +52,7 @@ function Pill({
     </button>
   );
 }
+/* active Pill uses blue-500/blue-400 which @theme remaps to gold — no class change needed */
 
 interface ProfileRow {
   onboarding_completed: boolean;
@@ -197,14 +198,17 @@ export default function OnboardingPage() {
 
       {/* Logo */}
       <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600
-                        flex items-center justify-center text-base font-bold text-white">
+        <div
+          className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#F5C518] to-[#C9A227]
+                     flex items-center justify-center text-base font-bold text-[#0A0A0F]"
+          style={{ boxShadow: "0 0 20px rgba(245,197,24,0.28)" }}
+        >
           CJ
         </div>
-        <span className="font-bold text-xl tracking-tight">CandlesJournal</span>
+        <span className="font-bold text-xl tracking-tight text-zinc-100">CandlesJournal</span>
       </div>
 
-      {/* Step dots */}
+      {/* Step dots — blue-500 auto-remaps to gold via @theme */}
       <div className="flex gap-2 mb-8">
         {[1, 2, 3, 4].map((s) => (
           <div key={s} className={`h-1.5 rounded-full transition-all duration-300
@@ -449,12 +453,7 @@ export default function OnboardingPage() {
             type="button"
             onClick={next}
             disabled={saving}
-            className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                        ${step === 4
-                          ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                          : "bg-blue-600 hover:bg-blue-500 text-white"
-                        }`}
+            className="btn-gold px-6 py-2.5 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : step === 4 ? "Start Journalling →" : "Next →"}
           </button>

@@ -202,7 +202,8 @@ export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModa
             </label>
 
             {screenshotUrl ? (
-              <div className="relative rounded-xl overflow-hidden border border-zinc-700">
+              <div className="relative rounded-xl overflow-hidden"
+                   style={{ border: "1px solid var(--cj-border)" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={screenshotUrl}
@@ -228,8 +229,8 @@ export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModa
                 className={`rounded-xl border-2 border-dashed flex flex-col items-center justify-center
                             gap-3 cursor-pointer transition-all py-8
                             ${dragging
-                              ? "border-blue-500 bg-blue-500/5"
-                              : "border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/20"
+                              ? "border-[var(--cj-gold)] bg-[var(--cj-gold-glow)]"
+                              : "border-[var(--cj-gold-muted)] hover:border-[var(--cj-gold)] hover:bg-[var(--cj-gold-glow)]"
                             }`}
               >
                 {uploading ? (
@@ -265,13 +266,13 @@ export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModa
         </div>
 
         {/* ── Sticky footer ── */}
-        <div className="shrink-0 flex items-center gap-3 px-6 py-4 border-t border-zinc-800 bg-[var(--cj-surface)]">
+        <div className="shrink-0 flex items-center gap-3 px-6 py-4 bg-[var(--cj-surface)]"
+             style={{ borderTop: "1px solid var(--cj-border)" }}>
           <button
             type="button"
             onClick={save}
             disabled={saving || uploading}
-            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm
-                       font-semibold transition-all disabled:opacity-50"
+            className="btn-gold flex-1 py-2.5 rounded-xl text-sm transition-all"
           >
             {saved ? "Saved ✓" : saving ? "Saving..." : "Save Journal Entry"}
           </button>

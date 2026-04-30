@@ -1,18 +1,52 @@
 @import "tailwindcss";
 
-/* ─── CandlesJournal theme tokens ─────────────────────────────────────────── */
-:root {
-  --cj-bg:      #0d0f14;   /* page background            */
-  --cj-surface: #13161e;   /* card / panel               */
-  --cj-raised:  #1a1e29;   /* input / tooltip / elevated */
-  --cj-text:    #f4f4f5;   /* primary text (zinc-100)    */
+/* ═══════════════════════════════════════════════════════════════════════════
+   CandlesJournal — Gold × Obsidian Premium Theme
+   All color tokens live here. @theme overrides make every Tailwind utility
+   in the entire codebase pick up the gold-dark palette automatically.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* ── Warm-dark zinc: replaces cold gray with obsidian-gold tints ── */
+  --color-zinc-950: #07070D;
+  --color-zinc-900: #0D0C10;
+  --color-zinc-800: #2A2415;   /* borders, dividers             */
+  --color-zinc-700: #3A3220;   /* lighter borders, inputs       */
+  --color-zinc-600: #5C5040;   /* very muted text               */
+  --color-zinc-500: #9B7E2E;   /* section labels — warm golden  */
+  --color-zinc-400: #A09282;   /* tertiary / placeholder text   */
+  --color-zinc-300: #C4B89A;   /* secondary text                */
+  --color-zinc-200: #D8CCB8;
+  --color-zinc-100: #F0E6D3;   /* primary text — warm white     */
+  --color-zinc-50:  #FAF5EC;
+
+  /* ── Gold replaces blue throughout: all bg-blue-*, text-blue-*,
+     border-blue-* utilities automatically become gold ── */
+  --color-blue-900: #1A1000;
+  --color-blue-800: #2A1C00;
+  --color-blue-700: #A88620;
+  --color-blue-600: #C9A227;   /* deep gold — bg-blue-600 buttons   */
+  --color-blue-500: #F5C518;   /* bright gold — primary accent      */
+  --color-blue-400: #F7CE40;   /* light gold — text-blue-400        */
+  --color-blue-300: #F9DC78;
+  --color-blue-200: #FBE9A8;
+  --color-blue-100: #FDF4D6;
+  --color-blue-50:  #FEFBE9;
 }
 
-[data-theme="light"] {
-  --cj-bg:      #f8fafc;
-  --cj-surface: #ffffff;
-  --cj-raised:  #f1f5f9;
-  --cj-text:    #0f172a;
+/* ─── CandlesJournal semantic tokens (used with var(--cj-*)) ──────────────── */
+:root {
+  --cj-bg:           #0A0A0F;          /* page background              */
+  --cj-surface:      #12121A;          /* cards, panels                */
+  --cj-raised:       #0F0F18;          /* inputs, tooltips, elevated   */
+  --cj-border:       #2A2415;          /* default border               */
+  --cj-border-light: #3A3220;          /* lighter border               */
+  --cj-text:         #F0E6D3;          /* primary text                 */
+  --cj-text-muted:   #8A7D65;          /* secondary text               */
+  --cj-gold:         #F5C518;          /* bright gold                  */
+  --cj-gold-deep:    #C9A227;          /* deeper gold                  */
+  --cj-gold-muted:   #8B6914;          /* subtle gold — labels         */
+  --cj-gold-glow:    rgba(245,197,24,0.12);  /* gold ambient glow      */
 }
 
 body {
@@ -21,33 +55,66 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ─── Light theme: remap zinc utility classes ─────────────────────────────── */
-[data-theme="light"] .text-zinc-100 { color: #0f172a; }
-[data-theme="light"] .text-zinc-200 { color: #1e293b; }
-[data-theme="light"] .text-zinc-300 { color: #334155; }
-[data-theme="light"] .text-zinc-400 { color: #475569; }
-[data-theme="light"] .text-zinc-500 { color: #64748b; }
-[data-theme="light"] .text-zinc-600 { color: #94a3b8; }
-[data-theme="light"] .text-zinc-700 { color: #94a3b8; }
-[data-theme="light"] .border-zinc-800 { border-color: #e2e8f0; }
-[data-theme="light"] .border-zinc-700 { border-color: #cbd5e1; }
-[data-theme="light"] .bg-zinc-800 { background-color: #f1f5f9; }
-
-/* ─── Tailwind utilities ───────────────────────────────────────────────────── */
+/* ─── Reusable utility classes ────────────────────────────────────────────── */
 @layer utilities {
+  /* Form label — warm golden uppercase */
   .label {
-    @apply block text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5;
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--cj-gold-muted);
   }
 
+  /* Form input — gold focus ring */
   .inp {
-    @apply w-full rounded-lg px-3 py-2.5 font-mono text-sm outline-none mt-1
-           focus:border-blue-500 transition-colors;
+    width: 100%;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: monospace;
+    font-size: 14px;
+    outline: none;
+    margin-top: 4px;
+    transition: border-color 0.15s;
     background-color: var(--cj-raised);
-    border: 1px solid #3f3f46; /* zinc-700 in dark */
+    border: 1px solid var(--cj-border);
     color: var(--cj-text);
   }
-}
 
-[data-theme="light"] .inp {
-  border-color: #cbd5e1;
+  .inp:focus {
+    border-color: var(--cj-gold);
+    box-shadow: 0 0 0 2px var(--cj-gold-glow);
+  }
+
+  /* Primary gold-gradient button */
+  .btn-gold {
+    background: linear-gradient(135deg, #F5C518, #C9A227);
+    color: #0A0A0F;
+    font-weight: 700;
+    transition: filter 0.15s, transform 0.1s;
+  }
+
+  .btn-gold:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  .btn-gold:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn-gold:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* Section card header — gold-muted label */
+  .card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 500;
+    color: var(--cj-gold-muted);
+  }
 }

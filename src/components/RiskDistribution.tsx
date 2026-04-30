@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 const PAIR_COLORS = [
-  "#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444",
-  "#06b6d4","#84cc16","#ec4899","#f97316","#6366f1",
+  "#F5C518","#C9A227","#E8A020","#F0B030","#D4960A",
+  "#A87820","#F7CE40","#BF8E18","#E8B840","#CB9C22",
 ];
 
 interface Trade {

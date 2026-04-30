@@ -142,7 +142,7 @@ function EquityCurveChart({ data }: { data: { date: string; value: number }[] })
       </div>
     );
   }
-  const stroke = data[data.length - 1].value >= 0 ? "#34d399" : "#f87171";
+  const stroke = data[data.length - 1].value >= 0 ? "#F5C518" : "#f87171";
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
@@ -280,7 +280,7 @@ function CalendarHeatmap({ dailyData }: {
             <div key={i}
               className={`h-8 rounded-[3px] flex items-end justify-end cursor-default
                           hover:opacity-75 transition-opacity
-                          ${isToday ? "outline outline-2 outline-blue-500 outline-offset-[-2px]" : ""}`}
+                          ${isToday ? "outline outline-2 outline-[var(--cj-gold)] outline-offset-[-2px]" : ""}`}
               style={{ background: bg }}
               onMouseEnter={(e) => entry && setTip({ date: ds, pnl: entry.pnl, count: entry.count, x: e.clientX, y: e.clientY })}
               onMouseMove={(e)  => entry && setTip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
@@ -830,7 +830,7 @@ export default function TradingJournal() {
 
         {/* EQUITY CURVE */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 mb-6">
-          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">Equity Curve</p>
+          <p className="card-label mb-4">Equity Curve</p>
           <div style={{ height: 200 }}>
             <EquityCurveChart data={equityCurveData} />
           </div>
@@ -840,14 +840,14 @@ export default function TradingJournal() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">Win Rate by Pair</p>
+            <p className="card-label mb-4">Win Rate by Pair</p>
             <div style={{ height: 200 }}>
               <WinRateChart data={pairWinRateData} />
             </div>
           </div>
 
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">Daily P&L Calendar</p>
+            <p className="card-label mb-4">Daily P&L Calendar</p>
             {/* No fixed height — CalendarHeatmap uses fixed h-8 cells, no overflow */}
             <CalendarHeatmap dailyData={dailyData} />
           </div>
@@ -867,7 +867,7 @@ export default function TradingJournal() {
         {/* AI JOURNAL ANALYSIS — full width, no Pro gate */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+            <p className="card-label">
               AI Journal Analysis
             </p>
             <div className="flex flex-wrap gap-2">
@@ -963,7 +963,7 @@ export default function TradingJournal() {
           <div className={`bg-[var(--cj-surface)] border rounded-2xl p-6 transition-colors
                            ${isEditing ? "border-blue-500/50" : "border-zinc-800"}`}>
             <div className="flex items-center justify-between mb-5 pb-4 border-b border-zinc-800">
-              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+              <p className="card-label">
                 {isEditing ? "Edit Trade" : "New Trade"}
               </p>
               {isEditing && (
@@ -984,11 +984,14 @@ export default function TradingJournal() {
               <div className="flex gap-2 mt-1.5">
                 {(["BUY", "SELL"] as const).map((d) => (
                   <button key={d} onClick={() => setDirection(d)}
+                    style={direction === d && d === "BUY"
+                      ? { background: "linear-gradient(135deg,#F5C518,#C9A227)" }
+                      : undefined}
                     className={`flex-1 py-2.5 rounded-lg font-mono text-xs font-semibold tracking-widest
                                 border transition-all
                                 ${direction === d
                       ? d === "BUY"
-                        ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
+                        ? "border-[var(--cj-gold)] text-[#0A0A0F]"
                         : "bg-rose-500/15 border-rose-500 text-rose-400"
                       : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-500 hover:border-zinc-600"}`}>
                     {d === "BUY" ? "▲ " : "▼ "}{d}
@@ -1090,8 +1093,8 @@ export default function TradingJournal() {
             </label>
 
             <button onClick={isEditing ? saveEdit : addTrade}
-              className="w-full py-2.5 rounded-xl text-white font-semibold text-sm tracking-wide
-                         transition-all active:scale-[0.98] bg-blue-600 hover:bg-blue-500">
+              className="btn-gold w-full py-2.5 rounded-xl text-sm tracking-wide
+                         transition-all active:scale-[0.98]">
               {isEditing ? "💾 Save Changes" : "+ Add Trade"}
             </button>
           </div>
@@ -1100,7 +1103,7 @@ export default function TradingJournal() {
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 min-w-0">
 
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Trade History</p>
+              <p className="card-label">Trade History</p>
               <div className="flex items-center gap-3">
                 {accountTrades.length > 0 && (
                   <button onClick={clearAllTrades}
@@ -1170,8 +1173,9 @@ export default function TradingJournal() {
                   <thead>
                     <tr>
                       {["Pair", "Dir", "Date", "Lot", "Entry", "Exit", "P&L", "Notes & Media", "Emotion", "Actions"].map((h) => (
-                        <th key={h} className="text-[10px] uppercase tracking-widest text-zinc-600 font-medium
-                                               text-left pb-3 border-b border-zinc-800 px-2 last:text-right">
+                        <th key={h} className="text-[10px] uppercase tracking-[0.08em] text-zinc-500 font-medium
+                                               text-left pb-3 px-2 last:text-right"
+                            style={{ borderBottom: "1px solid var(--cj-gold-muted)" }}>
                           {h}
                         </th>
                       ))}
@@ -1180,9 +1184,9 @@ export default function TradingJournal() {
                   <tbody>
                     {filteredTrades.map((t) => (
                       <tr key={t.id}
-                        className={`group transition-colors ${editingId === t.id
-                          ? "bg-blue-500/5 border-l-2 border-l-blue-500"
-                          : "hover:bg-[var(--cj-raised)]"}`}>
+                        className={`group transition-all border-l-2 ${editingId === t.id
+                          ? "bg-[var(--cj-gold-glow)] border-l-[var(--cj-gold)]"
+                          : "border-l-transparent hover:bg-[var(--cj-gold-glow)] hover:border-l-[var(--cj-gold-muted)]"}`}>
 
                         <td className="px-2 py-3 border-b border-zinc-800/60">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1234,9 +1238,12 @@ export default function TradingJournal() {
                           ) : (
                             <button
                               onClick={() => setNoteModalTrade(t)}
-                              className="text-[10px] font-semibold text-zinc-400 bg-zinc-800 hover:bg-zinc-700
-                                         hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500
-                                         rounded-md px-2 py-1 transition-all whitespace-nowrap"
+                              className="text-[10px] font-semibold rounded-md px-2 py-1 transition-all whitespace-nowrap"
+                              style={{
+                                color: "var(--cj-gold)",
+                                border: "1px solid var(--cj-gold-muted)",
+                                background: "transparent",
+                              }}
                             >
                               + Add
                             </button>

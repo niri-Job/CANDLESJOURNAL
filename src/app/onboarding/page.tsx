@@ -17,7 +17,7 @@ interface OnboardingData {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const BROKERS = ["ICMarkets", "Exness", "HFM", "FBS", "OctaFX", "XM", "Deriv", "Other"];
+const BROKERS = ["ICMarkets", "HFM", "FBS", "OctaFX", "XM", "Deriv", "Other"];
 const ACCOUNT_SIZES = ["Under $100", "$100–$500", "$500–$2,000", "$2,000+"];
 const PAIRS = [
   "EURUSD", "GBPUSD", "XAUUSD", "USDJPY", "GBPJPY", "USDCHF",

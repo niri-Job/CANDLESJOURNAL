@@ -494,7 +494,7 @@ export default function SettingsPage() {
                     type="text"
                     value={qcForm.label}
                     onChange={(e) => setQcForm((f) => ({ ...f, label: e.target.value }))}
-                    placeholder="My Exness Real"
+                    placeholder="e.g. My Live Account, Demo Practice"
                     className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
                                text-sm text-zinc-100 placeholder-zinc-600
                                focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"

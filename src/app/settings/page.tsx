@@ -85,6 +85,70 @@ function SyncStatusDot({ status }: { status: string | null }) {
   );
 }
 
+// ── Referral quick-view ───────────────────────────────────────────────────────
+function ReferralQuickView() {
+  const [data, setData] = useState<{
+    referral_code: string | null;
+    referral_enabled: boolean;
+    subscription_status: string;
+    active_referrals: number;
+    this_month_earnings: number;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/referrals/stats")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setData(d));
+  }, []);
+
+  const isFree = !data || (data.subscription_status !== "pro" && data.subscription_status !== "starter");
+
+  return (
+    <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Referrals</p>
+        <Link href="/referrals" className="text-[11px] font-semibold transition-colors"
+              style={{ color: "var(--cj-gold)" }}>
+          View Dashboard →
+        </Link>
+      </div>
+
+      {isFree ? (
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-zinc-300 mb-1">Earn recurring commissions</p>
+            <p className="text-xs text-zinc-500">
+              Upgrade to Starter or Pro to unlock your referral link and start earning $0.50–$1.00/month per referral.
+            </p>
+          </div>
+          <Link href="#" className="btn-gold px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
+            Upgrade
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Your Code</p>
+            <p className="font-mono font-bold text-[var(--cj-gold)] text-sm">
+              {data?.referral_code ?? "—"}
+            </p>
+          </div>
+          <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Active</p>
+            <p className="font-bold text-zinc-100 text-lg">{data?.active_referrals ?? 0}</p>
+          </div>
+          <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">This Month</p>
+            <p className="font-bold text-zinc-100 text-lg">
+              ${(data?.this_month_earnings ?? 0).toFixed(2)}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
 
@@ -776,6 +840,9 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
+        {/* ── REFERRALS QUICK-VIEW ──────────────────────────────────────────── */}
+        <ReferralQuickView />
 
         {/* ── SETUP GUIDE ───────────────────────────────────────────────────── */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">

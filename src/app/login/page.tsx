@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 
 // ── Eye SVG icons ────────────────────────────────────────────────
@@ -75,6 +75,12 @@ type View = "auth" | "forgot";
 export default function LoginPage() {
   const [mode,       setMode]       = useState<"login" | "signup">("login");
   const [view,       setView]       = useState<View>("auth");
+
+  // Persist referral code from ?ref= query param into localStorage
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) localStorage.setItem("cj_ref", ref.toUpperCase());
+  }, []);
   const [email,      setEmail]      = useState("");
   const [password,   setPassword]   = useState("");
   const [confirmPw,  setConfirmPw]  = useState("");
@@ -115,8 +121,25 @@ export default function LoginPage() {
       if (e) { setError(e.message); setLoading(false); return; }
       window.location.href = "/";
     } else {
-      const { error: e } = await supabase.auth.signUp({ email, password });
+      const { data: signUpData, error: e } = await supabase.auth.signUp({ email, password });
       if (e) { setError(e.message); setLoading(false); return; }
+
+      // Track referral if a code was stored
+      if (signUpData.user) {
+        const refCode = localStorage.getItem("cj_ref");
+        if (refCode) {
+          try {
+            await fetch("/api/referrals/track", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ referral_code: refCode }),
+            });
+          } finally {
+            localStorage.removeItem("cj_ref");
+          }
+        }
+      }
+
       setSuccess("Account created! Check your email to confirm, then sign in.");
       switchMode("login");
     }

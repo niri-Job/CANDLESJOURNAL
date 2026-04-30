@@ -7,11 +7,12 @@ import { ThemeSwitcher } from "./ThemeSwitcher";
 import type { User } from "@supabase/supabase-js";
 
 const NAV_ITEMS = [
-  { href: "/",         label: "Dashboard", icon: "🏠" },
-  { href: "/reports",  label: "Reports",   icon: "📊" },
-  { href: "/chart",    label: "Chart",     icon: "🕯️" },
-  { href: "/market",   label: "Market",    icon: "📈" },
-  { href: "/settings", label: "Settings",  icon: "⚙️" },
+  { href: "/",          label: "Dashboard", icon: "🏠" },
+  { href: "/reports",   label: "Reports",   icon: "📊" },
+  { href: "/chart",     label: "Chart",     icon: "🕯️" },
+  { href: "/market",    label: "Market",    icon: "📈" },
+  { href: "/referrals", label: "Referrals", icon: "🎁" },
+  { href: "/settings",  label: "Settings",  icon: "⚙️" },
 ];
 
 interface SidebarProps {

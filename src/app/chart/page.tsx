@@ -5,12 +5,6 @@ import { createClient } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import type { User } from "@supabase/supabase-js";
 
-declare global {
-  interface Window {
-    TradingView: { widget: new (config: object) => unknown };
-  }
-}
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Trade {
   id: string;
@@ -29,16 +23,15 @@ interface Trade {
   setup: string;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const TV_SYMBOL_MAP: Record<string, string> = {
-  EURUSD: "FX:EURUSD", GBPUSD: "FX:GBPUSD", USDJPY: "FX:USDJPY",
-  USDCHF: "FX:USDCHF", USDCAD: "FX:USDCAD", AUDUSD: "FX:AUDUSD",
-  NZDUSD: "FX:NZDUSD", EURGBP: "FX:EURGBP", EURJPY: "FX:EURJPY",
-  XAUUSD: "TVC:GOLD",  XAGUSD: "TVC:SILVER",
-  BTCUSD: "BITSTAMP:BTCUSD", BTCUSDM: "BITSTAMP:BTCUSD",
-  US30: "DJ:DJI", NAS100: "NASDAQ:NDX", SPX500: "SP:SPX",
-};
+interface CandleData {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_PAIRS = ["XAUUSD", "EURUSD", "GBPUSD", "BTCUSD", "XAGUSD", "US30"];
 
 const INTERVALS = [
@@ -55,11 +48,7 @@ const EMOTION_EMOJI: Record<string, string> = {
   confident: "😎", bored: "😴", news: "📰",
 };
 
-function tvSym(pair: string): string {
-  return TV_SYMBOL_MAP[pair.toUpperCase()] ?? pair.toUpperCase();
-}
-
-const fmt = (v: number) => (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(2);
+const fmt    = (v: number) => (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(2);
 const pnlCls = (v: number) => v > 0 ? "text-emerald-400" : v < 0 ? "text-rose-400" : "text-zinc-400";
 
 function fmtDate(dateStr: string): string {
@@ -84,76 +73,210 @@ function calcRR(entry: number, sl: number | null, tp: number | null): string | n
   return Math.abs((tp - entry) / (entry - sl)).toFixed(2);
 }
 
-// ─── TradingView Widget ───────────────────────────────────────────────────────
-function TradingViewWidget({
-  symbol, interval, focusTs,
+// ─── Lightweight Chart Widget ─────────────────────────────────────────────────
+function LightweightChartWidget({
+  symbol, interval, selectedTrade,
 }: {
-  symbol: string; interval: string; focusTs: number | null;
+  symbol: string;
+  interval: string;
+  selectedTrade: Trade | null;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const widgetRef   = useRef<unknown>(null);
-  const focusTsRef  = useRef(focusTs);
-  focusTsRef.current = focusTs;
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const chartRef      = useRef<any>(null);        // IChartApi
+  const candleRef     = useRef<any>(null);        // ISeriesApi<Candlestick>
+  const shadeRef      = useRef<any>(null);        // ISeriesApi<Histogram>
+  const priceLinesRef = useRef<any[]>([]);        // IPriceLine[]
+  const markersRef    = useRef<any>(null);        // ISeriesMarkersPluginApi
+  const dataRef       = useRef<CandleData[]>([]); // loaded OHLCV
+  const fetchIdRef    = useRef(0);                // stale-fetch guard
 
-  function navigateTo(w: unknown, ts: number) {
-    const buffer = 8 * 3600; // ±8 hours context around trade
-    try {
-      (w as any).chart().setVisibleRange({ from: ts - buffer, to: ts + buffer });
-    } catch { /* free widget may not expose this — silently ignore */ }
+  // Stable refs so async callbacks always see current values
+  const symRef   = useRef(symbol);
+  const ivlRef   = useRef(interval);
+  const tradeRef = useRef(selectedTrade);
+  symRef.current   = symbol;
+  ivlRef.current   = interval;
+  tradeRef.current = selectedTrade;
+
+  const [chartStatus, setChartStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errMsg,      setErrMsg]      = useState("");
+
+  // ── Clear all trade overlays ──────────────────────────────────────────────
+  function clearOverlays() {
+    const s = candleRef.current;
+    const c = chartRef.current;
+    priceLinesRef.current.forEach((pl) => { try { s?.removePriceLine(pl); } catch {} });
+    priceLinesRef.current = [];
+    try { markersRef.current?.detach(); } catch {}
+    markersRef.current = null;
+    if (shadeRef.current && c) {
+      try { c.removeSeries(shadeRef.current); } catch {}
+      shadeRef.current = null;
+    }
   }
 
-  // Re-mount when symbol or interval changes
-  useEffect(() => {
-    if (!ref.current) return;
-    const id = `tv_${Math.random().toString(36).slice(2)}`;
-    ref.current.innerHTML = `<div id="${id}" style="height:100%;width:100%"></div>`;
-    let dead = false;
-    widgetRef.current = null;
+  // ── Draw trade overlays (price lines, markers, shade) ────────────────────
+  function drawOverlays(trade: Trade | null) {
+    clearOverlays();
+    const data = dataRef.current;
+    if (!trade || !candleRef.current || !chartRef.current || !data.length) return;
 
-    function init() {
-      if (dead || !ref.current || !window.TradingView) return;
-      const w = new window.TradingView.widget({
-        autosize: true, symbol: tvSym(symbol), interval,
-        timezone: "Etc/UTC", theme: "dark", style: "1", locale: "en",
-        toolbar_bg: "#0A0A0F", enable_publishing: false,
-        allow_symbol_change: true, container_id: id,
-        hide_side_toolbar: false, withdateranges: true,
-        details: false, hotlist: false, calendar: false,
-      });
-      widgetRef.current = w;
-      (w as any).onChartReady?.(() => {
-        const ts = focusTsRef.current;
-        if (ts) navigateTo(w, ts);
-      });
-    }
+    import("lightweight-charts").then(({ LineStyle, HistogramSeries, createSeriesMarkers }) => {
+      const s = candleRef.current;
+      const c = chartRef.current;
+      const d = dataRef.current;
+      if (!s || !c || !d.length) return;
 
-    if (window.TradingView) { init(); }
-    else {
-      let script = document.getElementById("tv-script") as HTMLScriptElement | null;
-      if (!script) {
-        script = document.createElement("script");
-        script.id = "tv-script";
-        script.src = "https://s3.tradingview.com/tv.js";
-        script.async = true;
-        document.head.appendChild(script);
+      // ── Price lines ─────────────────────────────────────────────────────
+      const lines: any[] = [
+        s.createPriceLine({ price: trade.entry,      color: "#34d399", lineWidth: 2, lineStyle: LineStyle.Solid,  axisLabelVisible: true, title: "Entry" }),
+        s.createPriceLine({ price: trade.exit_price, color: "#f97316", lineWidth: 2, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Exit"  }),
+      ];
+      if (trade.sl != null) lines.push(s.createPriceLine({ price: trade.sl, color: "#f87171", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: "SL" }));
+      if (trade.tp != null) lines.push(s.createPriceLine({ price: trade.tp, color: "#93c5fd", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: "TP" }));
+      priceLinesRef.current = lines;
+
+      // ── Find closest candle to trade date ────────────────────────────────
+      const dayStart    = Math.floor(new Date(trade.date + "T00:00:00Z").getTime() / 1000);
+      const dayEnd      = dayStart + 86400;
+      const tradeCandle: CandleData =
+        d.find((pt) => pt.time >= dayStart && pt.time < dayEnd) ??
+        d.reduce((a, b) => Math.abs(a.time - dayStart) < Math.abs(b.time - dayStart) ? a : b);
+
+      // ── Arrow markers ────────────────────────────────────────────────────
+      markersRef.current = createSeriesMarkers(s, [
+        { time: tradeCandle.time, position: "belowBar", color: "#34d399", shape: "arrowUp",   text: "Entry" },
+        { time: tradeCandle.time, position: "aboveBar", color: "#f97316", shape: "arrowDown", text: "Exit"  },
+      ]);
+
+      // ── Shade band between entry and exit price levels ───────────────────
+      const shadeHigh  = Math.max(trade.entry, trade.exit_price);
+      const shadeLow   = Math.min(trade.entry, trade.exit_price);
+      const shadeColor = trade.pnl >= 0 ? "rgba(52,211,153,0.18)" : "rgba(248,113,113,0.18)";
+      const shade = c.addSeries(HistogramSeries, {
+        base: shadeLow,
+        lastValueVisible: false,
+        priceLineVisible: false,
+      });
+      shade.setData(d.map((pt) => ({ time: pt.time, value: shadeHigh, color: shadeColor })));
+      shadeRef.current = shade;
+
+      // ── Navigate chart to trade date ─────────────────────────────────────
+      const buffer = 20 * 3600; // ±20h visible window
+      c.timeScale().setVisibleRange({
+        from: tradeCandle.time - buffer,
+        to:   tradeCandle.time + buffer,
+      });
+    });
+  }
+
+  // ── Fetch OHLCV from /api/ohlcv ───────────────────────────────────────────
+  async function fetchData(sym: string, ivl: string, trade: Trade | null) {
+    if (!candleRef.current) return;
+    const fid = ++fetchIdRef.current;
+    setChartStatus("loading");
+    setErrMsg("");
+    try {
+      const res  = await fetch(`/api/ohlcv?symbol=${sym}&interval=${ivl}`);
+      const body = await res.json() as unknown;
+      if (fid !== fetchIdRef.current) return; // superseded by newer fetch
+      if (!Array.isArray(body)) {
+        const errObj = body as Record<string, string>;
+        setErrMsg(errObj?.error ?? "Failed to load chart data");
+        setChartStatus("error");
+        return;
       }
-      script.addEventListener("load", init);
+      candleRef.current?.setData(body);
+      dataRef.current = body as CandleData[];
+      chartRef.current?.timeScale().fitContent();
+      setChartStatus("ready");
+      drawOverlays(trade);
+    } catch {
+      if (fid !== fetchIdRef.current) return;
+      setErrMsg("Network error — check your connection");
+      setChartStatus("error");
     }
+  }
 
+  // ── Mount: init chart once ────────────────────────────────────────────────
+  useEffect(() => {
+    let dead = false;
+    import("lightweight-charts").then(({ createChart, CandlestickSeries }) => {
+      if (dead || !containerRef.current) return;
+      const chart = createChart(containerRef.current, {
+        autoSize: true,
+        layout: {
+          background: { color: "#0A0A0F" },
+          textColor: "#6b7280",
+        },
+        grid: {
+          vertLines: { color: "#18181b" },
+          horzLines: { color: "#18181b" },
+        },
+        crosshair: { mode: 0 }, // CrosshairMode.Normal = 0
+        rightPriceScale: { borderColor: "#27272a" },
+        timeScale: { borderColor: "#27272a", timeVisible: true, secondsVisible: false },
+      });
+      const candle = chart.addSeries(CandlestickSeries, {
+        upColor: "#34d399", downColor: "#f87171",
+        borderVisible: false,
+        wickUpColor: "#34d399", wickDownColor: "#f87171",
+      });
+      chartRef.current  = chart;
+      candleRef.current = candle;
+      fetchData(symRef.current, ivlRef.current, tradeRef.current);
+    });
     return () => {
       dead = true;
-      widgetRef.current = null;
-      if (ref.current) ref.current.innerHTML = "";
+      chartRef.current?.remove();
+      chartRef.current  = null;
+      candleRef.current = null;
+      shadeRef.current  = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Re-fetch when symbol or interval changes ──────────────────────────────
+  useEffect(() => {
+    if (!candleRef.current) return; // not yet initialized — init handles first fetch
+    clearOverlays();
+    fetchData(symbol, interval, tradeRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, interval]);
 
-  // Navigate to new date without remounting (when only focusTs changes)
+  // ── Redraw overlays when selected trade changes ───────────────────────────
   useEffect(() => {
-    if (!focusTs || !widgetRef.current) return;
-    navigateTo(widgetRef.current, focusTs);
-  }, [focusTs]);
+    if (!candleRef.current || !dataRef.current.length) return;
+    drawOverlays(selectedTrade);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTrade]);
 
-  return <div ref={ref} className="w-full h-full" style={{ minHeight: 320 }} />;
+  return (
+    <div className="relative w-full h-full" style={{ minHeight: 320 }}>
+      <div ref={containerRef} className="w-full h-full" />
+
+      {/* Loading overlay */}
+      {chartStatus === "loading" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#0A0A0F]/70 z-10">
+          <div className="w-5 h-5 border-2 border-[var(--cj-gold)] border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {/* Error overlay */}
+      {chartStatus === "error" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0A0A0F]/85 z-10 gap-3 px-6 text-center">
+          <span className="text-2xl">📡</span>
+          <p className="text-sm text-rose-400 font-mono">{errMsg}</p>
+          <button
+            onClick={() => fetchData(symbol, interval, tradeRef.current)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Helper sub-components ────────────────────────────────────────────────────
@@ -199,7 +322,6 @@ export default function ChartPage() {
   const [symbol,      setSymbol]      = useState("XAUUSD");
   const [interval,    setIntervalVal] = useState("60");
   const [selected,    setSelected]    = useState<Trade | null>(null);
-  const [focusTs,     setFocusTs]     = useState<number | null>(null);
   const [insights,    setInsights]    = useState<Record<string, string>>({});
   const [loadingAI,   setLoadingAI]   = useState<string | null>(null);
   const [copied,      setCopied]      = useState(false);
@@ -219,7 +341,7 @@ export default function ChartPage() {
     })();
   }, []);
 
-  // ── Quick pair list (user's top pairs first, then defaults) ───────────────
+  // ── Quick pair list ───────────────────────────────────────────────────────
   const quickPairs = useMemo(() => {
     const cnt: Record<string, number> = {};
     for (const t of trades) cnt[t.pair] = (cnt[t.pair] || 0) + 1;
@@ -234,21 +356,17 @@ export default function ChartPage() {
     [trades, symbol]
   );
 
-  // ── Click trade — switch symbol, auto-interval, jump to date ─────────────
+  // ── Click a trade: switch symbol, set 1H, let chart navigate ─────────────
   function handleTradeClick(t: Trade) {
-    if (selected?.id === t.id) { setSelected(null); setFocusTs(null); return; }
+    if (selected?.id === t.id) { setSelected(null); return; }
     setSelected(t);
-    // Switch symbol if needed
     if (t.pair.toUpperCase() !== symbol.toUpperCase()) setSymbol(t.pair.toUpperCase());
-    // Default to 1H — best for reviewing most intraday trades
     setIntervalVal("60");
-    // Navigate chart to this date (noon UTC on trade date)
-    setFocusTs(Math.floor(new Date(t.date + "T12:00:00Z").getTime() / 1000));
   }
 
   // ── Copy trade details ────────────────────────────────────────────────────
   function copyTrade(t: Trade) {
-    const rr = calcRR(t.entry, t.sl, t.tp);
+    const rr   = calcRR(t.entry, t.sl, t.tp);
     const pips = calcPips(t.pair, t.entry, t.exit_price);
     const text =
 `${t.pair} ${t.direction} | ${t.date}
@@ -284,7 +402,7 @@ Notes: ${t.notes || "—"}`;
     }
   }
 
-  // ── Insights-tab pattern stats ────────────────────────────────────────────
+  // ── Insights-tab stats ────────────────────────────────────────────────────
   const stats = useMemo(() => {
     if (trades.length < 3) return null;
 
@@ -425,7 +543,7 @@ Notes: ${t.notes || "—"}`;
               <div className="flex gap-1.5 shrink-0">
                 {quickPairs.map((p) => (
                   <button key={p}
-                    onClick={() => { setSymbol(p); setSelected(null); setFocusTs(null); }}
+                    onClick={() => { setSymbol(p); setSelected(null); }}
                     className="px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all whitespace-nowrap"
                     style={symbol === p
                       ? { background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F", border: "none" }
@@ -462,7 +580,7 @@ Notes: ${t.notes || "—"}`;
                   {"  ·  "}
                   <span className={`font-mono font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</span>
                 </span>
-                <button onClick={() => { setSelected(null); setFocusTs(null); }}
+                <button onClick={() => setSelected(null)}
                         className="ml-auto shrink-0 text-zinc-600 hover:text-zinc-300 transition-colors text-sm">✕</button>
               </div>
             )}
@@ -470,13 +588,12 @@ Notes: ${t.notes || "—"}`;
             {/* Chart + Trade panel */}
             <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
 
-              {/* TradingView chart */}
+              {/* Lightweight Charts */}
               <div className="flex-1 min-h-[55vw] md:min-h-0">
-                <TradingViewWidget
-                  key={`${symbol}-${interval}`}
+                <LightweightChartWidget
                   symbol={symbol}
                   interval={interval}
-                  focusTs={focusTs}
+                  selectedTrade={selected}
                 />
               </div>
 
@@ -557,28 +674,20 @@ Notes: ${t.notes || "—"}`;
 
                           {/* Colour-coded price grid */}
                           <div className="grid grid-cols-2 gap-2 mb-3">
-
-                            {/* Entry — emerald */}
                             <div className="rounded-xl p-3" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.25)" }}>
                               <p className="text-[10px] font-semibold uppercase text-emerald-400">Entry</p>
                               <p className="font-mono text-sm text-zinc-100 mt-0.5">{selected.entry}</p>
                             </div>
-
-                            {/* Exit — orange */}
                             <div className="rounded-xl p-3" style={{ background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.30)" }}>
                               <p className="text-[10px] font-semibold uppercase text-orange-400">Exit</p>
                               <p className="font-mono text-sm text-zinc-100 mt-0.5">{selected.exit_price}</p>
                             </div>
-
-                            {/* SL — rose (only if set) */}
                             {selected.sl != null && (
                               <div className="rounded-xl p-3" style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)" }}>
                                 <p className="text-[10px] font-semibold uppercase text-rose-400">Stop Loss</p>
                                 <p className="font-mono text-sm text-zinc-100 mt-0.5">{selected.sl}</p>
                               </div>
                             )}
-
-                            {/* TP — real blue (not remapped gold) */}
                             {selected.tp != null && (
                               <div className="rounded-xl p-3" style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.25)" }}>
                                 <p className="text-[10px] font-semibold uppercase" style={{ color: "#93c5fd" }}>Take Profit</p>
@@ -595,12 +704,8 @@ Notes: ${t.notes || "—"}`;
                               <span className="text-zinc-500">{selPips} pips</span>
                             )}
                             <span className="text-zinc-600">{selected.lot} lot</span>
-                            {selRR && (
-                              <span className="text-zinc-500">R:R {selRR}:1</span>
-                            )}
-                            {selected.session && (
-                              <span className="text-zinc-600">{selected.session}</span>
-                            )}
+                            {selRR && <span className="text-zinc-500">R:R {selRR}:1</span>}
+                            {selected.session && <span className="text-zinc-600">{selected.session}</span>}
                           </div>
 
                           {/* Setup / Notes */}
@@ -650,14 +755,8 @@ Notes: ${t.notes || "—"}`;
                 {/* Market Replay notice — panel footer */}
                 <div className="shrink-0 px-4 py-3 text-[11px] leading-relaxed"
                      style={{ borderTop: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
-                  📋 <strong className="text-zinc-400">Advanced features coming soon:</strong> Entry/Exit lines, SL/TP
-                  visualisation, and Market Replay are being integrated.{" "}
-                  <a href="https://www.tradingview.com/HTML5-stock-forex-bitcoin-charting-library/"
-                     target="_blank" rel="noopener noreferrer"
-                     style={{ color: "var(--cj-gold-muted)" }}
-                     className="underline hover:text-[var(--cj-gold)] transition-colors">
-                    Apply for early access →
-                  </a>
+                  📋 <strong className="text-zinc-400">Market Replay coming soon</strong> — review
+                  your trades bar-by-bar to identify exactly where you entered and exited.
                 </div>
               </div>
             </div>
@@ -697,7 +796,9 @@ Notes: ${t.notes || "—"}`;
                       <div className={`rounded-xl p-4 ${stats.consecDelta > 0 ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-zinc-800/40 border border-zinc-700"}`}>
                         <p className="text-lg mb-2">🛑</p>
                         <p className="text-sm text-zinc-200 leading-snug mb-1">
-                          {stats.consecDelta > 0 ? <>Stop after 2 consecutive losses/day — P&L improves by <span className="font-mono font-semibold text-emerald-400">{fmt(stats.consecDelta)}</span></> : "Your daily loss-limit is already saving you."}
+                          {stats.consecDelta > 0
+                            ? <>Stop after 2 consecutive losses/day — P&L improves by <span className="font-mono font-semibold text-emerald-400">{fmt(stats.consecDelta)}</span></>
+                            : "Your daily loss-limit is already saving you."}
                         </p>
                         <p className="text-[12px] text-zinc-600">Simulated: {fmt(stats.simPnl)} vs actual: {fmt(stats.actualPnl)}</p>
                       </div>

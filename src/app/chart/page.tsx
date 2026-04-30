@@ -5,6 +5,12 @@ import { createClient } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import type { User } from "@supabase/supabase-js";
 
+declare global {
+  interface Window {
+    TradingView: { widget: new (config: object) => unknown };
+  }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Trade {
   id: string;
@@ -34,6 +40,16 @@ interface CandleData {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_PAIRS = ["XAUUSD", "EURUSD", "GBPUSD", "BTCUSD", "XAGUSD", "US30"];
 
+const TV_SYMBOL_MAP: Record<string, string> = {
+  EURUSD: "FX:EURUSD",  GBPUSD: "FX:GBPUSD",  USDJPY: "FX:USDJPY",
+  USDCHF: "FX:USDCHF",  USDCAD: "FX:USDCAD",  AUDUSD: "FX:AUDUSD",
+  NZDUSD: "FX:NZDUSD",  EURGBP: "FX:EURGBP",  EURJPY: "FX:EURJPY",
+  GBPJPY: "FX:GBPJPY",  EURAUD: "FX:EURAUD",  GBPAUD: "FX:GBPAUD",
+  XAUUSD: "TVC:GOLD",   XAGUSD: "TVC:SILVER",
+  BTCUSD: "BITSTAMP:BTCUSD",
+  US30:   "DJ:DJI",     NAS100: "NASDAQ:NDX",  SPX500: "SP:SPX",
+};
+
 const INTERVALS = [
   { label: "1m",  val: "1"   },
   { label: "5m",  val: "5"   },
@@ -47,6 +63,10 @@ const EMOTION_EMOJI: Record<string, string> = {
   revenge: "😤", fear: "😰", greedy: "🤑",
   confident: "😎", bored: "😴", news: "📰",
 };
+
+function tvSym(pair: string): string {
+  return TV_SYMBOL_MAP[pair.toUpperCase()] ?? pair.toUpperCase();
+}
 
 const fmt    = (v: number) => (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(2);
 const pnlCls = (v: number) => v > 0 ? "text-emerald-400" : v < 0 ? "text-rose-400" : "text-zinc-400";
@@ -73,7 +93,63 @@ function calcRR(entry: number, sl: number | null, tp: number | null): string | n
   return Math.abs((tp - entry) / (entry - sl)).toFixed(2);
 }
 
-// ─── Lightweight Chart Widget ─────────────────────────────────────────────────
+// ─── MODE 1: TradingView Live Market Widget ───────────────────────────────────
+function TradingViewWidget({ symbol, interval }: { symbol: string; interval: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const id = `tv_${Math.random().toString(36).slice(2)}`;
+    ref.current.innerHTML = `<div id="${id}" style="height:100%;width:100%"></div>`;
+    let dead = false;
+
+    function init() {
+      if (dead || !ref.current || !window.TradingView) return;
+      new window.TradingView.widget({
+        autosize: true,
+        symbol: tvSym(symbol),
+        interval,
+        timezone: "Etc/UTC",
+        theme: "dark",
+        style: "1",
+        locale: "en",
+        toolbar_bg: "#0A0A0F",
+        enable_publishing: false,
+        allow_symbol_change: true,
+        container_id: id,
+        hide_side_toolbar: false,
+        withdateranges: true,
+        save_image: true,
+        details: false,
+        hotlist: false,
+        calendar: false,
+      });
+    }
+
+    if (window.TradingView) {
+      init();
+    } else {
+      let script = document.getElementById("tv-script") as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement("script");
+        script.id = "tv-script";
+        script.src = "https://s3.tradingview.com/tv.js";
+        script.async = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener("load", init);
+    }
+
+    return () => {
+      dead = true;
+      if (ref.current) ref.current.innerHTML = "";
+    };
+  }, [symbol, interval]);
+
+  return <div ref={ref} className="w-full h-full" style={{ minHeight: 320 }} />;
+}
+
+// ─── MODE 2: Lightweight Charts Trade Review Widget ───────────────────────────
 function LightweightChartWidget({
   symbol, interval, selectedTrade,
 }: {
@@ -82,15 +158,14 @@ function LightweightChartWidget({
   selectedTrade: Trade | null;
 }) {
   const containerRef  = useRef<HTMLDivElement>(null);
-  const chartRef      = useRef<any>(null);        // IChartApi
-  const candleRef     = useRef<any>(null);        // ISeriesApi<Candlestick>
-  const shadeRef      = useRef<any>(null);        // ISeriesApi<Histogram>
-  const priceLinesRef = useRef<any[]>([]);        // IPriceLine[]
-  const markersRef    = useRef<any>(null);        // ISeriesMarkersPluginApi
-  const dataRef       = useRef<CandleData[]>([]); // loaded OHLCV
-  const fetchIdRef    = useRef(0);                // stale-fetch guard
+  const chartRef      = useRef<any>(null);
+  const candleRef     = useRef<any>(null);
+  const shadeRef      = useRef<any>(null);
+  const priceLinesRef = useRef<any[]>([]);
+  const markersRef    = useRef<any>(null);
+  const dataRef       = useRef<CandleData[]>([]);
+  const fetchIdRef    = useRef(0);
 
-  // Stable refs so async callbacks always see current values
   const symRef   = useRef(symbol);
   const ivlRef   = useRef(interval);
   const tradeRef = useRef(selectedTrade);
@@ -101,7 +176,6 @@ function LightweightChartWidget({
   const [chartStatus, setChartStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errMsg,      setErrMsg]      = useState("");
 
-  // ── Clear all trade overlays ──────────────────────────────────────────────
   function clearOverlays() {
     const s = candleRef.current;
     const c = chartRef.current;
@@ -115,7 +189,6 @@ function LightweightChartWidget({
     }
   }
 
-  // ── Draw trade overlays (price lines, markers, shade) ────────────────────
   function drawOverlays(trade: Trade | null) {
     clearOverlays();
     const data = dataRef.current;
@@ -127,7 +200,7 @@ function LightweightChartWidget({
       const d = dataRef.current;
       if (!s || !c || !d.length) return;
 
-      // ── Price lines ─────────────────────────────────────────────────────
+      // Price lines
       const lines: any[] = [
         s.createPriceLine({ price: trade.entry,      color: "#34d399", lineWidth: 2, lineStyle: LineStyle.Solid,  axisLabelVisible: true, title: "Entry" }),
         s.createPriceLine({ price: trade.exit_price, color: "#f97316", lineWidth: 2, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Exit"  }),
@@ -136,41 +209,35 @@ function LightweightChartWidget({
       if (trade.tp != null) lines.push(s.createPriceLine({ price: trade.tp, color: "#93c5fd", lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: "TP" }));
       priceLinesRef.current = lines;
 
-      // ── Find closest candle to trade date ────────────────────────────────
-      const dayStart    = Math.floor(new Date(trade.date + "T00:00:00Z").getTime() / 1000);
-      const dayEnd      = dayStart + 86400;
+      // Closest candle to trade date
+      const dayStart = Math.floor(new Date(trade.date + "T00:00:00Z").getTime() / 1000);
+      const dayEnd   = dayStart + 86400;
       const tradeCandle: CandleData =
         d.find((pt) => pt.time >= dayStart && pt.time < dayEnd) ??
         d.reduce((a, b) => Math.abs(a.time - dayStart) < Math.abs(b.time - dayStart) ? a : b);
 
-      // ── Arrow markers ────────────────────────────────────────────────────
+      // Arrow markers
       markersRef.current = createSeriesMarkers(s, [
         { time: tradeCandle.time, position: "belowBar", color: "#34d399", shape: "arrowUp",   text: "Entry" },
         { time: tradeCandle.time, position: "aboveBar", color: "#f97316", shape: "arrowDown", text: "Exit"  },
       ]);
 
-      // ── Shade band between entry and exit price levels ───────────────────
+      // Shade band
       const shadeHigh  = Math.max(trade.entry, trade.exit_price);
       const shadeLow   = Math.min(trade.entry, trade.exit_price);
       const shadeColor = trade.pnl >= 0 ? "rgba(52,211,153,0.18)" : "rgba(248,113,113,0.18)";
-      const shade = c.addSeries(HistogramSeries, {
-        base: shadeLow,
-        lastValueVisible: false,
-        priceLineVisible: false,
-      });
+      const shade = c.addSeries(HistogramSeries, { base: shadeLow, lastValueVisible: false, priceLineVisible: false });
       shade.setData(d.map((pt) => ({ time: pt.time, value: shadeHigh, color: shadeColor })));
       shadeRef.current = shade;
 
-      // ── Navigate chart to trade date ─────────────────────────────────────
-      const buffer = 20 * 3600; // ±20h visible window
+      // Navigate to trade date
       c.timeScale().setVisibleRange({
-        from: tradeCandle.time - buffer,
-        to:   tradeCandle.time + buffer,
+        from: tradeCandle.time - 20 * 3600,
+        to:   tradeCandle.time + 20 * 3600,
       });
     });
   }
 
-  // ── Fetch OHLCV from /api/ohlcv ───────────────────────────────────────────
   async function fetchData(sym: string, ivl: string, trade: Trade | null) {
     if (!candleRef.current) return;
     const fid = ++fetchIdRef.current;
@@ -179,10 +246,10 @@ function LightweightChartWidget({
     try {
       const res  = await fetch(`/api/ohlcv?symbol=${sym}&interval=${ivl}`);
       const body = await res.json() as unknown;
-      if (fid !== fetchIdRef.current) return; // superseded by newer fetch
+      if (fid !== fetchIdRef.current) return;
       if (!Array.isArray(body)) {
-        const errObj = body as Record<string, string>;
-        setErrMsg(errObj?.error ?? "Failed to load chart data");
+        const e = body as Record<string, string>;
+        setErrMsg(e?.error ?? "Failed to load chart data");
         setChartStatus("error");
         return;
       }
@@ -198,22 +265,16 @@ function LightweightChartWidget({
     }
   }
 
-  // ── Mount: init chart once ────────────────────────────────────────────────
+  // Init chart once
   useEffect(() => {
     let dead = false;
     import("lightweight-charts").then(({ createChart, CandlestickSeries }) => {
       if (dead || !containerRef.current) return;
       const chart = createChart(containerRef.current, {
         autoSize: true,
-        layout: {
-          background: { color: "#0A0A0F" },
-          textColor: "#6b7280",
-        },
-        grid: {
-          vertLines: { color: "#18181b" },
-          horzLines: { color: "#18181b" },
-        },
-        crosshair: { mode: 0 }, // CrosshairMode.Normal = 0
+        layout: { background: { color: "#0A0A0F" }, textColor: "#6b7280" },
+        grid: { vertLines: { color: "#18181b" }, horzLines: { color: "#18181b" } },
+        crosshair: { mode: 0 },
         rightPriceScale: { borderColor: "#27272a" },
         timeScale: { borderColor: "#27272a", timeVisible: true, secondsVisible: false },
       });
@@ -229,22 +290,20 @@ function LightweightChartWidget({
     return () => {
       dead = true;
       chartRef.current?.remove();
-      chartRef.current  = null;
-      candleRef.current = null;
-      shadeRef.current  = null;
+      chartRef.current = null; candleRef.current = null; shadeRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Re-fetch when symbol or interval changes ──────────────────────────────
+  // Re-fetch on symbol/interval change
   useEffect(() => {
-    if (!candleRef.current) return; // not yet initialized — init handles first fetch
+    if (!candleRef.current) return;
     clearOverlays();
     fetchData(symbol, interval, tradeRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, interval]);
 
-  // ── Redraw overlays when selected trade changes ───────────────────────────
+  // Redraw overlays on trade change
   useEffect(() => {
     if (!candleRef.current || !dataRef.current.length) return;
     drawOverlays(selectedTrade);
@@ -254,23 +313,18 @@ function LightweightChartWidget({
   return (
     <div className="relative w-full h-full" style={{ minHeight: 320 }}>
       <div ref={containerRef} className="w-full h-full" />
-
-      {/* Loading overlay */}
       {chartStatus === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0A0A0F]/70 z-10">
           <div className="w-5 h-5 border-2 border-[var(--cj-gold)] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-
-      {/* Error overlay */}
       {chartStatus === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0A0A0F]/85 z-10 gap-3 px-6 text-center">
           <span className="text-2xl">📡</span>
           <p className="text-sm text-rose-400 font-mono">{errMsg}</p>
           <button
             onClick={() => fetchData(symbol, interval, tradeRef.current)}
-            className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
-          >
+            className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors">
             Retry
           </button>
         </div>
@@ -322,6 +376,8 @@ export default function ChartPage() {
   const [symbol,      setSymbol]      = useState("XAUUSD");
   const [interval,    setIntervalVal] = useState("60");
   const [selected,    setSelected]    = useState<Trade | null>(null);
+  // "live" = TradingView full widget, "review" = Lightweight Charts with overlays
+  const [chartMode,   setChartMode]   = useState<"live" | "review">("live");
   const [insights,    setInsights]    = useState<Record<string, string>>({});
   const [loadingAI,   setLoadingAI]   = useState<string | null>(null);
   const [copied,      setCopied]      = useState(false);
@@ -356,12 +412,31 @@ export default function ChartPage() {
     [trades, symbol]
   );
 
-  // ── Click a trade: switch symbol, set 1H, let chart navigate ─────────────
+  // ── Click a trade → always switch to Trade Review mode ───────────────────
   function handleTradeClick(t: Trade) {
-    if (selected?.id === t.id) { setSelected(null); return; }
+    if (selected?.id === t.id && chartMode === "review") {
+      // Clicking the same trade in review mode deselects and goes back to live
+      setSelected(null);
+      setChartMode("live");
+      return;
+    }
     setSelected(t);
     if (t.pair.toUpperCase() !== symbol.toUpperCase()) setSymbol(t.pair.toUpperCase());
     setIntervalVal("60");
+    setChartMode("review");
+  }
+
+  // ── Pair button click → always return to Live mode ────────────────────────
+  function handlePairClick(p: string) {
+    setSymbol(p);
+    setSelected(null);
+    setChartMode("live");
+  }
+
+  // ── Back to live chart ────────────────────────────────────────────────────
+  function backToLive() {
+    setSelected(null);
+    setChartMode("live");
   }
 
   // ── Copy trade details ────────────────────────────────────────────────────
@@ -504,7 +579,6 @@ Notes: ${t.notes || "—"}`;
     );
   }
 
-  // ── Selected trade computed values ────────────────────────────────────────
   const selPips = selected ? calcPips(selected.pair, selected.entry, selected.exit_price) : null;
   const selRR   = selected ? calcRR(selected.entry, selected.sl, selected.tp) : null;
 
@@ -519,7 +593,7 @@ Notes: ${t.notes || "—"}`;
              style={{ borderBottom: "1px solid var(--cj-border)", background: "var(--cj-bg)" }}>
           <div className="flex items-center gap-2.5">
             <span className="text-xl">🕯️</span>
-            <span className="font-semibold text-base text-zinc-100">Live Chart</span>
+            <span className="font-semibold text-base text-zinc-100">Chart</span>
           </div>
           <div className="flex gap-1 bg-[var(--cj-raised)] rounded-xl p-1" style={{ border: "1px solid var(--cj-border)" }}>
             {(["chart", "insights"] as const).map((t) => (
@@ -537,13 +611,14 @@ Notes: ${t.notes || "—"}`;
         {tab === "chart" && (
           <div className="flex-1 flex flex-col min-h-0">
 
-            {/* Asset + interval bar */}
-            <div className="shrink-0 flex items-center gap-3 px-4 py-2 overflow-x-auto"
+            {/* ── Asset / Interval / Mode bar ────────────────────────────── */}
+            <div className="shrink-0 flex items-center gap-2 px-4 py-2 overflow-x-auto"
                  style={{ borderBottom: "1px solid var(--cj-border)", background: "var(--cj-surface)" }}>
+
+              {/* Pair buttons */}
               <div className="flex gap-1.5 shrink-0">
                 {quickPairs.map((p) => (
-                  <button key={p}
-                    onClick={() => { setSymbol(p); setSelected(null); }}
+                  <button key={p} onClick={() => handlePairClick(p)}
                     className="px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all whitespace-nowrap"
                     style={symbol === p
                       ? { background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F", border: "none" }
@@ -552,7 +627,10 @@ Notes: ${t.notes || "—"}`;
                   </button>
                 ))}
               </div>
+
               <div className="w-px h-5 bg-zinc-700 shrink-0" />
+
+              {/* Interval buttons */}
               <div className="flex gap-1 shrink-0">
                 {INTERVALS.map((iv) => (
                   <button key={iv.val} onClick={() => setIntervalVal(iv.val)}
@@ -562,17 +640,59 @@ Notes: ${t.notes || "—"}`;
                   </button>
                 ))}
               </div>
+
+              <div className="w-px h-5 bg-zinc-700 shrink-0" />
+
+              {/* ── Mode toggle ──────────────────────────────────────────── */}
+              <div className="flex gap-1 shrink-0 ml-auto">
+                {/* Live Market */}
+                <button
+                  onClick={backToLive}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap
+                              ${chartMode === "live" ? "text-[#0A0A0F]" : "text-zinc-400 hover:text-zinc-200"}`}
+                  style={chartMode === "live"
+                    ? { background: "linear-gradient(135deg,#F5C518,#C9A227)" }
+                    : { border: "1px solid var(--cj-border)" }}>
+                  📈 Live Market
+                </button>
+
+                {/* Trade Review */}
+                <button
+                  onClick={() => { if (selected) setChartMode("review"); }}
+                  disabled={!selected && chartMode !== "review"}
+                  title={!selected ? "Click a trade to enter review mode" : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all whitespace-nowrap
+                              ${chartMode === "review"
+                                ? "text-[#0A0A0F]"
+                                : selected
+                                  ? "text-zinc-300 hover:text-zinc-100"
+                                  : "text-zinc-700 cursor-not-allowed"}`}
+                  style={chartMode === "review"
+                    ? { background: "linear-gradient(135deg,#F5C518,#C9A227)" }
+                    : { border: "1px solid var(--cj-border)" }}>
+                  🔍 Trade Review
+                </button>
+              </div>
             </div>
 
-            {/* Trade-focus banner */}
-            {selected && (
-              <div className="shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] overflow-x-auto"
-                   style={{ background: "var(--cj-gold-glow)", borderBottom: "1px solid var(--cj-gold-muted)" }}>
-                <span style={{ color: "var(--cj-gold)" }} className="shrink-0">📍</span>
-                <span className="text-zinc-300 whitespace-nowrap">
-                  Viewing:{" "}
-                  <span className="font-mono font-semibold text-zinc-100">{selected.pair}</span> trade from{" "}
-                  <span className="font-semibold text-zinc-100">{fmtDate(selected.date)}</span>
+            {/* ── Trade Review banner ─────────────────────────────────────── */}
+            {chartMode === "review" && selected && (
+              <div className="shrink-0 flex items-center gap-3 px-4 py-2 text-[13px] overflow-x-auto"
+                   style={{ background: "rgba(245,197,24,0.06)", borderBottom: "1px solid var(--cj-gold-muted)" }}>
+                <button
+                  onClick={backToLive}
+                  className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-all whitespace-nowrap"
+                  style={{ border: "1px solid var(--cj-gold-muted)", color: "var(--cj-gold)" }}>
+                  ← Back to Live Chart
+                </button>
+                <div className="w-px h-4 bg-zinc-700 shrink-0" />
+                <span className="text-zinc-300 whitespace-nowrap text-[12px]">
+                  <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>Reviewing:</span>{" "}
+                  <span className="font-mono font-semibold text-zinc-100">{selected.pair}</span>{" "}
+                  <span className={selected.direction === "BUY" ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold"}>
+                    {selected.direction}
+                  </span>{" "}
+                  <span className="text-zinc-500">{fmtDate(selected.date)}</span>
                   {"  —  "}
                   <span className="text-zinc-400">Entry: <span className="font-mono text-zinc-200">{selected.entry}</span></span>
                   {"  ·  "}
@@ -580,30 +700,34 @@ Notes: ${t.notes || "—"}`;
                   {"  ·  "}
                   <span className={`font-mono font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</span>
                 </span>
-                <button onClick={() => setSelected(null)}
-                        className="ml-auto shrink-0 text-zinc-600 hover:text-zinc-300 transition-colors text-sm">✕</button>
               </div>
             )}
 
-            {/* Chart + Trade panel */}
+            {/* ── Chart area + Trade panel ────────────────────────────────── */}
             <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
 
-              {/* Lightweight Charts */}
+              {/* Chart (switches between TradingView and Lightweight Charts) */}
               <div className="flex-1 min-h-[55vw] md:min-h-0">
-                <LightweightChartWidget
-                  symbol={symbol}
-                  interval={interval}
-                  selectedTrade={selected}
-                />
+                {chartMode === "live" ? (
+                  <TradingViewWidget
+                    key={`tv-${symbol}-${interval}`}
+                    symbol={symbol}
+                    interval={interval}
+                  />
+                ) : (
+                  <LightweightChartWidget
+                    symbol={symbol}
+                    interval={interval}
+                    selectedTrade={selected}
+                  />
+                )}
               </div>
 
-              {/* Trade panel */}
+              {/* ── Trade panel ─────────────────────────────────────────── */}
               <div className="w-full md:w-[300px] md:shrink-0 flex flex-col overflow-hidden"
                    style={{ background: "var(--cj-surface)", borderLeft: "1px solid var(--cj-border)" }}>
 
-                {/* Panel header */}
-                <div className="shrink-0 px-4 py-3"
-                     style={{ borderBottom: "1px solid var(--cj-border)" }}>
+                <div className="shrink-0 px-4 py-3" style={{ borderBottom: "1px solid var(--cj-border)" }}>
                   <div className="flex items-center justify-between">
                     <p className="font-mono text-sm font-semibold text-zinc-300">{symbol}</p>
                     {symbolTrades.length > 0 && (
@@ -614,10 +738,12 @@ Notes: ${t.notes || "—"}`;
                   </div>
                   <p className="text-[12px] text-zinc-600 mt-0.5">
                     {symbolTrades.length} trade{symbolTrades.length !== 1 ? "s" : ""}
+                    {chartMode === "live" && (
+                      <span className="ml-2 text-zinc-700">· click a trade to review</span>
+                    )}
                   </p>
                 </div>
 
-                {/* Scrollable content */}
                 <div className="flex-1 overflow-y-auto">
                   {symbolTrades.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-zinc-600 px-4">
@@ -626,13 +752,12 @@ Notes: ${t.notes || "—"}`;
                     </div>
                   ) : (
                     <>
-                      {/* Trade list */}
                       <div className="divide-y divide-zinc-800/40">
                         {symbolTrades.slice(0, 30).map((t) => (
                           <button key={t.id}
                             onClick={() => handleTradeClick(t)}
                             className={`w-full text-left px-4 py-3 transition-all border-l-2
-                                        ${selected?.id === t.id
+                                        ${selected?.id === t.id && chartMode === "review"
                                           ? "bg-[var(--cj-gold-glow)] border-l-[var(--cj-gold)]"
                                           : "border-l-transparent hover:bg-[var(--cj-gold-glow)] hover:border-l-[var(--cj-gold-muted)]"}`}>
                             <div className="flex items-center justify-between mb-1">
@@ -653,11 +778,9 @@ Notes: ${t.notes || "—"}`;
                         ))}
                       </div>
 
-                      {/* ── Selected trade detail card ── */}
-                      {selected && (
+                      {/* Selected trade detail card (review mode only) */}
+                      {selected && chartMode === "review" && (
                         <div className="px-4 py-4" style={{ borderTop: "1px solid var(--cj-border)" }}>
-
-                          {/* Header row */}
                           <div className="flex items-center justify-between mb-3">
                             <p className="text-[12px] uppercase tracking-widest text-zinc-500 font-semibold">
                               Trade Detail
@@ -700,15 +823,12 @@ Notes: ${t.notes || "—"}`;
                           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] mb-3 pb-3"
                                style={{ borderBottom: "1px solid var(--cj-border)" }}>
                             <span className={`font-mono font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</span>
-                            {selPips && selPips !== "—" && (
-                              <span className="text-zinc-500">{selPips} pips</span>
-                            )}
+                            {selPips && selPips !== "—" && <span className="text-zinc-500">{selPips} pips</span>}
                             <span className="text-zinc-600">{selected.lot} lot</span>
                             {selRR && <span className="text-zinc-500">R:R {selRR}:1</span>}
                             {selected.session && <span className="text-zinc-600">{selected.session}</span>}
                           </div>
 
-                          {/* Setup / Notes */}
                           {selected.setup && (
                             <p className="text-[12px] text-zinc-400 mb-1.5">
                               <span className="text-zinc-600">Setup: </span>{selected.setup}
@@ -728,9 +848,7 @@ Notes: ${t.notes || "—"}`;
                             {insights[selected.id] ? (
                               <div className="bg-[var(--cj-raised)] rounded-xl p-3"
                                    style={{ border: "1px solid var(--cj-border)" }}>
-                                <p className="text-[12px] text-zinc-300 leading-relaxed">
-                                  {insights[selected.id]}
-                                </p>
+                                <p className="text-[12px] text-zinc-300 leading-relaxed">{insights[selected.id]}</p>
                               </div>
                             ) : (
                               <button
@@ -752,11 +870,12 @@ Notes: ${t.notes || "—"}`;
                   )}
                 </div>
 
-                {/* Market Replay notice — panel footer */}
+                {/* Panel footer hint */}
                 <div className="shrink-0 px-4 py-3 text-[11px] leading-relaxed"
                      style={{ borderTop: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
-                  📋 <strong className="text-zinc-400">Market Replay coming soon</strong> — review
-                  your trades bar-by-bar to identify exactly where you entered and exited.
+                  {chartMode === "live"
+                    ? "📈 Live Market — full drawing tools, indicators & alerts via TradingView."
+                    : "🔍 Trade Review — entry/exit lines and shaded zones drawn on your trade."}
                 </div>
               </div>
             </div>
@@ -775,7 +894,6 @@ Notes: ${t.notes || "—"}`;
             ) : stats && (
               <div className="max-w-4xl mx-auto space-y-6">
 
-                {/* Overview */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <StatCard label="Win Rate" value={`${stats.overallWR.toFixed(1)}%`}
                     color={stats.overallWR >= 50 ? "text-emerald-400" : "text-rose-400"}
@@ -788,7 +906,6 @@ Notes: ${t.notes || "—"}`;
                     color={stats.maxConsec >= 4 ? "text-rose-400" : "text-zinc-300"} />
                 </div>
 
-                {/* Simulated improvements */}
                 <div className="bg-[var(--cj-surface)] rounded-2xl p-5" style={{ border: "1px solid var(--cj-border)" }}>
                   <p className="card-label mb-4">Simulated Improvements</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -824,7 +941,6 @@ Notes: ${t.notes || "—"}`;
                   </div>
                 </div>
 
-                {/* Win rate breakdown */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {stats.sessionStats.length > 0 && (
                     <div className="bg-[var(--cj-surface)] rounded-2xl p-5" style={{ border: "1px solid var(--cj-border)" }}>
@@ -846,7 +962,6 @@ Notes: ${t.notes || "—"}`;
                   )}
                 </div>
 
-                {/* Strengths / Weaknesses / Recommendation */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                   <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-2xl p-5">
                     <p className="text-sm font-semibold text-emerald-400 uppercase tracking-widest mb-3">💪 Strengths</p>

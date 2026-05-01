@@ -42,26 +42,37 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // ── Unauthenticated: redirect everything except /login and /api to /login ──
+  // ── Unauthenticated: / and /login are public; protect everything else ─────────
   if (!user) {
-    if (!pathname.startsWith("/login") && !pathname.startsWith("/api/")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+    if (
+      pathname === "/" ||
+      pathname.startsWith("/login") ||
+      pathname.startsWith("/api/")
+    ) {
+      return supabaseResponse;
     }
-    return supabaseResponse;
-  }
-
-  // ── Authenticated on /login: send home and let onboarding guard decide ──────
-  if (pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // ── Onboarding guard: only applies to / and /onboarding ─────────────────────
+  // ── Authenticated on / → send to dashboard ───────────────────────────────────
+  if (pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // ── Authenticated on /login → send to dashboard ──────────────────────────────
+  if (pathname.startsWith("/login")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // ── Onboarding guard: only applies to /dashboard and /onboarding ─────────────
   // All other authenticated routes (market, settings, pricing, api/*) pass through.
-  const isGuardedPage = pathname === "/" || pathname === "/onboarding";
+  const isGuardedPage = pathname === "/dashboard" || pathname === "/onboarding";
   if (!isGuardedPage) return supabaseResponse;
 
   // ── Fast path: cookie already set → user confirmed as existing ───────────────
@@ -101,7 +112,7 @@ export async function proxy(request: NextRequest) {
       if (pathname === "/onboarding") {
         // Existing user on onboarding → send to dashboard
         const url = request.nextUrl.clone();
-        url.pathname = "/";
+        url.pathname = "/dashboard";
         const res = NextResponse.redirect(url);
         res.cookies.set(ONBOARDING_COOKIE, "1", cookieOpts);
         return res;
@@ -113,7 +124,7 @@ export async function proxy(request: NextRequest) {
     }
 
     // New user on dashboard → send to onboarding
-    if (pathname === "/") {
+    if (pathname === "/dashboard") {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding";
       return NextResponse.redirect(url);

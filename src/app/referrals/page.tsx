@@ -16,7 +16,6 @@ import { QRCodeSVG } from "qrcode.react";
 interface Stats {
   referral_code: string | null;
   referral_enabled: boolean;
-  subscription_status: string;
   total_referrals: number;
   active_referrals: number;
   inactive_referrals: number;
@@ -260,7 +259,6 @@ export default function ReferralsPage() {
     if (statsRes.ok) {
       const s = (await statsRes.json()) as Stats;
       console.log("[Referrals] stats loaded:", {
-        subscription_status: s.subscription_status,
         referral_enabled: s.referral_enabled,
         referral_code: s.referral_code,
       });
@@ -302,11 +300,7 @@ export default function ReferralsPage() {
     );
   }
 
-  // Unlock for paid plans OR if referral_enabled was manually set (e.g. dev bypass)
-  const isPro  = stats?.subscription_status === "pro"
-              || stats?.subscription_status === "starter"
-              || stats?.referral_enabled === true;
-  const isFree = !isPro;
+  const isFree = stats?.referral_enabled !== true;
 
   // ── Locked (free tier) — single overlay over all content ────────────────
 

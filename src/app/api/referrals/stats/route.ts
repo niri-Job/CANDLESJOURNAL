@@ -82,10 +82,10 @@ export async function GET() {
   // Use service role to bypass RLS — user is already authenticated above
   const svc = serviceDb();
 
-  // Profile (referral_code, referral_enabled, earnings, subscription_status)
+  // Profile (referral_code, referral_enabled, earnings)
   const { data: profile, error: profileErr } = await svc
     .from("user_profiles")
-    .select("referral_code, referral_enabled, total_earnings, pending_earnings, paid_earnings, subscription_status")
+    .select("referral_code, referral_enabled, total_earnings, pending_earnings, paid_earnings")
     .eq("user_id", uid)
     .maybeSingle();
 
@@ -131,9 +131,8 @@ export async function GET() {
   const availableForPayout = (confirmedComms || []).reduce((s, c) => s + Number(c.amount), 0);
 
   return NextResponse.json({
-    referral_code:       profile?.referral_code    ?? null,
-    referral_enabled:    profile?.referral_enabled ?? false,
-    subscription_status: profile?.subscription_status || "free",
+    referral_code:    profile?.referral_code    ?? null,
+    referral_enabled: profile?.referral_enabled ?? false,
     total_referrals:     total,
     active_referrals:    active,
     inactive_referrals:  inactive,

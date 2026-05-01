@@ -122,8 +122,8 @@ export async function GET() {
   const availableForPayout = (confirmedComms || []).reduce((s, c) => s + Number(c.amount), 0);
 
   return NextResponse.json({
-    referral_code:       profile?.referral_code    || null,
-    referral_enabled:    profile?.referral_enabled || false,
+    referral_code:       profile?.referral_code    ?? null,
+    referral_enabled:    profile?.referral_enabled ?? false,
     subscription_status: profile?.subscription_status || "free",
     total_referrals:     total,
     active_referrals:    active,

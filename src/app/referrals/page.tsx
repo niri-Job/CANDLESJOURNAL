@@ -249,14 +249,23 @@ export default function ReferralsPage() {
     const { data: { user: u } } = await supabase.auth.getUser();
     setUser(u);
 
+    const nc = { cache: "no-store" } as RequestInit;
     const [statsRes, listRes, earningsRes, payoutsRes] = await Promise.all([
-      fetch("/api/referrals/stats"),
-      fetch("/api/referrals/list"),
-      fetch("/api/referrals/earnings"),
-      fetch("/api/referrals/payout"),
+      fetch("/api/referrals/stats",    nc),
+      fetch("/api/referrals/list",     nc),
+      fetch("/api/referrals/earnings", nc),
+      fetch("/api/referrals/payout",   nc),
     ]);
 
-    if (statsRes.ok)    setStats((await statsRes.json()) as Stats);
+    if (statsRes.ok) {
+      const s = (await statsRes.json()) as Stats;
+      console.log("[Referrals] stats loaded:", {
+        subscription_status: s.subscription_status,
+        referral_enabled: s.referral_enabled,
+        referral_code: s.referral_code,
+      });
+      setStats(s);
+    }
     if (listRes.ok)     setReferrals(((await listRes.json()) as { referrals: Referral[] }).referrals);
     if (earningsRes.ok) setEarnings(((await earningsRes.json()) as { earnings: EarningMonth[] }).earnings);
     if (payoutsRes.ok)  setPayouts(((await payoutsRes.json()) as { payouts: Payout[] }).payouts);
@@ -293,7 +302,10 @@ export default function ReferralsPage() {
     );
   }
 
-  const isPro  = stats?.subscription_status === "pro" || stats?.subscription_status === "starter";
+  // Unlock for paid plans OR if referral_enabled was manually set (e.g. dev bypass)
+  const isPro  = stats?.subscription_status === "pro"
+              || stats?.subscription_status === "starter"
+              || stats?.referral_enabled === true;
   const isFree = !isPro;
 
   // ── Locked (free tier) — single overlay over all content ────────────────

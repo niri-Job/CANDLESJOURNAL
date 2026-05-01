@@ -296,19 +296,19 @@ export default function ReferralsPage() {
   const isPro  = stats?.subscription_status === "pro" || stats?.subscription_status === "starter";
   const isFree = !isPro;
 
-  // ── Locked (free tier) ────────────────────────────────────────────────────
+  // ── Locked (free tier) — single overlay over all content ────────────────
 
   const LockedOverlay = () => (
-    <div className="absolute inset-0 z-10 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-3 p-6 text-center"
-         style={{ background: "rgba(10,10,15,0.7)" }}>
-      <div className="w-12 h-12 rounded-2xl bg-[var(--cj-surface)] border border-zinc-700
-                      flex items-center justify-center text-2xl">🔒</div>
-      <p className="font-bold text-zinc-100">Upgrade to unlock Referrals</p>
-      <p className="text-xs text-zinc-500 max-w-xs">
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 p-6 text-center"
+         style={{ background: "rgba(10,10,15,0.75)", backdropFilter: "blur(6px)" }}>
+      <div className="w-14 h-14 rounded-2xl bg-[var(--cj-surface)] border border-zinc-700
+                      flex items-center justify-center text-3xl">🔒</div>
+      <p className="font-bold text-zinc-100 text-lg">Upgrade to unlock Referrals</p>
+      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
         Earn recurring commissions by inviting traders to CandlesJournal.<br/>
         Available on Starter and Pro plans.
       </p>
-      <Link href="/settings" className="btn-gold px-5 py-2.5 rounded-xl text-sm font-bold">
+      <Link href="/settings" className="btn-gold px-6 py-3 rounded-xl text-sm font-bold">
         Upgrade Now
       </Link>
     </div>
@@ -357,252 +357,237 @@ export default function ReferralsPage() {
             </div>
           </div>
 
-          {/* Stats grid */}
-          <div className={`relative ${isFree ? "pointer-events-none select-none" : ""}`}>
+          {/* ── All sections below — single overlay for free users ── */}
+          <div className="relative">
             {isFree && <LockedOverlay />}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Total Referrals"   value={String(stats?.total_referrals ?? 0)} />
-              <StatCard label="Active"            value={String(stats?.active_referrals ?? 0)}
-                        sub={`${stats?.conversion_rate ?? 0}% converted`} />
-              <StatCard label="This Month"        value={fmt(stats?.this_month_earnings ?? 0)} accent />
-              <StatCard label="Available Payout"  value={fmt(stats?.available_for_payout ?? 0)} accent />
-              <StatCard label="Lifetime Earned"   value={fmt(stats?.lifetime_earnings ?? 0)} />
-              <StatCard label="Pending"           value={fmt(stats?.pending_earnings ?? 0)}
-                        sub="Confirms after 7 days" />
-              <StatCard label="Paid Out"          value={fmt(stats?.paid_earnings ?? 0)} />
-              <StatCard label="Inactive"          value={String(stats?.inactive_referrals ?? 0)}
-                        sub="Cancelled/downgraded" />
-            </div>
-          </div>
+            <div className={`space-y-6${isFree ? " pointer-events-none select-none" : ""}`}>
 
-          {/* Referral link & sharing */}
-          <div className={`relative bg-[var(--cj-surface)] rounded-2xl p-5 ${isFree ? "pointer-events-none select-none" : ""}`}
-               style={{ border: "1px solid var(--cj-border)" }}>
-            {isFree && <LockedOverlay />}
-
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
-              Your Referral Link
-            </p>
-
-            {/* Enable toggle if not yet enabled */}
-            {!isFree && !stats?.referral_enabled && (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <p className="text-sm text-zinc-400">Activate your referral link to start earning</p>
-                <button
-                  onClick={enableReferrals}
-                  disabled={enabling}
-                  className="btn-gold px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50">
-                  {enabling ? "Activating…" : "Activate Referral Link"}
-                </button>
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="Total Referrals"  value={String(stats?.total_referrals ?? 0)} />
+                <StatCard label="Active"           value={String(stats?.active_referrals ?? 0)}
+                          sub={`${stats?.conversion_rate ?? 0}% converted`} />
+                <StatCard label="This Month"       value={fmt(stats?.this_month_earnings ?? 0)} accent />
+                <StatCard label="Available Payout" value={fmt(stats?.available_for_payout ?? 0)} accent />
+                <StatCard label="Lifetime Earned"  value={fmt(stats?.lifetime_earnings ?? 0)} />
+                <StatCard label="Pending"          value={fmt(stats?.pending_earnings ?? 0)}
+                          sub="Confirms after 7 days" />
+                <StatCard label="Paid Out"         value={fmt(stats?.paid_earnings ?? 0)} />
+                <StatCard label="Inactive"         value={String(stats?.inactive_referrals ?? 0)}
+                          sub="Cancelled/downgraded" />
               </div>
-            )}
 
-            {!isFree && stats?.referral_enabled && (
-              <>
-                {/* Link box */}
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex-1 bg-[var(--cj-raised)] rounded-xl px-3 py-2.5 text-xs font-mono text-zinc-300 truncate"
-                       style={{ border: "1px solid var(--cj-border)" }}>
-                    {referralLink}
+              {/* Referral link & sharing */}
+              <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
+                   style={{ border: "1px solid var(--cj-border)" }}>
+                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
+                  Your Referral Link
+                </p>
+
+                {!stats?.referral_enabled ? (
+                  <div className="flex flex-col items-center gap-3 py-4">
+                    <p className="text-sm text-zinc-400">Activate your referral link to start earning</p>
+                    <button
+                      onClick={enableReferrals}
+                      disabled={enabling}
+                      className="btn-gold px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50">
+                      {enabling ? "Activating…" : "Activate Referral Link"}
+                    </button>
                   </div>
-                  <CopyBtn text={referralLink} />
-                </div>
+                ) : (
+                  <>
+                    {/* Link box */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="flex-1 bg-[var(--cj-raised)] rounded-xl px-3 py-2.5 text-xs font-mono text-zinc-300 truncate"
+                           style={{ border: "1px solid var(--cj-border)" }}>
+                        {referralLink}
+                      </div>
+                      <CopyBtn text={referralLink} />
+                    </div>
 
-                {/* Code badge */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-[var(--cj-raised)] rounded-xl px-4 py-2 flex items-center gap-3"
-                       style={{ border: "1px solid var(--cj-border)" }}>
-                    <span className="text-xs text-zinc-500">Code:</span>
-                    <span className="font-mono font-bold text-[var(--cj-gold)] tracking-widest text-sm">
-                      {stats.referral_code}
-                    </span>
-                    <CopyBtn text={stats.referral_code ?? ""} label="Copy Code" />
+                    {/* Code badge */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="bg-[var(--cj-raised)] rounded-xl px-4 py-2 flex items-center gap-3"
+                           style={{ border: "1px solid var(--cj-border)" }}>
+                        <span className="text-xs text-zinc-500">Code:</span>
+                        <span className="font-mono font-bold text-[var(--cj-gold)] tracking-widest text-sm">
+                          {stats?.referral_code}
+                        </span>
+                        <CopyBtn text={stats?.referral_code ?? ""} label="Copy Code" />
+                      </div>
+                    </div>
+
+                    {/* Share buttons */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <a href={`https://wa.me/?text=${encodeURIComponent(`Join me on CandlesJournal — the best trading journal for serious traders! Use my link: ${referralLink}`)}`}
+                         target="_blank" rel="noopener noreferrer"
+                         className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                         style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}>
+                        <span>💬</span> WhatsApp
+                      </a>
+                      <a href={`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Track your trades with CandlesJournal. Join using my referral link!")}`}
+                         target="_blank" rel="noopener noreferrer"
+                         className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                         style={{ background: "rgba(36,161,222,0.15)", border: "1px solid rgba(36,161,222,0.3)", color: "#24a1de" }}>
+                        <span>✈️</span> Telegram
+                      </a>
+                      <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Level up your trading with CandlesJournal! Use my referral link: ${referralLink}`)}`}
+                         target="_blank" rel="noopener noreferrer"
+                         className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                         style={{ background: "rgba(29,161,242,0.15)", border: "1px solid rgba(29,161,242,0.3)", color: "#1da1f2" }}>
+                        <span>🐦</span> Twitter / X
+                      </a>
+                      <button
+                        onClick={() => setShowQr(q => !q)}
+                        className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                        style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
+                        📱 {showQr ? "Hide QR" : "QR Code"}
+                      </button>
+                    </div>
+
+                    {showQr && (
+                      <div className="flex justify-center p-4 bg-white rounded-2xl w-fit">
+                        <QRCodeSVG value={referralLink} size={160} />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Earnings chart */}
+              <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
+                   style={{ border: "1px solid var(--cj-border)" }}>
+                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
+                  Earnings — Last 6 Months
+                </p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={earnings} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#71717a" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "#71717a" }} axisLine={false} tickLine={false}
+                           tickFormatter={(v: number) => `$${v}`} />
+                    <Tooltip
+                      contentStyle={{ background: "var(--cj-surface)", border: "1px solid var(--cj-border)", borderRadius: 12 }}
+                      labelStyle={{ color: "#a1a1aa", fontSize: 11 }}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(v: any, name: any) => [`$${Number(v).toFixed(2)}`, name === "confirmed" ? "Confirmed" : "Pending"]}
+                    />
+                    <Legend
+                      formatter={(v: string) => v === "confirmed" ? "Confirmed" : "Pending"}
+                      wrapperStyle={{ fontSize: 11, color: "#71717a" }}
+                    />
+                    <Bar dataKey="confirmed" stackId="a" fill="#F5C518" radius={[0, 0, 4, 4]} />
+                    <Bar dataKey="pending"   stackId="a" fill="rgba(245,197,24,0.25)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Referred users table */}
+              <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
+                   style={{ border: "1px solid var(--cj-border)" }}>
+                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
+                  Referred Users ({referrals.length})
+                </p>
+                {referrals.length === 0 ? (
+                  <div className="flex flex-col items-center py-8 gap-2">
+                    <p className="text-2xl">🤝</p>
+                    <p className="text-sm text-zinc-500">No referrals yet</p>
+                    <p className="text-xs text-zinc-600">Share your link to start earning</p>
                   </div>
-                </div>
-
-                {/* Share buttons */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(`Join me on CandlesJournal — the best trading journal for serious traders! Use my link: ${referralLink}`)}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                    style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}>
-                    <span>💬</span> WhatsApp
-                  </a>
-                  <a
-                    href={`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Track your trades with CandlesJournal. Join using my referral link!")}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                    style={{ background: "rgba(36,161,222,0.15)", border: "1px solid rgba(36,161,222,0.3)", color: "#24a1de" }}>
-                    <span>✈️</span> Telegram
-                  </a>
-                  <a
-                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Level up your trading with CandlesJournal! Use my referral link: ${referralLink}`)}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                    style={{ background: "rgba(29,161,242,0.15)", border: "1px solid rgba(29,161,242,0.3)", color: "#1da1f2" }}>
-                    <span>🐦</span> Twitter / X
-                  </a>
-                  <button
-                    onClick={() => setShowQr(q => !q)}
-                    className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                    style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
-                    📱 {showQr ? "Hide QR" : "QR Code"}
-                  </button>
-                </div>
-
-                {/* QR code */}
-                {showQr && (
-                  <div className="flex justify-center p-4 bg-white rounded-2xl w-fit">
-                    <QRCodeSVG value={referralLink} size={160} />
+                ) : (
+                  <div className="overflow-x-auto -mx-1">
+                    <table className="w-full text-xs min-w-[560px]">
+                      <thead>
+                        <tr className="text-left text-zinc-600 border-b border-zinc-800">
+                          <th className="pb-2 font-medium pr-4">User ID</th>
+                          <th className="pb-2 font-medium pr-4">Status</th>
+                          <th className="pb-2 font-medium pr-4">Plan</th>
+                          <th className="pb-2 font-medium pr-4">Rate/mo</th>
+                          <th className="pb-2 font-medium pr-4">Joined</th>
+                          <th className="pb-2 font-medium text-right">Total Earned</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50">
+                        {referrals.map(r => (
+                          <tr key={r.id} className="hover:bg-[var(--cj-raised)] transition-colors">
+                            <td className="py-2.5 pr-4 font-mono text-zinc-400">{r.referred_anon}…</td>
+                            <td className="py-2.5 pr-4"><StatusBadge status={r.status} /></td>
+                            <td className="py-2.5 pr-4 capitalize text-zinc-400">{r.plan_type}</td>
+                            <td className="py-2.5 pr-4 text-zinc-400">
+                              {r.commission_rate > 0 ? `$${r.commission_rate.toFixed(2)}` : "—"}
+                            </td>
+                            <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(r.joined_at)}</td>
+                            <td className="py-2.5 text-right font-semibold text-zinc-300">{fmt(r.earnings)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
-              </>
-            )}
-          </div>
-
-          {/* Earnings chart */}
-          <div className={`relative bg-[var(--cj-surface)] rounded-2xl p-5 ${isFree ? "pointer-events-none select-none" : ""}`}
-               style={{ border: "1px solid var(--cj-border)" }}>
-            {isFree && <LockedOverlay />}
-
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
-              Earnings — Last 6 Months
-            </p>
-
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={earnings} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#71717a" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#71717a" }} axisLine={false} tickLine={false}
-                       tickFormatter={(v: number) => `$${v}`} />
-                <Tooltip
-                  contentStyle={{ background: "var(--cj-surface)", border: "1px solid var(--cj-border)", borderRadius: 12 }}
-                  labelStyle={{ color: "#a1a1aa", fontSize: 11 }}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any, name: any) => [`$${Number(v).toFixed(2)}`, name === "confirmed" ? "Confirmed" : "Pending"]}
-                />
-                <Legend
-                  formatter={(v: string) => v === "confirmed" ? "Confirmed" : "Pending"}
-                  wrapperStyle={{ fontSize: 11, color: "#71717a" }}
-                />
-                <Bar dataKey="confirmed" stackId="a" fill="#F5C518" radius={[0, 0, 4, 4]} />
-                <Bar dataKey="pending"   stackId="a" fill="rgba(245,197,24,0.25)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Referred users table */}
-          <div className={`relative bg-[var(--cj-surface)] rounded-2xl p-5 ${isFree ? "pointer-events-none select-none" : ""}`}
-               style={{ border: "1px solid var(--cj-border)" }}>
-            {isFree && <LockedOverlay />}
-
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
-              Referred Users ({referrals.length})
-            </p>
-
-            {referrals.length === 0 ? (
-              <div className="flex flex-col items-center py-8 gap-2">
-                <p className="text-2xl">🤝</p>
-                <p className="text-sm text-zinc-500">No referrals yet</p>
-                <p className="text-xs text-zinc-600">Share your link to start earning</p>
               </div>
-            ) : (
-              <div className="overflow-x-auto -mx-1">
-                <table className="w-full text-xs min-w-[560px]">
-                  <thead>
-                    <tr className="text-left text-zinc-600 border-b border-zinc-800">
-                      <th className="pb-2 font-medium pr-4">User ID</th>
-                      <th className="pb-2 font-medium pr-4">Status</th>
-                      <th className="pb-2 font-medium pr-4">Plan</th>
-                      <th className="pb-2 font-medium pr-4">Rate/mo</th>
-                      <th className="pb-2 font-medium pr-4">Joined</th>
-                      <th className="pb-2 font-medium text-right">Total Earned</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/50">
-                    {referrals.map(r => (
-                      <tr key={r.id} className="hover:bg-[var(--cj-raised)] transition-colors">
-                        <td className="py-2.5 pr-4 font-mono text-zinc-400">{r.referred_anon}…</td>
-                        <td className="py-2.5 pr-4"><StatusBadge status={r.status} /></td>
-                        <td className="py-2.5 pr-4 capitalize text-zinc-400">{r.plan_type}</td>
-                        <td className="py-2.5 pr-4 text-zinc-400">
-                          {r.commission_rate > 0 ? `$${r.commission_rate.toFixed(2)}` : "—"}
-                        </td>
-                        <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(r.joined_at)}</td>
-                        <td className="py-2.5 text-right font-semibold text-zinc-300">{fmt(r.earnings)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+              {/* Payout section */}
+              <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
+                   style={{ border: "1px solid var(--cj-border)" }}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Payout</p>
+                  {(stats?.available_for_payout ?? 0) >= 5 && (
+                    <button
+                      onClick={() => { setPayoutDone(false); setShowPayout(true); }}
+                      className="btn-gold px-4 py-2 rounded-xl text-xs font-bold">
+                      Request Payout
+                    </button>
+                  )}
+                </div>
+
+                {payoutDone && (
+                  <div className="mb-4 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">
+                    ✓ Payout request submitted! We'll process it within 3–5 business days.
+                  </div>
+                )}
+
+                {(stats?.available_for_payout ?? 0) < 5 && (
+                  <p className="text-xs text-zinc-600 mb-4">
+                    Minimum payout is $5.00. You have {fmt(stats?.available_for_payout ?? 0)} available.
+                  </p>
+                )}
+
+                {payouts.length === 0 ? (
+                  <p className="text-xs text-zinc-600 py-4 text-center">No payouts yet</p>
+                ) : (
+                  <div className="overflow-x-auto -mx-1">
+                    <table className="w-full text-xs min-w-[440px]">
+                      <thead>
+                        <tr className="text-left text-zinc-600 border-b border-zinc-800">
+                          <th className="pb-2 font-medium pr-4">Date</th>
+                          <th className="pb-2 font-medium pr-4">Method</th>
+                          <th className="pb-2 font-medium pr-4">Status</th>
+                          <th className="pb-2 font-medium pr-4">Paid At</th>
+                          <th className="pb-2 font-medium text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50">
+                        {payouts.map(p => (
+                          <tr key={p.id}>
+                            <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(p.requested_at)}</td>
+                            <td className="py-2.5 pr-4 capitalize text-zinc-400">
+                              {p.payout_method.replace(/_/g, " ")}
+                            </td>
+                            <td className="py-2.5 pr-4">
+                              <StatusBadge status={p.status === "paid" ? "active" : p.status === "rejected" ? "inactive" : "pending"} />
+                            </td>
+                            <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(p.paid_at)}</td>
+                            <td className="py-2.5 text-right font-semibold text-zinc-300">{fmt(p.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Payout section */}
-          <div className={`relative bg-[var(--cj-surface)] rounded-2xl p-5 ${isFree ? "pointer-events-none select-none" : ""}`}
-               style={{ border: "1px solid var(--cj-border)" }}>
-            {isFree && <LockedOverlay />}
-
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
-                Payout
-              </p>
-              {(stats?.available_for_payout ?? 0) >= 5 && !isFree && (
-                <button
-                  onClick={() => { setPayoutDone(false); setShowPayout(true); }}
-                  className="btn-gold px-4 py-2 rounded-xl text-xs font-bold">
-                  Request Payout
-                </button>
-              )}
-            </div>
-
-            {payoutDone && (
-              <div className="mb-4 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">
-                ✓ Payout request submitted! We'll process it within 3–5 business days.
-              </div>
-            )}
-
-            {(stats?.available_for_payout ?? 0) < 5 && !isFree && (
-              <p className="text-xs text-zinc-600 mb-4">
-                Minimum payout is $5.00. You have {fmt(stats?.available_for_payout ?? 0)} available.
-              </p>
-            )}
-
-            {/* Payout history */}
-            {payouts.length === 0 ? (
-              <p className="text-xs text-zinc-600 py-4 text-center">No payouts yet</p>
-            ) : (
-              <div className="overflow-x-auto -mx-1">
-                <table className="w-full text-xs min-w-[440px]">
-                  <thead>
-                    <tr className="text-left text-zinc-600 border-b border-zinc-800">
-                      <th className="pb-2 font-medium pr-4">Date</th>
-                      <th className="pb-2 font-medium pr-4">Method</th>
-                      <th className="pb-2 font-medium pr-4">Status</th>
-                      <th className="pb-2 font-medium pr-4">Paid At</th>
-                      <th className="pb-2 font-medium text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/50">
-                    {payouts.map(p => (
-                      <tr key={p.id}>
-                        <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(p.requested_at)}</td>
-                        <td className="py-2.5 pr-4 capitalize text-zinc-400">
-                          {p.payout_method.replace(/_/g, " ")}
-                        </td>
-                        <td className="py-2.5 pr-4">
-                          <StatusBadge status={p.status === "paid" ? "active" : p.status === "rejected" ? "inactive" : "pending"} />
-                        </td>
-                        <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(p.paid_at)}</td>
-                        <td className="py-2.5 text-right font-semibold text-zinc-300">{fmt(p.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+            </div>{/* end space-y-6 */}
+          </div>{/* end relative overlay wrapper */}
 
         </div>
       </main>

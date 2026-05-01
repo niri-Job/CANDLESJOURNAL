@@ -239,8 +239,10 @@ export default function ReferralsPage() {
   const [enabling,     setEnabling]     = useState(false);
   const [showQr,       setShowQr]       = useState(false);
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+    ?? (typeof window !== "undefined" ? window.location.origin : "");
   const referralLink = stats?.referral_code
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/login?ref=${stats.referral_code}`
+    ? `${baseUrl}/login?ref=${stats.referral_code}`
     : "";
 
   const load = useCallback(async () => {

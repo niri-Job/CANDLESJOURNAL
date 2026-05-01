@@ -72,7 +72,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                   flex items-center justify-center font-bold text-[#0A0A0F] shrink-0`}
       style={{ boxShadow: "0 0 16px rgba(245,197,24,0.30)" }}
     >
-      CJ
+      NI
     </div>
   );
 
@@ -88,7 +88,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         <div className="flex items-center gap-3 px-5 h-16 shrink-0"
              style={{ borderBottom: "1px solid var(--cj-border)" }}>
           <Logo size="md" />
-          <span className="font-semibold text-sm tracking-tight text-zinc-100">CandlesJournal</span>
+          <span className="font-semibold text-sm tracking-tight text-zinc-100">NIRI</span>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -103,7 +103,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
            style={{ background: "var(--cj-bg)", borderBottom: "1px solid var(--cj-border)" }}>
         <div className="flex items-center gap-2.5">
           <Logo size="sm" />
-          <span className="font-semibold text-sm tracking-tight text-zinc-100">CandlesJournal</span>
+          <span className="font-semibold text-sm tracking-tight text-zinc-100">NIRI</span>
         </div>
         <button
           onClick={() => setOpen((o) => !o)}
@@ -130,7 +130,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             <div className="flex items-center gap-2.5 px-5 h-14 shrink-0"
                  style={{ borderBottom: "1px solid var(--cj-border)" }}>
               <Logo size="sm" />
-              <span className="font-semibold text-sm tracking-tight text-zinc-100">CandlesJournal</span>
+              <span className="font-semibold text-sm tracking-tight text-zinc-100">NIRI</span>
             </div>
 
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CandlesJournal",
-  description: "Your professional forex trading journal",
+  title: "NIRI — AI Trading Journal",
+  description: "AI-powered trading journal for MT5 traders",
 };
 
 export default function RootLayout({

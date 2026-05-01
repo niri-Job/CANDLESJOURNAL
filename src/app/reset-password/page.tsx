@@ -123,9 +123,9 @@ export default function ResetPasswordPage() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#F5C518] to-[#C9A227]
                           flex items-center justify-center text-2xl font-bold text-[#0A0A0F] mb-4"
                style={{ boxShadow: "0 0 32px rgba(245,197,24,0.30)" }}>
-            CJ
+            NI
           </div>
-          <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">CandlesJournal</h1>
+          <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">NIRI</h1>
           <p className="text-zinc-400 text-sm mt-1">Set a new password for your account</p>
         </div>
 

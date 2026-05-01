@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${iv.yInterval}&range=${iv.range}&includePrePost=false`;
 
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; CandlesJournal/1.0)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NIRI/1.0)" },
     });
 
     if (!res.ok) {

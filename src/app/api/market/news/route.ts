@@ -54,7 +54,7 @@ async function fetchFeed(url: string, source: string): Promise<NewsItem[]> {
   try {
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "CandlesJournal/1.0 (forex news aggregator)",
+        "User-Agent": "NIRI/1.0 (forex news aggregator)",
         "Accept": "application/rss+xml, application/xml, text/xml",
       },
       signal: controller.signal,

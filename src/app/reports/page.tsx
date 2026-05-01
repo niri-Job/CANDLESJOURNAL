@@ -404,7 +404,7 @@ function exportCsv(trades: Trade[]) {
   const blob = new Blob([hdr + rows], { type: "text/csv" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
-  a.href = url; a.download = "candlesjournal_trades.csv"; a.click();
+  a.href = url; a.download = "niri_trades.csv"; a.click();
   URL.revokeObjectURL(url);
 }
 

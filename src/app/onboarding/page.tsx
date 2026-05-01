@@ -203,9 +203,9 @@ export default function OnboardingPage() {
                      flex items-center justify-center text-base font-bold text-[#0A0A0F]"
           style={{ boxShadow: "0 0 20px rgba(245,197,24,0.28)" }}
         >
-          CJ
+          NI
         </div>
-        <span className="font-bold text-xl tracking-tight text-zinc-100">CandlesJournal</span>
+        <span className="font-bold text-xl tracking-tight text-zinc-100">NIRI</span>
       </div>
 
       {/* Step dots — blue-500 auto-remaps to gold via @theme */}
@@ -226,7 +226,7 @@ export default function OnboardingPage() {
             <p className="text-[11px] uppercase tracking-widest text-blue-500/70 font-medium mb-2">
               Step 1 of 4 · Welcome
             </p>
-            <h2 className="text-2xl font-bold mb-1">Welcome to CandlesJournal</h2>
+            <h2 className="text-2xl font-bold mb-1">Welcome to NIRI</h2>
             <p className="text-sm text-zinc-500 mb-7">
               Your AI-powered trading journal for African forex traders.
               Let&apos;s set up your profile in 2 minutes.

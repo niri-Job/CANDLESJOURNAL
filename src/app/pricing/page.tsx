@@ -172,10 +172,10 @@ export default function PricingPage() {
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600
                             flex items-center justify-center text-sm font-bold text-white shrink-0">
-              CJ
+              NI
             </div>
             <span className="font-semibold text-base tracking-tight hidden sm:block">
-              CandlesJournal
+              NIRI
             </span>
           </Link>
           <span className="text-zinc-700 mx-1 hidden sm:block">·</span>

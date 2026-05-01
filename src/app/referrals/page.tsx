@@ -313,7 +313,7 @@ export default function ReferralsPage() {
                       flex items-center justify-center text-3xl">🔒</div>
       <p className="font-bold text-zinc-100 text-lg">Upgrade to unlock Referrals</p>
       <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
-        Earn recurring commissions by inviting traders to CandlesJournal.<br/>
+        Earn recurring commissions by inviting traders to NIRI.<br/>
         Available on Starter and Pro plans.
       </p>
       <Link href="/settings" className="btn-gold px-6 py-3 rounded-xl text-sm font-bold">
@@ -427,19 +427,19 @@ export default function ReferralsPage() {
 
                     {/* Share buttons */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                      <a href={`https://wa.me/?text=${encodeURIComponent(`Join me on CandlesJournal — the best trading journal for serious traders! Use my link: ${referralLink}`)}`}
+                      <a href={`https://wa.me/?text=${encodeURIComponent(`Join me on NIRI — the best trading journal for serious traders! Use my link: ${referralLink}`)}`}
                          target="_blank" rel="noopener noreferrer"
                          className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                          style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}>
                         <span>💬</span> WhatsApp
                       </a>
-                      <a href={`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Track your trades with CandlesJournal. Join using my referral link!")}`}
+                      <a href={`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Track your trades with NIRI. Join using my referral link!")}`}
                          target="_blank" rel="noopener noreferrer"
                          className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                          style={{ background: "rgba(36,161,222,0.15)", border: "1px solid rgba(36,161,222,0.3)", color: "#24a1de" }}>
                         <span>✈️</span> Telegram
                       </a>
-                      <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Level up your trading with CandlesJournal! Use my referral link: ${referralLink}`)}`}
+                      <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Level up your trading with NIRI! Use my referral link: ${referralLink}`)}`}
                          target="_blank" rel="noopener noreferrer"
                          className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                          style={{ background: "rgba(29,161,242,0.15)", border: "1px solid rgba(29,161,242,0.3)", color: "#1da1f2" }}>

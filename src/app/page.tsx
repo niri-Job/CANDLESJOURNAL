@@ -3,9 +3,9 @@ import LandingPage from "./LandingPage";
 
 // SEO metadata — update og:image when brand assets arrive
 export const metadata: Metadata = {
-  title: "CandlesJournal — Trading Journal for African Forex Traders",
+  title: "NIRI — AI Trading Journal for MT5 Traders",
   description:
-    "Track your MT5 trades, get AI coaching, and improve your forex performance. Built for African traders.",
+    "Connect your MT5, sync trades automatically, and get AI coaching that tells you exactly what behavioral patterns are costing you money. Start free.",
 };
 
 export default function Page() {

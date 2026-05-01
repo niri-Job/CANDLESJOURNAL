@@ -413,8 +413,8 @@ export default function SettingsPage() {
                     EA active · last sync {new Date(syncToken.last_sync_at).toLocaleString()}
                   </div>
                 )}
-                <a href="/downloads/CandlesJournalEA.ex5"
-                   download="CandlesJournalEA.ex5"
+                <a href="/downloads/NiriEA.ex5"
+                   download="NiriEA.ex5"
                    className="block text-center text-xs px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500
                               text-white font-semibold transition-all">
                   Download EA (.ex5)
@@ -849,8 +849,8 @@ export default function SettingsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">MT5 EA Setup Guide</p>
             <a
-              href="/downloads/CandlesJournalEA.ex5"
-              download="CandlesJournalEA.ex5"
+              href="/downloads/NiriEA.ex5"
+              download="NiriEA.ex5"
               className="text-center text-xs px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white
                          font-semibold transition-all sm:w-auto w-full">
               Download EA (.ex5)
@@ -862,12 +862,12 @@ export default function SettingsPage() {
               {
                 n: "1",
                 title: "Download the Expert Advisor",
-                body: 'Click "Download EA" above to get CandlesJournalEA.ex5. This is a pre-compiled file — no MetaEditor or compilation needed.',
+                body: 'Click "Download EA" above to get NiriEA.ex5. This is a pre-compiled file — no MetaEditor or compilation needed.',
               },
               {
                 n: "2",
                 title: "Copy the EA into MetaTrader 5",
-                body: "In MT5: File → Open Data Folder → MQL5 → Experts. Copy CandlesJournalEA.ex5 into that folder. Then in the Navigator panel, right-click Experts → Refresh.",
+                body: "In MT5: File → Open Data Folder → MQL5 → Experts. Copy NiriEA.ex5 into that folder. Then in the Navigator panel, right-click Experts → Refresh.",
               },
               {
                 n: "3",
@@ -877,7 +877,7 @@ export default function SettingsPage() {
               {
                 n: "4",
                 title: "Attach the EA to a chart",
-                body: 'Drag CandlesJournalEA onto any chart (e.g. EURUSD H1). In the Inputs tab, paste your Sync Token and Sync URL. Enable "Allow algo trading" in the Common tab.',
+                body: 'Drag NiriEA onto any chart (e.g. EURUSD H1). In the Inputs tab, paste your Sync Token and Sync URL. Enable "Allow algo trading" in the Common tab.',
               },
               {
                 n: "5",

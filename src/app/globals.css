@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CandlesJournal — Gold × Obsidian Premium Theme
+   NIRI — Gold × Obsidian Premium Theme
    All color tokens live here. @theme overrides make every Tailwind utility
    in the entire codebase pick up the gold-dark palette automatically.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -34,7 +34,7 @@
   --color-blue-50:  #FEFBE9;
 }
 
-/* ─── CandlesJournal semantic tokens (used with var(--cj-*)) ──────────────── */
+/* ─── NIRI semantic tokens (used with var(--cj-*)) ──────────────────────── */
 :root {
   --cj-bg:           #0A0A0F;          /* page background              */
   --cj-surface:      #12121A;          /* cards, panels                */

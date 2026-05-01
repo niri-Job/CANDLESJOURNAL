@@ -72,21 +72,30 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
+  // Auth check via SSR client (reads cookies)
   const supabase = await serverDb();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const uid = user.id;
 
+  // Use service role to bypass RLS — user is already authenticated above
+  const svc = serviceDb();
+
   // Profile (referral_code, referral_enabled, earnings, subscription_status)
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await svc
     .from("user_profiles")
     .select("referral_code, referral_enabled, total_earnings, pending_earnings, paid_earnings, subscription_status")
     .eq("user_id", uid)
     .maybeSingle();
 
+  if (profileErr) {
+    console.error("[referrals/stats] profile fetch error:", profileErr.message);
+  }
+  console.log("[referrals/stats] profile for", uid, ":", JSON.stringify(profile));
+
   // Referral counts
-  const { data: allReferrals } = await supabase
+  const { data: allReferrals } = await svc
     .from("referrals")
     .select("id, status, plan_type, commission_rate, joined_at, activated_at, last_payment_at")
     .eq("referrer_id", uid);
@@ -102,7 +111,7 @@ export async function GET() {
 
   // This month's commissions
   const thisMonth = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
-  const { data: thisMonthComms } = await supabase
+  const { data: thisMonthComms } = await svc
     .from("commissions")
     .select("amount, status")
     .eq("referrer_id", uid)
@@ -113,7 +122,7 @@ export async function GET() {
     .reduce((s, c) => s + Number(c.amount), 0);
 
   // Available for payout (confirmed, not paid)
-  const { data: confirmedComms } = await supabase
+  const { data: confirmedComms } = await svc
     .from("commissions")
     .select("amount")
     .eq("referrer_id", uid)

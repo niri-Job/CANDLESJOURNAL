@@ -395,7 +395,7 @@ export default function SettingsPage() {
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
                                   bg-[var(--cj-gold-glow)] border border-[var(--cj-gold-muted)]"
                       style={{ color: "var(--cj-gold)" }}>
-                  ⚡ Recommended
+                  Recommended
                 </span>
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-0.5
                                   rounded-full bg-zinc-800 border border-zinc-700">
@@ -427,7 +427,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
                                   bg-blue-500/10 border border-blue-500/30 text-blue-400">
-                  🔗 Easy Setup
+                  Easy Setup
                 </span>
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-0.5
                                   rounded-full bg-zinc-800 border border-zinc-700">
@@ -515,7 +515,7 @@ export default function SettingsPage() {
                              focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
                 />
                 <p className="mt-1.5 text-[11px] text-zinc-600">
-                  🔒 Encrypted before storage. Investor passwords are read-only — we cannot place trades.
+                  Encrypted before storage. Investor passwords are read-only — we cannot place trades.
                 </p>
               </div>
 
@@ -659,7 +659,11 @@ export default function SettingsPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-6">
                 <div className="w-10 h-10 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
-                                flex items-center justify-center text-lg mb-3">🔑</div>
+                                flex items-center justify-center mb-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                  </svg>
+                </div>
                 <p className="text-sm text-zinc-500 mb-4">No sync token generated yet</p>
                 <button
                   onClick={generateToken}
@@ -683,7 +687,13 @@ export default function SettingsPage() {
           {tradingAccounts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="w-10 h-10 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
-                              flex items-center justify-center text-lg mb-3">📊</div>
+                              flex items-center justify-center mb-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              </div>
               <p className="text-sm text-zinc-500 mb-1">No accounts connected yet</p>
               <p className="text-xs text-zinc-600">
                 Use Quick Connect above, or install the EA and push your first trade.
@@ -745,7 +755,7 @@ export default function SettingsPage() {
                             ? "bg-blue-500/15 border border-blue-500/30 text-blue-400"
                             : "bg-zinc-800 border border-zinc-700 text-zinc-500"
                           }`}>
-                          {isQC ? "🔗 Quick Connect" : "⚡ EA Sync"}
+                          {isQC ? "Quick Connect" : "EA Sync"}
                         </span>
                         {/* Account type badge */}
                         <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full

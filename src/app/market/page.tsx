@@ -394,7 +394,7 @@ export default function MarketPage() {
                   : "text-zinc-400 hover:text-zinc-200"
                 }`}
             >
-              {t === "calendar" ? "📅 Economic Calendar" : "📰 Market News"}
+              {t === "calendar" ? "Economic Calendar" : "Market News"}
             </button>
           ))}
         </div>
@@ -407,7 +407,7 @@ export default function MarketPage() {
               <div className="flex gap-1 bg-[var(--cj-surface)] border border-zinc-800 rounded-lg p-1">
                 {([
                   { key: "all", label: "All Events" },
-                  { key: "high", label: "🔴 High Impact" },
+                  { key: "high", label: "High Impact" },
                   { key: "today", label: "Today" },
                 ] as { key: CalFilter; label: string }[]).map(({ key, label }) => (
                   <button

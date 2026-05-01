@@ -43,9 +43,9 @@ const GRN  = "#34d399";
 const RED  = "#f87171";
 
 const EMOTION_LABEL: Record<string, string> = {
-  revenge: "😤 Revenge", fear: "😰 Fear", greedy: "🤑 Greedy",
-  confident: "😎 Confident", bored: "😴 Bored", news: "📰 News",
-  untagged: "— Untagged",
+  revenge: "Revenge", fear: "Fear", greedy: "Greedy",
+  confident: "Confident", bored: "Bored", news: "News",
+  untagged: "Untagged",
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -440,7 +440,9 @@ function InsightCard({ icon, text, highlight }: { icon: string; text: string; hi
 function Empty({ msg = "No trades in this period" }: { msg?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
-      <span className="text-4xl mb-3">📊</span>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-3">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
       <p className="text-sm">{msg}</p>
     </div>
   );
@@ -519,7 +521,7 @@ function TabOverview({ trades, onExportCsv }: { trades: Trade[]; onExportCsv: ()
         </button>
         <button onClick={() => window.print()}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors">
-          🖨 Print / PDF
+          Print / PDF
         </button>
       </div>
 
@@ -818,7 +820,7 @@ function TabTime({ trades }: { trades: Trade[] }) {
           <SectionHead>Your Best Trading Hours</SectionHead>
           <div className="grid sm:grid-cols-3 gap-3">
             {topHours.map((h, i) => (
-              <InsightCard key={h.hour} icon={i === 0 ? "⚡" : "✦"} highlight={i === 0}
+              <InsightCard key={h.hour} icon={i === 0 ? "›" : "·"} highlight={i === 0}
                 text={`${h.hour} WAT — ${h.winRate}% win rate, avg ${f$(h.trades ? h.pnl / h.trades : 0)} per trade`} />
             ))}
           </div>
@@ -1091,7 +1093,7 @@ function TabPsychology({ trades }: { trades: Trade[] }) {
       <div>
         <SectionHead>Performance by Emotion</SectionHead>
         {emotions.length === 0 || emotions.every(e => e.key === "untagged")
-          ? <InsightCard icon="💡" text="Tag your emotions on each trade to unlock psychology analysis." />
+          ? <InsightCard icon="›" text="Tag your emotions on each trade to unlock psychology analysis." />
           : (
             <div className="space-y-4">
               <ChartBox title="Win Rate by Emotion" height={200}>
@@ -1140,10 +1142,10 @@ function TabPsychology({ trades }: { trades: Trade[] }) {
         <SectionHead>Behavioral Patterns & Coaching Tips</SectionHead>
         <div className="grid sm:grid-cols-2 gap-3">
           {tips.slice(0, 6).map((tip, i) => (
-            <InsightCard key={i} icon={["💡","⚡","🎯","⚠️","📌","🧠"][i % 6]} text={tip} highlight={i === 0} />
+            <InsightCard key={i} icon={i === 0 ? "›" : "·"} text={tip} highlight={i === 0} />
           ))}
           {tips.length === 0 && (
-            <InsightCard icon="📊" text="Log more trades with emotion tags to generate personalized coaching tips." />
+            <InsightCard icon="›" text="Log more trades with emotion tags to generate personalized coaching tips." />
           )}
         </div>
       </div>
@@ -1209,8 +1211,8 @@ function TabWinsVsLosses({ trades }: { trades: Trade[] }) {
   return (
     <div className="space-y-6">
       <div className="flex gap-4 flex-col sm:flex-row">
-        <CompCol label="✅ Winning Trades" data={wins}   color={GRN} />
-        <CompCol label="❌ Losing Trades"  data={losses} color={RED} />
+        <CompCol label="Winning Trades" data={wins}   color={GRN} />
+        <CompCol label="Losing Trades"  data={losses} color={RED} />
       </div>
 
       {insights.length > 0 && (
@@ -1218,7 +1220,7 @@ function TabWinsVsLosses({ trades }: { trades: Trade[] }) {
           <SectionHead>Insights</SectionHead>
           <div className="grid sm:grid-cols-2 gap-3">
             {insights.map((ins, i) => (
-              <InsightCard key={i} icon={["🔍","📉","🎯","📊"][i % 4]} text={ins} highlight={i === 0} />
+              <InsightCard key={i} icon={i === 0 ? "›" : "·"} text={ins} highlight={i === 0} />
             ))}
           </div>
         </div>
@@ -1265,9 +1267,9 @@ function TabStreaks({ trades }: { trades: Trade[] }) {
   if (!trades.length) return <Empty />;
 
   const curLabel = st.currentType === "W"
-    ? `🔥 ${st.current} win${st.current !== 1 ? "s" : ""} in a row`
+    ? `▲ ${st.current} win${st.current !== 1 ? "s" : ""} in a row`
     : st.currentType === "L"
-    ? `❄️ ${st.current} loss${st.current !== 1 ? "es" : ""} in a row`
+    ? `▼ ${st.current} loss${st.current !== 1 ? "es" : ""} in a row`
     : "No trades yet";
 
   // Build streak calendar (last 60 entries)
@@ -1301,7 +1303,7 @@ function TabStreaks({ trades }: { trades: Trade[] }) {
         <div>
           <SectionHead>Streak Insights</SectionHead>
           <div className="grid sm:grid-cols-2 gap-3">
-            {insights.map((ins, i) => <InsightCard key={i} icon={i === 0 ? "🔥" : "⚠️"} text={ins} highlight={i === 0} />)}
+            {insights.map((ins, i) => <InsightCard key={i} icon={i === 0 ? "›" : "·"} text={ins} highlight={i === 0} />)}
           </div>
         </div>
       )}
@@ -1466,7 +1468,7 @@ function TabCompare({ trades, accounts }: { trades: Trade[]; accounts: TradingAc
         <div>
           <SectionHead>Progress Insights</SectionHead>
           <div className="grid sm:grid-cols-2 gap-3">
-            {improvements.map((ins, i) => <InsightCard key={i} icon="✅" text={ins} highlight={i === 0} />)}
+            {improvements.map((ins, i) => <InsightCard key={i} icon="›" text={ins} highlight={i === 0} />)}
           </div>
         </div>
       )}

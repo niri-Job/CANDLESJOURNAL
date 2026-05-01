@@ -5,7 +5,6 @@ import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
-import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { RiskDistribution } from "@/components/RiskDistribution";
 import { TradeNoteModal } from "@/components/TradeNoteModal";
@@ -72,8 +71,8 @@ const EMPTY_FILTERS: Filters = { dateFrom: "", dateTo: "", pair: "", direction: 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const EMOTION_EMOJI: Record<string, string> = {
-  revenge: "😤", fear: "😰", greedy: "🤑",
-  confident: "😎", bored: "😴", news: "📰",
+  revenge: "↺", fear: "↓", greedy: "↑",
+  confident: "→", bored: "–", news: "◆",
 };
 
 const pnlColor = (v: number) =>
@@ -992,7 +991,13 @@ export default function TradingJournal() {
           {!analysisLoading && !currentAnalysis && pastAnalyses.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 text-zinc-600">
               <div className="w-10 h-10 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
-                              flex items-center justify-center text-lg mb-3">🤖</div>
+                              flex items-center justify-center mb-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7H3a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2z"/>
+                  <path d="M5 14v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>
+                  <circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>
+                </svg>
+              </div>
               <p className="text-sm text-zinc-500 font-semibold mb-1">No analyses yet</p>
               <p className="text-xs">Click a button above to get your first AI coaching report</p>
             </div>
@@ -1171,7 +1176,7 @@ export default function TradingJournal() {
             <button onClick={isEditing ? saveEdit : addTrade}
               className="btn-gold w-full py-2.5 rounded-xl text-sm tracking-wide
                          transition-all active:scale-[0.98]">
-              {isEditing ? "💾 Save Changes" : "+ Add Trade"}
+              {isEditing ? "Save Changes" : "+ Add Trade"}
             </button>
           </div>
 
@@ -1235,7 +1240,14 @@ export default function TradingJournal() {
             {filteredTrades.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-zinc-600">
                 <div className="w-12 h-12 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
-                                flex items-center justify-center text-xl mb-4">📋</div>
+                                flex items-center justify-center mb-4">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
                 <p className="font-semibold text-zinc-400 mb-1">
                   {accountTrades.length === 0 ? "No trades yet" : "No trades match filters"}
                 </p>
@@ -1271,7 +1283,7 @@ export default function TradingJournal() {
                             {t.news_event && (
                               <span className="text-[10px] font-semibold bg-orange-500/10 border border-orange-500/25
                                                text-orange-400 px-1.5 py-0.5 rounded-md whitespace-nowrap">
-                                📰 {t.news_event}
+                                {t.news_event}
                               </span>
                             )}
                           </div>
@@ -1305,10 +1317,14 @@ export default function TradingJournal() {
                               className="inline-flex items-center gap-1 hover:scale-110 transition-transform"
                             >
                               {t.notes?.trim() && (
-                                <span className="text-base text-emerald-400" title="Has notes">📝</span>
+                                <span className="text-emerald-400" title="Has notes">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                                </span>
                               )}
                               {t.screenshot_url && (
-                                <span className="text-base text-blue-400" title="Has screenshot">📸</span>
+                                <span className="text-blue-400" title="Has screenshot">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                </span>
                               )}
                             </button>
                           ) : (
@@ -1342,7 +1358,7 @@ export default function TradingJournal() {
                                           opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button onClick={() => startEdit(t)}
                               className="text-zinc-500 hover:text-blue-400 border border-zinc-800
-                                         hover:border-blue-500/50 rounded-md px-2 py-1 text-xs transition-all">✏️</button>
+                                         hover:border-blue-500/50 rounded-md px-2 py-1 text-xs transition-all">Edit</button>
                             <button onClick={() => deleteTrade(t.id)}
                               className="text-zinc-600 hover:text-rose-400 border border-zinc-800
                                          hover:border-rose-500/50 rounded-md px-2 py-1 text-xs transition-all">✕</button>

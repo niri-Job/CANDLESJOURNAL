@@ -310,7 +310,12 @@ export default function ReferralsPage() {
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 p-6 text-center"
          style={{ background: "rgba(10,10,15,0.75)", backdropFilter: "blur(6px)" }}>
       <div className="w-14 h-14 rounded-2xl bg-[var(--cj-surface)] border border-zinc-700
-                      flex items-center justify-center text-3xl">🔒</div>
+                      flex items-center justify-center">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
       <p className="font-bold text-zinc-100 text-lg">Upgrade to unlock Referrals</p>
       <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
         Earn recurring commissions by inviting traders to NIRI.<br/>
@@ -347,7 +352,15 @@ export default function ReferralsPage() {
                  border: "1px solid rgba(245,197,24,0.25)",
                }}>
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="text-3xl">🎁</div>
+              <div className="flex items-center justify-center w-10 h-10">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--cj-gold)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 12 20 22 4 22 4 12"/>
+                  <rect x="2" y="7" width="20" height="5"/>
+                  <line x1="12" y1="22" x2="12" y2="7"/>
+                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+                </svg>
+              </div>
               <div className="flex-1">
                 <p className="font-bold text-zinc-100 mb-1">Earn recurring commissions every month</p>
                 <p className="text-xs text-zinc-400 leading-relaxed">
@@ -431,25 +444,28 @@ export default function ReferralsPage() {
                          target="_blank" rel="noopener noreferrer"
                          className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                          style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}>
-                        <span>💬</span> WhatsApp
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        WhatsApp
                       </a>
                       <a href={`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Track your trades with NIRI. Join using my referral link!")}`}
                          target="_blank" rel="noopener noreferrer"
                          className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                          style={{ background: "rgba(36,161,222,0.15)", border: "1px solid rgba(36,161,222,0.3)", color: "#24a1de" }}>
-                        <span>✈️</span> Telegram
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        Telegram
                       </a>
                       <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Level up your trading with NIRI! Use my referral link: ${referralLink}`)}`}
                          target="_blank" rel="noopener noreferrer"
                          className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                          style={{ background: "rgba(29,161,242,0.15)", border: "1px solid rgba(29,161,242,0.3)", color: "#1da1f2" }}>
-                        <span>🐦</span> Twitter / X
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l16 16M20 4L4 20"/></svg>
+                        Twitter / X
                       </a>
                       <button
                         onClick={() => setShowQr(q => !q)}
                         className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                         style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
-                        📱 {showQr ? "Hide QR" : "QR Code"}
+                        {showQr ? "Hide QR" : "QR Code"}
                       </button>
                     </div>
 
@@ -498,7 +514,7 @@ export default function ReferralsPage() {
                 </p>
                 {referrals.length === 0 ? (
                   <div className="flex flex-col items-center py-8 gap-2">
-                    <p className="text-2xl">🤝</p>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-1"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <p className="text-sm text-zinc-500">No referrals yet</p>
                     <p className="text-xs text-zinc-600">Share your link to start earning</p>
                   </div>

@@ -123,6 +123,7 @@ export async function POST(request: Request) {
               referrer_id: referral.referrer_id,
               month,
               amount:      commissionRate,
+              plan_type:   planType,
               status:      "pending",
             },
             { onConflict: "referral_id,month" }

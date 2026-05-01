@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS commissions (
   referral_id     UUID        NOT NULL REFERENCES referrals(id)  ON DELETE CASCADE,
   amount          NUMERIC(10,2) NOT NULL,
   -- 0.50 (starter) or 1.00 (pro)
-  plan_type       TEXT        NOT NULL,
+  plan_type       TEXT,
   -- referred user's plan at time of commission
   month           TEXT        NOT NULL,
   -- 'YYYY-MM' e.g. '2026-05'
@@ -136,3 +136,10 @@ BEGIN
   RETURN updated_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ── Schedule daily commission confirmation (requires pg_cron extension) ────────
+SELECT cron.schedule(
+  'confirm-stale-commissions',
+  '0 0 * * *',
+  'SELECT confirm_stale_commissions()'
+);

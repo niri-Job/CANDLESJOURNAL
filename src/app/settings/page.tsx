@@ -32,6 +32,8 @@ interface TradingAccount {
   sync_status: string | null;
   sync_error: string | null;
   platform: string | null;
+  verification_status: string | null;
+  is_verified: boolean;
 }
 
 interface QuickConnectForm {
@@ -338,51 +340,6 @@ export default function SettingsPage() {
       <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[680px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
-        {/* ── SUBSCRIPTION ─────────────────────────────────────────────────── */}
-        {(() => {
-          const isPro = sub.status === "pro" && !!sub.end && new Date(sub.end) > new Date();
-          const daysLeft = sub.end
-            ? Math.max(0, Math.ceil((new Date(sub.end).getTime() - Date.now()) / 86_400_000))
-            : 0;
-          return (
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Subscription</p>
-                <span className={`text-[10px] uppercase tracking-wider font-semibold px-2.5 py-1 rounded-full
-                  ${isPro
-                    ? "bg-blue-500/15 border border-blue-500/30 text-blue-400"
-                    : "bg-zinc-800 text-zinc-500"
-                  }`}>
-                  {isPro ? "Pro" : "Free"}
-                </span>
-              </div>
-              {isPro ? (
-                <div>
-                  <p className="text-sm text-zinc-300 mb-1">Pro plan active</p>
-                  <p className="text-xs text-zinc-500 mb-4">
-                    Expires {new Date(sub.end!).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                    {" · "}{daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining
-                  </p>
-                  <Link href="/pricing" className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors">
-                    Renew Pro →
-                  </Link>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-xs text-zinc-500 mb-4">
-                    You are on the Free plan — up to 20 trades/month, no AI analysis. Upgrade to unlock everything.
-                  </p>
-                  <Link href="/pricing"
-                    className="inline-block px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500
-                               text-white font-semibold text-sm transition-all">
-                    Upgrade to Pro — ₦5,000/month →
-                  </Link>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
         {/* ── CONNECT ACCOUNT ───────────────────────────────────────────────── */}
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Connect Account</p>
@@ -395,7 +352,7 @@ export default function SettingsPage() {
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
                                   bg-[var(--cj-gold-glow)] border border-[var(--cj-gold-muted)]"
                       style={{ color: "var(--cj-gold)" }}>
-                  Recommended
+                  Starter &amp; Pro
                 </span>
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-0.5
                                   rounded-full bg-zinc-800 border border-zinc-700">
@@ -406,25 +363,40 @@ export default function SettingsPage() {
               <p className="text-xs text-zinc-500 leading-relaxed mb-4 flex-1">
                 Install our Expert Advisor in MT5 for instant trade sync. Most accurate — trades appear the second you close them.
               </p>
-              <div className="space-y-2">
-                {syncToken?.last_sync_at && (
-                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 mb-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    EA active · last sync {new Date(syncToken.last_sync_at).toLocaleString()}
-                  </div>
-                )}
-                <a href="/downloads/NiriEA.ex5"
-                   download="NiriEA.ex5"
-                   className="block text-center text-xs px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500
-                              text-white font-semibold transition-all">
-                  Download EA (.ex5)
-                </a>
-              </div>
+              {sub.status === "free" ? (
+                <div className="rounded-xl p-3 bg-zinc-800/60 border border-zinc-700 text-center">
+                  <p className="text-xs text-zinc-500 mb-2">EA Sync requires Starter or Pro</p>
+                  <Link href="/pricing"
+                    className="inline-block text-xs font-bold px-4 py-2 rounded-lg transition-all"
+                    style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                    Upgrade to unlock
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {syncToken?.last_sync_at && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 mb-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      EA active · last sync {new Date(syncToken.last_sync_at).toLocaleString()}
+                    </div>
+                  )}
+                  <a href="/downloads/NiriEA.ex5"
+                     download="NiriEA.ex5"
+                     className="block text-center text-xs px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500
+                                text-white font-semibold transition-all">
+                    Download EA (.ex5)
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* ── CARD 2: Quick Connect overview ───────────────────────────── */}
             <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex flex-col">
               <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                                  bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                  All plans
+                </span>
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
                                   bg-blue-500/10 border border-blue-500/30 text-blue-400">
                   Easy Setup
@@ -608,6 +580,17 @@ export default function SettingsPage() {
           </summary>
 
           <div className="px-6 pb-6 pt-2">
+            {sub.status === "free" ? (
+              <div className="rounded-xl p-4 bg-zinc-800/60 border border-zinc-700 text-center py-6">
+                <p className="text-sm text-zinc-500 mb-1">Requires Starter or Pro</p>
+                <p className="text-xs text-zinc-600 mb-3">Upgrade to use the EA and sync your trades automatically.</p>
+                <Link href="/pricing"
+                  className="inline-block text-xs font-bold px-4 py-2 rounded-lg transition-all"
+                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                  Upgrade to unlock
+                </Link>
+              </div>
+            ) : <>
             <p className="text-xs text-zinc-600 mb-5">
               Your MT5 Expert Advisor uses this token to securely push trades to your journal.
             </p>
@@ -675,14 +658,21 @@ export default function SettingsPage() {
                 {genError && <p className="mt-3 text-xs text-rose-400">{genError}</p>}
               </div>
             )}
+            </>}
           </div>
         </details>
 
         {/* ── CONNECTED ACCOUNTS ────────────────────────────────────────────── */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-5">
-            Connected Accounts
-          </p>
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+              Connected Accounts
+            </p>
+            <span className="text-[11px] text-zinc-500">
+              {tradingAccounts.length} of {sub.status === "pro" ? 10 : sub.status === "starter" ? 3 : 1}
+              <span className="ml-1 text-zinc-600 capitalize">({sub.status})</span>
+            </span>
+          </div>
 
           {tradingAccounts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -771,6 +761,12 @@ export default function SettingsPage() {
                             Cent
                           </span>
                         )}
+                        {acct.account_type !== "demo" && acct.verification_status !== "verified_ea" && (
+                          <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
+                            bg-zinc-700/50 border border-zinc-700 text-zinc-500">
+                            Unverified
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -849,6 +845,31 @@ export default function SettingsPage() {
               })}
             </div>
           )}
+
+          {(() => {
+            const limit = sub.status === "pro" ? 10 : sub.status === "starter" ? 3 : 1;
+            const atLimit = tradingAccounts.length >= limit;
+            return (
+              <div className="mt-4 pt-4 border-t border-zinc-800">
+                {atLimit ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-zinc-600">
+                      Limit reached ({limit}/{limit}). Upgrade to connect more accounts.
+                    </p>
+                    <Link href="/pricing"
+                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
+                      style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                      Upgrade
+                    </Link>
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-600">
+                    {tradingAccounts.length}/{limit} accounts · use Quick Connect above to add more.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* ── REFERRALS QUICK-VIEW ──────────────────────────────────────────── */}

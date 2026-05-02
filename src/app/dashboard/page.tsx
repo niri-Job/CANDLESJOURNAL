@@ -48,6 +48,9 @@ interface TradingAccount {
   is_cent: boolean;
   current_balance: number | null;
   last_synced_at: string | null;
+  verification_status?: string | null;
+  is_verified?: boolean;
+  import_status?: string | null;
 }
 
 interface Filters {
@@ -334,13 +337,25 @@ function AccountCard({
             {acc.broker_name}{acc.account_login ? ` · #${acc.account_login}` : ""}
           </p>
         </div>
-        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0
-          ${acc.account_type === "demo"
-            ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/25"
-            : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
-          }`}>
-          {acc.account_type.toUpperCase()}
-        </span>
+        <div className="flex gap-1 flex-wrap justify-end shrink-0">
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border
+            ${acc.account_type === "demo"
+              ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/25"
+              : "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+            }`}>
+            {acc.account_type === "demo" ? "DEMO" : "LIVE"}
+          </span>
+          {acc.is_cent && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold border bg-blue-500/15 text-blue-400 border-blue-500/25">
+              CENT
+            </span>
+          )}
+          {acc.account_type !== "demo" && acc.verification_status !== "verified_ea" && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold border bg-zinc-700/50 text-zinc-500 border-zinc-700">
+              UNVERIFIED
+            </span>
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-1 text-center">
         {[
@@ -509,6 +524,14 @@ export default function TradingJournal() {
     // Specific account
     return trades.filter((t) => t.account_signature === selectedAccountSig);
   }, [trades, selectedAccountSig, tradingAccounts]);
+
+  // ── View mode: live vs demo ───────────────────────────────────────────────
+  const isViewingDemo = useMemo(() => {
+    if (selectedAccountSig === "__all_demo__") return true;
+    if (selectedAccountSig === "__all_real__") return false;
+    return tradingAccounts.find((a) => a.account_signature === selectedAccountSig)
+      ?.account_type === "demo";
+  }, [selectedAccountSig, tradingAccounts]);
 
   // ── Computed stats (based on account-filtered trades) ─────────────────────
   const totalPnl = accountTrades.reduce((s, t) => s + t.pnl, 0);
@@ -865,11 +888,21 @@ export default function TradingJournal() {
           );
         })()}
 
+        {/* DEMO disclaimer */}
+        {isViewingDemo && tradingAccounts.length > 0 && (
+          <div className="mb-4 px-4 py-3 rounded-xl text-xs text-yellow-400 font-medium"
+               style={{ background: "rgba(234,179,8,0.07)", border: "1px solid rgba(234,179,8,0.2)" }}>
+            Demo performance does not reflect real trading results.
+          </div>
+        )}
+
         {/* STAT CARDS */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 mb-6">
           {[
             {
-              label: "Total P&L",
+              label: tradingAccounts.length > 0
+                ? (isViewingDemo ? "Demo P&L" : "Live P&L")
+                : "Total P&L",
               value: fmt(totalPnl),
               cls: pnlColor(totalPnl),
               sub: `${accountTrades.length} trade${accountTrades.length !== 1 ? "s" : ""}`,

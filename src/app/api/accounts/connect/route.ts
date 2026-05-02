@@ -70,6 +70,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ── Plan-based account limits ───────────────────────────────────────────
+  function getAccountLimit(p: string): number {
+    if (p === "pro")     return 10;
+    if (p === "starter") return 3;
+    return 1; // free: demo only
+  }
+
+  const [profileRes, countRes] = await Promise.all([
+    supabase.from("user_profiles")
+      .select("subscription_status")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase.from("trading_accounts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+  ]);
+  const plan        = (profileRes.data as { subscription_status: string | null } | null)
+    ?.subscription_status ?? "free";
+  const accountCount = countRes.count ?? 0;
+  const limit        = getAccountLimit(plan);
+
+  if (accountCount >= limit) {
+    return NextResponse.json({
+      error: `Account limit reached (${accountCount}/${limit}). Your ${plan} plan allows ${limit} account${limit !== 1 ? "s" : ""}. Upgrade at /pricing.`,
+    }, { status: 403 });
+  }
+
+  // Free plan: only demo accounts allowed (detect by server name)
+  if (plan === "free") {
+    const serverLower = (account_server as string).toLowerCase();
+    if (!/demo|test|practice|paper/.test(serverLower)) {
+      return NextResponse.json({
+        error: "Free plan only supports demo accounts. Upgrade to Starter to connect live accounts.",
+      }, { status: 403 });
+    }
+  }
+
   const account_signature = `${account_login}_${account_server}`;
 
   // Check if already Quick-Connected

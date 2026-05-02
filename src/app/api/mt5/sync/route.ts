@@ -36,6 +36,8 @@ interface TradePayload {
   notes?: string;
   asset_class?: string;
   mt5_deal_id?: string;
+  ticket?: string | number;     // MT5 deal/order ticket (alias for mt5_deal_id)
+  close_time_unix?: number;     // Unix timestamp of close time for unique_trade_id
   is_cent?: boolean;
   contract_size?: number;
   tick_value?: number;
@@ -49,9 +51,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { token, trade, account, ping } = body as {
+  const { token, trade, trades: batchTrades, account, ping } = body as {
     token?: string;
     trade?: TradePayload;
+    trades?: TradePayload[];
     account?: AccountInfo;
     ping?: boolean;
   };
@@ -88,41 +91,27 @@ export async function POST(request: Request) {
 
   const userId: string = tokenRow.user_id;
 
-  // ── Ping / connection test (must respond before trade validation) ─────────
+  // ── Ping / connection test (always allowed regardless of plan) ────────────
   if (ping === true)
     return NextResponse.json({ pong: true });
 
-  // ── Validate required trade fields ────────────────────────────────────────
-  if (!trade)
-    return NextResponse.json({ error: "Missing trade object in request body" }, { status: 400 });
+  // ── Subscription check: EA sync requires a paid plan ─────────────────────
+  const { data: profileRow } = await supabase
+    .from("user_profiles")
+    .select("subscription_status")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const plan = (profileRow as { subscription_status: string | null } | null)
+    ?.subscription_status ?? "free";
 
-  const {
-    pair, direction, lot, date, entry, exit_price,
-    sl, tp, pnl, notes, asset_class, mt5_deal_id,
-    is_cent: tradeLevelCent,
-  } = trade;
-
-  if (!pair || !direction || !lot || !date || entry == null || exit_price == null || pnl == null)
+  if (plan !== "pro" && plan !== "starter") {
     return NextResponse.json(
-      { error: "Missing required trade fields", received: { pair, direction, lot, date, entry, exit_price, pnl } },
-      { status: 400 }
+      { error: "EA sync requires a paid plan. Upgrade at niri.app/pricing" },
+      { status: 403 }
     );
-
-  // ── Dedup: skip if this exact MT5 deal was already synced ─────────────────
-  if (mt5_deal_id) {
-    const { data: dup } = await supabase
-      .from("trades")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("mt5_deal_id", mt5_deal_id)
-      .maybeSingle();
-    if (dup) {
-      console.log("MT5 sync: duplicate deal", mt5_deal_id, "— skipped");
-      return NextResponse.json({ success: true, duplicate: true });
-    }
   }
 
-  // ── Upsert trading_accounts when account info is provided ─────────────────
+  // ── Upsert trading_accounts — EA is the authoritative source ─────────────
   let resolvedAccountSig: string | null = null;
   let resolvedAccountLabel: string | null = null;
 
@@ -130,18 +119,28 @@ export async function POST(request: Request) {
     resolvedAccountSig   = account.account_signature;
     resolvedAccountLabel = account.account_label || null;
 
+    // Detect cent account from currency code
+    const currency = (account.account_currency || "USD").toUpperCase();
+    const isCentAccount = account.is_cent ?? (currency.includes("USC") || currency.includes("CENT"));
+
     const accountRow = {
-      user_id:           userId,
-      account_signature: account.account_signature,
-      account_label:     account.account_label     || null,
-      account_login:     account.account_login     || null,
-      account_server:    account.account_server    || null,
-      broker_name:       account.broker_name       || null,
-      account_currency:  account.account_currency  || "USD",
-      account_type:      account.account_type      || "real",
-      is_cent:           account.is_cent            ?? false,
-      current_balance:   account.current_balance    ?? null,
-      last_synced_at:    new Date().toISOString(),
+      user_id:              userId,
+      account_signature:    account.account_signature,
+      account_label:        account.account_label    || null,
+      account_login:        account.account_login    || null,
+      account_server:       account.account_server   || null,
+      broker_name:          account.broker_name      || null,
+      account_currency:     account.account_currency || "USD",
+      // EA sends ACCOUNT_TRADE_MODE — trust it directly, never override from user input
+      account_type:         account.account_type     || "real",
+      is_cent:              isCentAccount,
+      current_balance:      account.current_balance  ?? null,
+      last_synced_at:       new Date().toISOString(),
+      // Verification: EA connection is authoritative
+      verification_status:  "verified_ea",
+      verification_method:  "EA",
+      is_verified:          true,
+      import_status:        "complete",
     };
 
     const { error: upsertErr } = await supabase
@@ -152,43 +151,106 @@ export async function POST(request: Request) {
       console.error("MT5 sync: trading_accounts upsert error:", upsertErr.message);
   }
 
-  // ── P&L normalization for cent accounts ───────────────────────────────────
-  const isCentTrade = tradeLevelCent ?? account?.is_cent ?? false;
-  const rawPnl      = Number(pnl);
-  const normalizedPnl = isCentTrade ? rawPnl / 100 : rawPnl;
+  // ── Build trade list (single or batch) ────────────────────────────────────
+  const tradeList: TradePayload[] =
+    batchTrades && batchTrades.length > 0 ? batchTrades : trade ? [trade] : [];
 
-  // ── Insert trade ──────────────────────────────────────────────────────────
-  const payload = {
-    user_id:           userId,
-    pair:              String(pair).toUpperCase().trim(),
-    direction:         String(direction).toUpperCase().trim(),
-    lot:               Number(lot),
-    date:              String(date),
-    entry:             Number(entry),
-    exit_price:        Number(exit_price),
-    sl:                sl != null ? Number(sl) : null,
-    tp:                tp != null ? Number(tp) : null,
-    pnl:               normalizedPnl,
-    notes:             notes || "Auto-synced from MT5",
-    asset_class:       String(asset_class || "Forex"),
-    session:           "London",
-    setup:             "",
-    mt5_deal_id:       mt5_deal_id ? String(mt5_deal_id) : null,
-    account_signature: resolvedAccountSig,
-    account_label:     resolvedAccountLabel,
-    normalized_pnl:    normalizedPnl,
-  };
+  if (tradeList.length === 0)
+    return NextResponse.json({ error: "Missing trade object in request body" }, { status: 400 });
 
-  console.log("MT5 sync: inserting trade", JSON.stringify(payload));
+  let successCount = 0;
+  let dupCount = 0;
+  const errors: string[] = [];
 
-  const { error: insertErr } = await supabase.from("trades").insert(payload);
+  for (const t of tradeList) {
+    const {
+      pair, direction, lot, date, entry, exit_price,
+      sl, tp, pnl, notes, asset_class,
+      mt5_deal_id, ticket, close_time_unix,
+      is_cent: tradeLevelCent,
+    } = t;
 
-  if (insertErr) {
-    console.error("MT5 sync: insert error:", insertErr.message, insertErr.details);
-    return NextResponse.json(
-      { error: "Insert failed: " + insertErr.message, details: insertErr.details, hint: insertErr.hint },
-      { status: 500 }
-    );
+    if (!pair || !direction || !lot || !date || entry == null || exit_price == null || pnl == null) {
+      errors.push(`Missing required fields: ${JSON.stringify({ pair, direction, lot, date })}`);
+      continue;
+    }
+
+    // ── P&L normalization for cent accounts ─────────────────────────────────
+    const isCentTrade = tradeLevelCent ?? account?.is_cent ?? false;
+    const rawPnl      = Number(pnl);
+    const normalizedPnl = isCentTrade ? rawPnl / 100 : rawPnl;
+
+    // ── Generate unique_trade_id: {account_sig}_{ticket}_{close_time_unix} ──
+    const dealId  = mt5_deal_id || ticket;
+    const closeTs = close_time_unix ?? Math.floor(Date.parse(String(date)) / 1000);
+    const uniqueTradeId = resolvedAccountSig && dealId
+      ? `${resolvedAccountSig}_${dealId}_${closeTs}`
+      : null;
+
+    const payload = {
+      user_id:             userId,
+      pair:                String(pair).toUpperCase().trim(),
+      direction:           String(direction).toUpperCase().trim(),
+      lot:                 Number(lot),
+      date:                String(date),
+      entry:               Number(entry),
+      exit_price:          Number(exit_price),
+      sl:                  sl != null ? Number(sl) : null,
+      tp:                  tp != null ? Number(tp) : null,
+      pnl:                 normalizedPnl,
+      notes:               notes || "Auto-synced from MT5",
+      asset_class:         String(asset_class || "Forex"),
+      session:             "London",
+      setup:               "",
+      mt5_deal_id:         dealId ? String(dealId) : null,
+      account_signature:   resolvedAccountSig,
+      account_label:       resolvedAccountLabel,
+      normalized_pnl:      normalizedPnl,
+      unique_trade_id:     uniqueTradeId,
+      is_verified:         true,
+      verification_method: "EA",
+    };
+
+    if (uniqueTradeId) {
+      // Upsert — conflict on unique_trade_id silently skips duplicates
+      const { error: upsertErr } = await supabase
+        .from("trades")
+        .upsert(payload, { onConflict: "user_id,unique_trade_id", ignoreDuplicates: true });
+      if (upsertErr) {
+        errors.push(`Upsert failed: ${upsertErr.message}`);
+        continue;
+      }
+    } else {
+      // Fallback: manual dedup via mt5_deal_id
+      if (dealId) {
+        const { data: dup } = await supabase
+          .from("trades").select("id")
+          .eq("user_id", userId).eq("mt5_deal_id", String(dealId)).maybeSingle();
+        if (dup) { dupCount++; continue; }
+      }
+      const { error: insertErr } = await supabase.from("trades").insert(payload);
+      if (insertErr) {
+        errors.push(`Insert failed: ${insertErr.message}`);
+        continue;
+      }
+    }
+
+    successCount++;
+  }
+
+  // ── Update account import status ──────────────────────────────────────────
+  if (resolvedAccountSig && successCount > 0) {
+    const lastTrade = tradeList[tradeList.length - 1];
+    const lastDealId = lastTrade?.mt5_deal_id || lastTrade?.ticket;
+    await supabase
+      .from("trading_accounts")
+      .update({
+        last_synced_at:   new Date().toISOString(),
+        import_status:    "complete",
+        ...(lastDealId ? { last_trade_id: String(lastDealId) } : {}),
+      })
+      .eq("user_id", userId)
+      .eq("account_signature", resolvedAccountSig);
   }
 
   // ── Stamp last_sync_at on token row ───────────────────────────────────────
@@ -197,11 +259,17 @@ export async function POST(request: Request) {
     .update({ last_sync_at: new Date().toISOString() })
     .eq("id", tokenRow.id);
 
-  console.log("MT5 sync: success —", payload.pair, payload.direction, "pnl:", payload.pnl);
+  if (errors.length > 0 && successCount === 0) {
+    console.error("MT5 sync: all trades failed:", errors);
+    return NextResponse.json({ error: errors[0], details: errors }, { status: 500 });
+  }
+
+  console.log(`MT5 sync: ${successCount} synced, ${dupCount} dups skipped, ${errors.length} errors`);
   return NextResponse.json({
-    success:           true,
-    account_signature: resolvedAccountSig,
-    trades_synced:     1,
-    account_balance:   account?.current_balance ?? null,
+    success:            true,
+    account_signature:  resolvedAccountSig,
+    trades_synced:      successCount,
+    duplicates_skipped: dupCount,
+    account_balance:    account?.current_balance ?? null,
   });
 }

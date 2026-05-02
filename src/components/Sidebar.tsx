@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 const NAV_ITEMS = [
@@ -57,6 +58,22 @@ interface SidebarProps {
 export function Sidebar({ user, onSignOut }: SidebarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [plan, setPlan] = useState<string>("free");
+
+  useEffect(() => {
+    if (!user) return;
+    const sb = createClient();
+    sb.from("user_profiles")
+      .select("subscription_status")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        const s = (data as { subscription_status: string | null } | null)?.subscription_status;
+        if (s) setPlan(s);
+      });
+  }, [user?.id]);
+
+  const isPaid = plan === "pro" || plan === "starter";
 
   function NavLinks({ onClick }: { onClick?: () => void }) {
     return (
@@ -89,9 +106,29 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           <p className="text-[11px] text-zinc-500 truncate">{user.email}</p>
         )}
         <ThemeSwitcher user={user} />
+
+        {/* Plan badge (paid) or Upgrade button (free) */}
+        {isPaid ? (
+          <div className="flex items-center gap-2 py-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
+                  style={{ background: "rgba(245,197,24,0.1)", border: "1px solid rgba(245,197,24,0.3)", color: "var(--cj-gold)" }}>
+              {plan.toUpperCase()}
+            </span>
+            <Link href="/pricing" className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors">
+              Manage
+            </Link>
+          </div>
+        ) : (
+          <Link href="/pricing"
+            className="block w-full text-center text-xs font-bold py-2 rounded-xl transition-all"
+            style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+            Upgrade to Pro
+          </Link>
+        )}
+
         <button
           onClick={onSignOutClick}
-          className="text-xs text-zinc-500 hover:text-rose-400 transition-colors mt-1"
+          className="text-xs text-zinc-500 hover:text-rose-400 transition-colors"
         >
           Sign out
         </button>

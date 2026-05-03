@@ -43,7 +43,15 @@ interface TradePayload {
   tick_value?: number;
 }
 
-export async function POST(request: Request) {
+// EA sync is temporarily disabled — all requests return 503
+export async function POST(_request: Request) {
+  return NextResponse.json(
+    { error: "EA sync is temporarily unavailable. Please use Quick Connect instead." },
+    { status: 503 }
+  );
+}
+
+export async function _POST_DISABLED(request: Request) {
   let body: unknown;
   try {
     body = await request.json();

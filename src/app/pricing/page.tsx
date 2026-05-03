@@ -28,21 +28,35 @@ declare global {
 const FREE_FEATURES = [
   "Unlimited trades",
   "Manual trade entry",
-  "MT5 auto-sync (EA integration)",
+  "Quick Connect (investor password)",
   "Basic dashboard & equity curve",
+  "1 trading account",
 ];
 const FREE_MISSING = [
   "No AI analysis",
   "No advanced charts",
 ];
-const PRO_FEATURES = [
+const STARTER_FEATURES = [
   "Everything in Free",
-  "AI analysis — daily, weekly, monthly",
-  "Full charts: win rate, calendar heatmap",
+  "Quick Connect for live accounts",
+  "Up to 3 trading accounts",
+  "30 AI analyses per month",
+  "Full reports suite",
+];
+const PRO_FEATURES = [
+  "Everything in Starter",
+  "Up to 10 trading accounts",
+  "90 AI analyses per month",
+  "Market Intelligence (AI setups)",
   "Priority support",
 ];
 
-const PRO_AMOUNT_KOBO = 500_000; // ₦5,000
+// Monthly amounts in kobo (NGN)
+const STARTER_MONTHLY_KOBO = 800_000;   // ₦8,000
+const PRO_MONTHLY_KOBO     = 1_300_000; // ₦13,000
+// Yearly = monthly × 12 × 0.9 (10% discount)
+const STARTER_YEARLY_KOBO  = 864_000_0; // ₦86,400
+const PRO_YEARLY_KOBO      = 1_404_000_0; // ₦140,400
 
 interface SubProfile {
   subscription_status: string | null;
@@ -52,12 +66,15 @@ interface SubProfile {
 export default function PricingPage() {
   const [user, setUser]               = useState<User | null>(null);
   const [isPro, setIsPro]             = useState(false);
+  const [isStarter, setIsStarter]     = useState(false);
   const [subEnd, setSubEnd]           = useState<string | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [loading, setLoading]         = useState(true);
   const [paying, setPaying]           = useState(false);
   const [payError, setPayError]       = useState<string | null>(null);
   const [paySuccess, setPaySuccess]   = useState(false);
+  const [billing, setBilling]         = useState<"monthly" | "yearly">("monthly");
+  const [payingPlan, setPayingPlan]   = useState<"starter" | "pro" | null>(null);
 
   // ── Load user + subscription ──────────────────────────────────────────────
   useEffect(() => {
@@ -74,10 +91,11 @@ export default function PricingPage() {
         .maybeSingle();
       const p = raw as SubProfile | null;
 
-      const pro = p?.subscription_status === "pro" &&
-                  !!p?.subscription_end &&
-                  new Date(p.subscription_end) > new Date();
+      const active = !!p?.subscription_end && new Date(p.subscription_end) > new Date();
+      const pro = p?.subscription_status === "pro" && active;
+      const starter = p?.subscription_status === "starter" && active;
       setIsPro(pro);
+      setIsStarter(starter);
       setSubEnd(p?.subscription_end ?? null);
       setLoading(false);
     }
@@ -127,18 +145,23 @@ export default function PricingPage() {
     }
   }
 
-  function openPaystack() {
+  function openPaystack(plan: "starter" | "pro") {
     if (!user || !scriptReady || !process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY) return;
-    const ref = `cj_pro_${Date.now()}_${user.id.slice(0, 8)}`;
+    const isYearly = billing === "yearly";
+    const amount = plan === "starter"
+      ? (isYearly ? STARTER_YEARLY_KOBO : STARTER_MONTHLY_KOBO)
+      : (isYearly ? PRO_YEARLY_KOBO     : PRO_MONTHLY_KOBO);
+    const ref = `cj_${plan}_${isYearly ? "yr" : "mo"}_${Date.now()}_${user.id.slice(0, 8)}`;
+    setPayingPlan(plan);
     const handler = window.PaystackPop.setup({
       key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
       email: user.email!,
-      amount: PRO_AMOUNT_KOBO,
+      amount,
       currency: "NGN",
       ref,
-      metadata: { user_id: user.id },
+      metadata: { user_id: user.id, plan, billing_type: isYearly ? "yearly" : "monthly" },
       callback: (response) => verifyAndActivate(response.reference),
-      onClose: () => {},
+      onClose: () => setPayingPlan(null),
     });
     handler.openIframe();
   }
@@ -234,93 +257,128 @@ export default function PricingPage() {
           </div>
         )}
 
+        {/* Billing toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="flex gap-0 bg-[var(--cj-surface)] border border-zinc-800 rounded-xl p-1">
+            <button
+              onClick={() => setBilling("monthly")}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all
+                ${billing === "monthly" ? "text-[#0A0A0F]" : "text-zinc-500 hover:text-zinc-300"}`}
+              style={billing === "monthly" ? { background: "linear-gradient(135deg,#F5C518,#C9A227)" } : undefined}>
+              Monthly
+            </button>
+            <button
+              onClick={() => setBilling("yearly")}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all
+                ${billing === "yearly" ? "text-[#0A0A0F]" : "text-zinc-500 hover:text-zinc-300"}`}
+              style={billing === "yearly" ? { background: "linear-gradient(135deg,#F5C518,#C9A227)" } : undefined}>
+              Yearly — Save 10%
+            </button>
+          </div>
+        </div>
+
         {/* Plan cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-12">
 
           {/* FREE */}
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-7 flex flex-col">
             <div className="mb-6">
-              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
-                Free Plan
-              </p>
+              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Free Plan</p>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-4xl font-bold">₦0</span>
                 <span className="text-zinc-500 text-sm">/month</span>
               </div>
               <p className="text-zinc-600 text-xs mt-1.5">No credit card required</p>
             </div>
-
             <ul className="space-y-3 flex-1 mb-7">
               {FREE_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm text-zinc-300">
-                  <span className="text-emerald-400 shrink-0 mt-0.5">✓</span>
-                  {f}
+                  <span className="text-emerald-400 shrink-0 mt-0.5">✓</span>{f}
                 </li>
               ))}
               {FREE_MISSING.map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm text-zinc-600">
-                  <span className="shrink-0 mt-0.5">✕</span>
-                  {f}
+                  <span className="shrink-0 mt-0.5">✕</span>{f}
                 </li>
               ))}
             </ul>
-
             <div className="text-center py-2.5 rounded-xl border border-zinc-800 text-zinc-600 text-sm font-semibold">
-              {!isPro ? "Current plan" : "Basic plan"}
+              {!isPro && !isStarter ? "Current plan" : "Basic plan"}
             </div>
           </div>
 
-          {/* PRO */}
-          <div className="relative bg-[var(--cj-surface)] border-2 border-blue-500/50 rounded-2xl p-7
-                          flex flex-col shadow-[0_0_60px_-10px_rgba(59,130,246,0.25)]">
-
-            {/* Badge */}
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-              <span className="bg-blue-600 text-white text-[11px] font-bold uppercase tracking-widest
-                               px-4 py-1 rounded-full whitespace-nowrap">
-                Most Popular
-              </span>
-            </div>
-
+          {/* STARTER */}
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-7 flex flex-col">
             <div className="mb-6">
-              <p className="text-[11px] uppercase tracking-widest text-blue-400/70 font-medium mb-3">
-                Pro Plan
-              </p>
+              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Starter Plan</p>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-4xl font-bold">₦5,000</span>
+                <span className="text-4xl font-bold">
+                  {billing === "yearly" ? "₦7,200" : "₦8,000"}
+                </span>
                 <span className="text-zinc-500 text-sm">/month</span>
               </div>
-              <p className="text-zinc-600 text-xs mt-1.5">~$3 USD · Secured by Paystack</p>
+              {billing === "yearly" ? (
+                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">₦86,400/year · Save ₦9,600</p>
+              ) : (
+                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly · Paystack</p>
+              )}
             </div>
-
             <ul className="space-y-3 flex-1 mb-7">
-              {PRO_FEATURES.map((f) => (
+              {STARTER_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm text-zinc-200">
-                  <span className="text-blue-400 shrink-0 mt-0.5">✓</span>
-                  {f}
+                  <span className="text-emerald-400 shrink-0 mt-0.5">✓</span>{f}
                 </li>
               ))}
             </ul>
-
             <button
-              onClick={openPaystack}
-              disabled={paying || !scriptReady || !user}
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white
-                         font-semibold text-sm transition-all
+              onClick={() => openPaystack("starter")}
+              disabled={paying || payingPlan !== null || !scriptReady || !user}
+              className="w-full py-3 rounded-xl font-semibold text-sm transition-all
                          disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {paying
-                ? "Processing..."
-                : !scriptReady
-                ? "Loading..."
-                : isPro
-                ? "Renew Pro →"
-                : "Upgrade to Pro →"}
+              style={{ background: "linear-gradient(135deg,#3a3220,#2a2410)", border: "1px solid #5a4a30", color: "#d0b060" }}>
+              {payingPlan === "starter" ? "Processing..." : isStarter ? "Renew Starter →" : "Get Starter →"}
             </button>
+          </div>
 
-            <p className="text-center text-[11px] text-zinc-600 mt-3">
-              Supports NGN · Paystack secure checkout
-            </p>
+          {/* PRO */}
+          <div className="relative bg-[var(--cj-surface)] border-2 rounded-2xl p-7 flex flex-col"
+               style={{ borderColor: "rgba(245,197,24,0.4)", boxShadow: "0 0 60px -10px rgba(245,197,24,0.15)" }}>
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+              <span className="text-[11px] font-bold uppercase tracking-widest px-4 py-1 rounded-full whitespace-nowrap"
+                    style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                Most Popular
+              </span>
+            </div>
+            <div className="mb-6">
+              <p className="text-[11px] uppercase tracking-widest font-medium mb-3" style={{ color: "var(--cj-gold)" }}>Pro Plan</p>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-4xl font-bold">
+                  {billing === "yearly" ? "₦11,700" : "₦13,000"}
+                </span>
+                <span className="text-zinc-500 text-sm">/month</span>
+              </div>
+              {billing === "yearly" ? (
+                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">₦140,400/year · Save ₦15,600</p>
+              ) : (
+                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly · Paystack</p>
+              )}
+            </div>
+            <ul className="space-y-3 flex-1 mb-7">
+              {PRO_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2.5 text-sm text-zinc-200">
+                  <span className="shrink-0 mt-0.5" style={{ color: "var(--cj-gold)" }}>✓</span>{f}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => openPaystack("pro")}
+              disabled={paying || payingPlan !== null || !scriptReady || !user}
+              className="w-full py-3 rounded-xl font-semibold text-sm transition-all
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+              {payingPlan === "pro" ? "Processing..." : isPro ? "Renew Pro →" : "Upgrade to Pro →"}
+            </button>
+            <p className="text-center text-[11px] text-zinc-600 mt-3">Secured by Paystack</p>
           </div>
         </div>
 

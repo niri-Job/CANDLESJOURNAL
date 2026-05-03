@@ -322,8 +322,8 @@ export default function LandingPage() {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const features = [
-    { ico: <IcoSync />, title: "Your trades sync the moment they close",
-      desc: "The NiriEA connects to MT5 via your sync token. When a trade closes, it is sent to your journal in under 3 seconds." },
+    { ico: <IcoSync />, title: "Connect your MT5 account in under 60 seconds",
+      desc: "Use your investor (read-only) password to connect any MT5 account. No EA installation required. Trades appear in your journal automatically." },
     { ico: <IcoCoach />, title: "Know exactly what to fix after every session",
       desc: "After each session, NIRI analyses your entry timing, exit behavior, pair performance and session patterns, then generates a coaching report with specific observations." },
     { ico: <IcoChart />, title: "See every trade on the actual chart",
@@ -336,8 +336,8 @@ export default function LandingPage() {
       desc: "The Reports section contains eight analysis views: Overview, Performance, Time Analysis, Risk Management, Psychology, Wins vs Losses, Streaks, and Period Comparison." },
     { ico: <IcoSearch />, title: "Know which setups actually make you money",
       desc: "NIRI segments your results by setup type and session so you can see exactly which approaches generate positive expectancy." },
-    { ico: <IcoGlobe />, title: "Works with any MT5 broker, anywhere",
-      desc: "Compatible with Exness, ICMarkets, HFM, Deriv, XM, FBS, OctaFX and hundreds more. Any country, any timezone." },
+    { ico: <IcoGlobe />, title: "Works with any MT5 broker worldwide",
+      desc: "Compatible with Deriv, Exness, ICMarkets, HFM, XM, FBS, OctaFX and hundreds more. Including Deriv synthetic indices. Any country, any timezone." },
   ];
 
   return (
@@ -608,8 +608,8 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {[
-              { n: "01", title: "Connect your MT5 in 5 minutes",
-                desc: "Download the free NiriEA, paste your sync token, and attach it to any chart. Every trade you close syncs to your journal automatically with no manual entry required." },
+              { n: "01", title: "Connect your MT5 account in under 60 seconds",
+                desc: "Enter your broker server, account login, and investor (read-only) password. NIRI connects and begins syncing your trade history immediately. No EA installation required." },
               { n: "02", title: "NIRI analyses your trading behavior",
                 desc: "NIRI processes your entries, exits, timing, pairs, emotions and patterns to build a complete picture of how you actually trade." },
               { n: "03", title: "Receive your coaching report",
@@ -972,6 +972,65 @@ export default function LandingPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── DERIV TRADERS ────────────────────────────────────────────────────── */}
+      <section style={{ padding: "5rem 1.5rem", background: "linear-gradient(180deg, #0a0800 0%, #100d00 50%, #0a0800 100%)" }}>
+        <div style={{ maxWidth: 860, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", alignItems: "center" }} className="grid-2">
+            <div>
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: "0.5rem",
+                background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.2)",
+                borderRadius: "2rem", padding: "0.3rem 0.875rem",
+                color: "#F5C518", fontSize: "0.75rem", fontWeight: 700,
+                marginBottom: "1.5rem", letterSpacing: "0.05em",
+              }}>
+                <IcoGlobe color="#F5C518" />
+                <span>Deriv MT5 Traders</span>
+              </div>
+              <h2 style={{ fontSize: "clamp(1.625rem,3.5vw,2.375rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "1rem", lineHeight: 1.2 }}>
+                Trade Synthetic Indices on <span className="shimmer-text">Deriv?</span>
+              </h2>
+              <p style={{ color: "#6a5a3a", fontSize: "1rem", lineHeight: 1.8, marginBottom: "1.5rem" }}>
+                NIRI fully supports Deriv MT5 accounts including Volatility indices, Boom and Crash,
+                Step Index and all synthetic instruments. Connect your Deriv MT5 account and finally
+                understand your performance with clarity.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "2rem" }}>
+                {["Volatility 10/25/50/75/100", "Boom 500 & 1000", "Crash 500 & 1000", "Step Index", "Jump Indices"].map(t => (
+                  <span key={t} style={{
+                    background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.15)",
+                    borderRadius: "0.375rem", padding: "0.25rem 0.625rem",
+                    color: "#9a8050", fontSize: "0.8125rem",
+                  }}>{t}</span>
+                ))}
+              </div>
+              <Link href="/login">
+                <button className="gold-btn" style={{ padding: "0.875rem 1.75rem", fontSize: "0.9375rem" }}>
+                  Connect Deriv MT5 Account
+                </button>
+              </Link>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+              {[
+                { label: "Win rate by instrument", value: "Volatility 75: 61% · Crash 500: 48%" },
+                { label: "Session analysis", value: "London open best for Boom 1000 (+78%)" },
+                { label: "Risk exposure", value: "$2.40 average risk per synthetic trade" },
+                { label: "Pattern detection", value: "Revenge trading after Crash 500 losses" },
+              ].map(item => (
+                <div key={item.label} style={{
+                  background: "linear-gradient(145deg,#1a1508,#0f0c04)",
+                  border: "1px solid rgba(245,197,24,0.1)",
+                  borderRadius: "0.875rem", padding: "1rem 1.25rem",
+                }}>
+                  <p style={{ color: "#5a4a2a", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>{item.label}</p>
+                  <p style={{ color: "#c0a040", fontSize: "0.9rem", fontWeight: 600 }}>{item.value}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

@@ -182,6 +182,13 @@ export default function SettingsPage() {
   const [connectError,  setConnectError]  = useState<string | null>(null);
   const [connectSuccess, setConnectSuccess] = useState<{ account_signature: string; ea_warning: string | null } | null>(null);
 
+  // CSV import state
+  const [importAccountSig, setImportAccountSig] = useState("");
+  const [importFile,        setImportFile]       = useState<File | null>(null);
+  const [importing,         setImporting]        = useState(false);
+  const [importResult,      setImportResult]     = useState<{ imported: number; skipped: number } | null>(null);
+  const [importError,       setImportError]      = useState<string | null>(null);
+
   useEffect(() => {
     async function init() {
       const supabase = createClient();
@@ -278,6 +285,25 @@ export default function SettingsPage() {
     setTimeout(() => setCopiedUrl(false), 2000);
   }
 
+  async function handleCsvImport(e: React.FormEvent) {
+    e.preventDefault();
+    if (!importFile) { setImportError("Select a CSV file first."); return; }
+    if (!importAccountSig) { setImportError("Select an account to import into."); return; }
+    setImporting(true);
+    setImportError(null);
+    setImportResult(null);
+    const fd = new FormData();
+    fd.append("file", importFile);
+    fd.append("account_signature", importAccountSig);
+    try {
+      const res = await fetch("/api/accounts/import-history", { method: "POST", body: fd });
+      const data = await res.json() as { success?: boolean; imported?: number; skipped?: number; error?: string };
+      if (!res.ok) { setImportError(data.error ?? "Import failed"); }
+      else { setImportResult({ imported: data.imported ?? 0, skipped: data.skipped ?? 0 }); setImportFile(null); }
+    } catch { setImportError("Network error — check your connection."); }
+    finally { setImporting(false); }
+  }
+
   async function handleQuickConnect(e: React.FormEvent) {
     e.preventDefault();
     setConnecting(true);
@@ -347,47 +373,25 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
 
             {/* ── CARD 1: EA Sync ──────────────────────────────────────────── */}
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex flex-col">
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex flex-col opacity-70">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                                  bg-[var(--cj-gold-glow)] border border-[var(--cj-gold-muted)]"
-                      style={{ color: "var(--cj-gold)" }}>
-                  Starter &amp; Pro
+                                  bg-zinc-700/50 border border-zinc-700 text-zinc-500">
+                  Coming Soon
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-0.5
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 px-2 py-0.5
                                   rounded-full bg-zinc-800 border border-zinc-700">
                   Real-time
                 </span>
               </div>
-              <p className="text-sm font-semibold text-zinc-100 mb-1.5">EA Sync</p>
-              <p className="text-xs text-zinc-500 leading-relaxed mb-4 flex-1">
+              <p className="text-sm font-semibold text-zinc-400 mb-1.5">EA Sync</p>
+              <p className="text-xs text-zinc-600 leading-relaxed mb-4 flex-1">
                 Install our Expert Advisor in MT5 for instant trade sync. Most accurate — trades appear the second you close them.
               </p>
-              {sub.status === "free" ? (
-                <div className="rounded-xl p-3 bg-zinc-800/60 border border-zinc-700 text-center">
-                  <p className="text-xs text-zinc-500 mb-2">EA Sync requires Starter or Pro</p>
-                  <Link href="/pricing"
-                    className="inline-block text-xs font-bold px-4 py-2 rounded-lg transition-all"
-                    style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-                    Upgrade to unlock
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {syncToken?.last_sync_at && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 mb-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                      EA active · last sync {new Date(syncToken.last_sync_at).toLocaleString()}
-                    </div>
-                  )}
-                  <a href="/downloads/NiriEA.ex5"
-                     download="NiriEA.ex5"
-                     className="block text-center text-xs px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500
-                                text-white font-semibold transition-all">
-                    Download EA (.ex5)
-                  </a>
-                </div>
-              )}
+              <div className="rounded-xl p-3 bg-zinc-800/60 border border-zinc-700 text-center">
+                <p className="text-xs text-zinc-500 mb-1 font-semibold">EA auto-sync is temporarily unavailable</p>
+                <p className="text-[11px] text-zinc-600">Use Quick Connect to sync your MT5 account.</p>
+              </div>
             </div>
 
             {/* ── CARD 2: Quick Connect overview ───────────────────────────── */}
@@ -871,6 +875,104 @@ export default function SettingsPage() {
             );
           })()}
         </div>
+
+        {/* ── CSV IMPORT ────────────────────────────────────────────────────── */}
+        {tradingAccounts.length > 0 && (
+          <details className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl mb-5 group">
+            <summary className="flex items-center justify-between px-6 py-4 cursor-pointer select-none list-none">
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Import MT5 History (CSV)</p>
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full
+                                 bg-zinc-800 border border-zinc-700 text-zinc-500">Optional</span>
+              </div>
+              <span className="text-zinc-600 text-xs group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="px-6 pb-6 pt-2">
+              <p className="text-xs text-zinc-600 mb-4 leading-relaxed">
+                Export your trade history from MT5 as a CSV (Report → Save As → CSV) and import it here
+                to backfill your journal with past trades.
+              </p>
+              <form onSubmit={handleCsvImport} className="space-y-3">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                    Account <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={importAccountSig}
+                    onChange={(e) => setImportAccountSig(e.target.value)}
+                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
+                               text-sm text-zinc-100 focus:outline-none focus:border-[var(--cj-gold-muted)]
+                               transition-colors cursor-pointer">
+                    <option value="">Select account to import into…</option>
+                    {tradingAccounts.map((a) => (
+                      <option key={a.id} value={a.account_signature}>
+                        {a.account_label || a.broker_name || a.account_login || a.account_signature.slice(0, 12)}
+                        {a.account_type === "demo" ? " (Demo)" : " (Live)"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                    MT5 History CSV <span className="text-rose-500">*</span>
+                  </label>
+                  <div className={`relative flex items-center justify-center rounded-xl border-2 border-dashed
+                                   px-4 py-6 transition-colors cursor-pointer
+                                   ${importFile ? "border-emerald-500/40 bg-emerald-500/5" : "border-zinc-700 hover:border-zinc-600"}`}>
+                    <input
+                      type="file"
+                      accept=".csv,.txt"
+                      onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    {importFile ? (
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-emerald-400">{importFile.name}</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">{(importFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-sm text-zinc-500">Click to choose CSV file</p>
+                        <p className="text-[11px] text-zinc-600 mt-0.5">MT5 → History → right-click → Save as Report → CSV</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {importResult && (
+                  <div className="rounded-xl px-4 py-3 bg-emerald-500/8 border border-emerald-500/20">
+                    <p className="text-sm text-emerald-400 font-semibold">
+                      Imported {importResult.imported} trade{importResult.imported !== 1 ? "s" : ""}!
+                    </p>
+                    {importResult.skipped > 0 && (
+                      <p className="text-xs text-zinc-500 mt-0.5">{importResult.skipped} rows skipped (deposits, withdrawals, etc.)</p>
+                    )}
+                  </div>
+                )}
+
+                {importError && (
+                  <div className="rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                    <p className="text-xs text-rose-400">{importError}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={importing || !importFile || !importAccountSig}
+                  className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                  {importing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-[#0A0A0F] border-t-transparent rounded-full animate-spin" />
+                      Importing…
+                    </span>
+                  ) : "Import Trade History"}
+                </button>
+              </form>
+            </div>
+          </details>
+        )}
 
         {/* ── REFERRALS QUICK-VIEW ──────────────────────────────────────────── */}
         <ReferralQuickView />

@@ -42,6 +42,24 @@ interface CandleData {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DEFAULT_PAIRS = ["XAUUSD", "EURUSD", "GBPUSD", "BTCUSD", "XAGUSD", "US30"];
 
+// Deriv synthetic instruments — no chart data available, show fallback
+const DERIV_SYNTHETICS = new Set([
+  "VOLATILITY10", "VOLATILITY25", "VOLATILITY50", "VOLATILITY75", "VOLATILITY100",
+  "VOL10", "VOL25", "VOL50", "VOL75", "VOL100",
+  "BOOM500", "BOOM1000", "CRASH500", "CRASH1000",
+  "STEPINDEX", "JUMP10", "JUMP25", "JUMP50", "JUMP75", "JUMP100",
+]);
+
+const DERIV_SYNTHETIC_PAIRS = [
+  "Volatility 10", "Volatility 25", "Volatility 50", "Volatility 75", "Volatility 100",
+  "Boom 500", "Boom 1000", "Crash 500", "Crash 1000",
+  "Step Index", "Jump 10", "Jump 25", "Jump 50", "Jump 75", "Jump 100",
+];
+
+function isDerivSynthetic(pair: string): boolean {
+  return DERIV_SYNTHETICS.has(pair.toUpperCase().replace(/\s+/g, "").replace(/_/g, ""));
+}
+
 const TV_SYMBOL_MAP: Record<string, string> = {
   EURUSD: "FX:EURUSD",  GBPUSD: "FX:GBPUSD",  USDJPY: "FX:USDJPY",
   USDCHF: "FX:USDCHF",  USDCAD: "FX:USDCAD",  AUDUSD: "FX:AUDUSD",
@@ -716,7 +734,7 @@ Notes: ${t.notes || "—"}`;
                  style={{ borderBottom: "1px solid var(--cj-border)", background: "var(--cj-surface)" }}>
 
               {/* Pair buttons */}
-              <div className="flex gap-1.5 shrink-0">
+              <div className="flex gap-1.5 shrink-0 flex-wrap">
                 {quickPairs.map((p) => (
                   <button key={p} onClick={() => handlePairClick(p)}
                     className="px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all whitespace-nowrap"
@@ -726,6 +744,17 @@ Notes: ${t.notes || "—"}`;
                     {p}
                   </button>
                 ))}
+                {/* Deriv synthetic dropdown */}
+                <select
+                  value={DERIV_SYNTHETIC_PAIRS.includes(symbol) ? symbol : ""}
+                  onChange={(e) => { if (e.target.value) handlePairClick(e.target.value); }}
+                  className="px-2 py-1 rounded-lg text-xs font-mono font-semibold transition-all"
+                  style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "#9B8B75", minWidth: 90 }}>
+                  <option value="">Deriv ▾</option>
+                  {DERIV_SYNTHETIC_PAIRS.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="w-px h-5 bg-zinc-700 shrink-0" />
@@ -806,9 +835,47 @@ Notes: ${t.notes || "—"}`;
             {/* ── Chart area + Trade panel ────────────────────────────────── */}
             <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
 
-              {/* Chart (switches between TradingView and Lightweight Charts) */}
+              {/* Chart (switches between TradingView, Lightweight Charts, or Deriv fallback) */}
               <div className="flex-1 min-h-[55vw] md:min-h-0">
-                {chartMode === "live" ? (
+                {isDerivSynthetic(symbol) ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center px-6 text-center"
+                       style={{ background: "#0A0A0F", minHeight: 320 }}>
+                    <div className="w-12 h-12 rounded-xl bg-[var(--cj-raised)] border border-zinc-800 flex items-center justify-center mb-4">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                      </svg>
+                    </div>
+                    <p className="text-sm font-semibold text-zinc-400 mb-1">
+                      Chart not available for this instrument.
+                    </p>
+                    <p className="text-xs text-zinc-600 max-w-xs leading-relaxed">
+                      Your performance data is still fully tracked. Use the trade list on the right to review your trades.
+                    </p>
+                    {selected && (
+                      <div className="mt-6 w-full max-w-xs bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 text-left">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono
+                            ${selected.direction === "BUY" ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>
+                            {selected.direction}
+                          </span>
+                          <span className="text-xs text-zinc-500">{selected.pair} · {selected.date}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                          <div><span className="text-zinc-600">Entry</span><p className="font-mono text-zinc-200">{selected.entry}</p></div>
+                          <div><span className="text-zinc-600">Exit</span><p className="font-mono text-zinc-200">{selected.exit_price}</p></div>
+                          <div><span className="text-zinc-600">P&amp;L</span><p className={`font-mono font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</p></div>
+                          <div><span className="text-zinc-600">Lot</span><p className="font-mono text-zinc-200">{selected.lot}</p></div>
+                        </div>
+                        {selected.opened_at && (
+                          <p className="text-[11px] text-zinc-600">Open: {new Date(selected.opened_at).toLocaleString()}</p>
+                        )}
+                        {selected.closed_at && (
+                          <p className="text-[11px] text-zinc-600">Close: {new Date(selected.closed_at).toLocaleString()}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : chartMode === "live" ? (
                   <TradingViewWidget
                     key={`tv-${symbol}-${interval}`}
                     symbol={symbol}

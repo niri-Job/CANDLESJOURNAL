@@ -551,18 +551,38 @@ export default function ReferralsPage() {
               </div>
 
               {/* Payout section */}
+              {(() => {
+                const today = new Date();
+                const dom = today.getDate(); // day of month
+                const isPayoutWindow = dom >= 28;
+                const daysUntilWindow = isPayoutWindow ? 0 : 28 - dom;
+                const canRequest = isPayoutWindow && (stats?.available_for_payout ?? 0) >= 5;
+                return (
               <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
                    style={{ border: "1px solid var(--cj-border)" }}>
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Payout</p>
-                  {(stats?.available_for_payout ?? 0) >= 5 && (
+                  {isPayoutWindow && (stats?.available_for_payout ?? 0) >= 5 ? (
                     <button
                       onClick={() => { setPayoutDone(false); setShowPayout(true); }}
                       className="btn-gold px-4 py-2 rounded-xl text-xs font-bold">
                       Request Payout
                     </button>
-                  )}
+                  ) : !isPayoutWindow ? (
+                    <span className="text-[11px] text-zinc-600">
+                      Opens in {daysUntilWindow} day{daysUntilWindow !== 1 ? "s" : ""}
+                    </span>
+                  ) : null}
                 </div>
+
+                {!isPayoutWindow && (
+                  <div className="mb-4 px-4 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                    <p className="text-xs text-zinc-500 font-semibold mb-0.5">Payout window opens on the 28th</p>
+                    <p className="text-[11px] text-zinc-600">
+                      Requests are accepted on days 28–31 of each month. Opens in {daysUntilWindow} day{daysUntilWindow !== 1 ? "s" : ""}.
+                    </p>
+                  </div>
+                )}
 
                 {payoutDone && (
                   <div className="mb-4 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">
@@ -570,7 +590,7 @@ export default function ReferralsPage() {
                   </div>
                 )}
 
-                {(stats?.available_for_payout ?? 0) < 5 && (
+                {canRequest === false && isPayoutWindow && (stats?.available_for_payout ?? 0) < 5 && (
                   <p className="text-xs text-zinc-600 mb-4">
                     Minimum payout is $5.00. You have {fmt(stats?.available_for_payout ?? 0)} available.
                   </p>
@@ -609,6 +629,8 @@ export default function ReferralsPage() {
                   </div>
                 )}
               </div>
+                );
+              })()}
 
             </div>{/* end space-y-6 */}
           </div>{/* end relative overlay wrapper */}

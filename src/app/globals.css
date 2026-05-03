@@ -55,6 +55,26 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* ─── Gradient backgrounds ──────────────────────────────────────────────────── */
+.bg-app-page {
+  background: var(--cj-bg);
+}
+
+/* Login / signup / onboarding pages */
+.bg-auth {
+  background: radial-gradient(ellipse at top, #1A1200 0%, #0A0A0F 60%);
+}
+
+/* Dashboard stat cards with warm gradient */
+.bg-card-warm {
+  background: linear-gradient(145deg, #12121A 0%, #1A1400 100%);
+}
+
+/* Performance badge / highlight sections */
+.bg-perf-badge {
+  background: linear-gradient(135deg, #1A1400 0%, #0D0D18 100%);
+}
+
 /* ─── Reusable utility classes ────────────────────────────────────────────── */
 @layer utilities {
   /* Form label — warm golden uppercase */

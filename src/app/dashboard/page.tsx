@@ -397,6 +397,8 @@ export default function TradingJournal() {
   }[]>([]);
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const [noteModalTrade,   setNoteModalTrade]   = useState<Trade | null>(null);
+  const [aiCreditsUsed,    setAiCreditsUsed]    = useState<number>(0);
+  const [aiCreditsLimit,   setAiCreditsLimit]   = useState<number>(3);
 
   function showToast(msg: string, type: "ok" | "err") { setToast({ msg, type }); }
 
@@ -413,7 +415,7 @@ export default function TradingJournal() {
       const [profileRes, tradesRes, accountsRes] = await Promise.all([
         supabase
           .from("user_profiles")
-          .select("subscription_status, subscription_end")
+          .select("subscription_status, subscription_end, ai_credits_used, ai_credits_limit")
           .eq("user_id", user.id).maybeSingle(),
         supabase
           .from("trades")
@@ -439,7 +441,13 @@ export default function TradingJournal() {
       if (tradesRes.error) showToast("Failed to load trades", "err");
       setLoading(false);
 
-      void profileRes; // loaded but not needed for gating anymore
+      if (profileRes.data) {
+        const p = profileRes.data as { ai_credits_used?: number; ai_credits_limit?: number } | null;
+        if (p) {
+          setAiCreditsUsed(p.ai_credits_used ?? 0);
+          setAiCreditsLimit(p.ai_credits_limit ?? 3);
+        }
+      }
 
       const { data: analyses } = await supabase
         .from("journal_analyses")
@@ -975,9 +983,16 @@ export default function TradingJournal() {
         {/* AI JOURNAL ANALYSIS — full width, no Pro gate */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-            <p className="card-label">
-              AI Journal Analysis
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="card-label">AI Journal Analysis</p>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border
+                ${aiCreditsUsed >= aiCreditsLimit
+                  ? "bg-rose-500/10 border-rose-500/25 text-rose-400"
+                  : "bg-[var(--cj-gold-glow)] border-[var(--cj-gold)]/25 text-[var(--cj-gold)]"
+                }`}>
+                {aiCreditsUsed}/{aiCreditsLimit} credits
+              </span>
+            </div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => runAnalysis("daily")} disabled={analysisLoading}
                 className="text-xs px-4 py-2 rounded-lg bg-[var(--cj-raised)] border border-zinc-700

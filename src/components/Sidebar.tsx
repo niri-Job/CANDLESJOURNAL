@@ -14,26 +14,46 @@ const NAV_ITEMS = [
       <polyline points="9 22 9 12 15 12 15 22"/>
     </svg>
   )},
-  { href: "/reports",   label: "Reports",   icon: (
+  { href: "/reports",      label: "Reports",      icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="20" x2="18" y2="10"/>
       <line x1="12" y1="20" x2="12" y2="4"/>
       <line x1="6" y1="20" x2="6" y2="14"/>
     </svg>
   )},
-  { href: "/chart",     label: "Chart",     icon: (
+  { href: "/chart",        label: "Chart",        icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
     </svg>
   )},
-  { href: "/market",    label: "Market",    icon: (
+  { href: "/intelligence", label: "Intelligence", icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+  )},
+  { href: "/calculator",   label: "Calculator",   icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2"/>
+      <line x1="8" y1="6" x2="16" y2="6"/>
+      <line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/>
+      <line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/>
+      <line x1="8" y1="18" x2="12" y2="18"/>
+    </svg>
+  )},
+  { href: "/playbook",     label: "Playbook",     icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+    </svg>
+  )},
+  { href: "/market",       label: "Market",       icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9"/>
       <line x1="2" y1="12" x2="22" y2="12"/>
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
     </svg>
   )},
-  { href: "/referrals", label: "Referrals", icon: (
+  { href: "/referrals",    label: "Referrals",    icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 12 20 22 4 22 4 12"/>
       <rect x="2" y="7" width="20" height="5"/>
@@ -42,7 +62,7 @@ const NAV_ITEMS = [
       <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
     </svg>
   )},
-  { href: "/settings",  label: "Settings",  icon: (
+  { href: "/settings",     label: "Settings",     icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/>
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -57,8 +77,23 @@ interface SidebarProps {
 
 export function Sidebar({ user, onSignOut }: SidebarProps) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-  const [plan, setPlan] = useState<string>("free");
+  const [open,      setOpen]      = useState(false);
+  const [plan,      setPlan]      = useState<string>("free");
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Load collapse preference from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("niri_sidebar_collapsed");
+      if (saved === "true") setCollapsed(true);
+    } catch {}
+  }, []);
+
+  function toggleCollapse() {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem("niri_sidebar_collapsed", String(next)); } catch {}
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -74,31 +109,65 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   }, [user?.id]);
 
   const isPaid = plan === "pro" || plan === "starter";
+  const sidebarWidth = collapsed ? 64 : 240;
 
-  function NavLinks({ onClick }: { onClick?: () => void }) {
+  function NavLinks({ onClick, isCollapsed }: { onClick?: () => void; isCollapsed?: boolean }) {
     return (
       <>
-        {NAV_ITEMS.map(({ href, label, icon }) => (
-          <Link
-            key={href}
-            href={href}
-            onClick={onClick}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-base font-medium
-                        transition-all
-                        ${pathname === href
-                          ? "bg-[var(--cj-gold-glow)] border-l-[3px] border-l-[var(--cj-gold)] text-[var(--cj-gold)] pl-[10px]"
-                          : "text-zinc-400 hover:text-zinc-100 hover:bg-[var(--cj-raised)]"
-                        }`}
-          >
-            <span>{icon}</span>
-            {label}
-          </Link>
-        ))}
+        {NAV_ITEMS.map(({ href, label, icon }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onClick}
+              title={isCollapsed ? label : undefined}
+              className={`flex items-center rounded-xl font-medium transition-all relative group
+                          ${isCollapsed ? "justify-center w-10 h-10 mx-auto" : "gap-3 px-3 py-2.5 text-sm"}
+                          ${active
+                            ? isCollapsed
+                              ? "bg-[var(--cj-gold-glow)] text-[var(--cj-gold)]"
+                              : "bg-[var(--cj-gold-glow)] border-l-[3px] border-l-[var(--cj-gold)] text-[var(--cj-gold)] pl-[10px]"
+                            : "text-zinc-400 hover:text-zinc-100 hover:bg-[var(--cj-raised)]"
+                          }`}
+            >
+              <span className="shrink-0">{icon}</span>
+              {!isCollapsed && label}
+              {/* Tooltip when collapsed */}
+              {isCollapsed && (
+                <span className="absolute left-full ml-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                                 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none
+                                 transition-opacity z-50"
+                      style={{ background: "var(--cj-surface)", border: "1px solid var(--cj-border)", color: "var(--cj-text)" }}>
+                  {label}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </>
     );
   }
 
-  function BottomSection({ onSignOutClick }: { onSignOutClick: () => void }) {
+  function BottomSection({ onSignOutClick, isCollapsed }: { onSignOutClick: () => void; isCollapsed?: boolean }) {
+    if (isCollapsed) {
+      return (
+        <div className="px-2 py-3 flex flex-col items-center gap-2"
+             style={{ borderTop: "1px solid var(--cj-gold-muted)" }}>
+          <button
+            onClick={onSignOutClick}
+            title="Sign out"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-600 hover:text-rose-400 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="px-4 py-4 space-y-3"
            style={{ borderTop: "1px solid var(--cj-gold-muted)" }}>
@@ -107,7 +176,6 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         )}
         <ThemeSwitcher user={user} />
 
-        {/* Plan badge (paid) or Upgrade button (free) */}
         {isPaid ? (
           <div className="flex items-center gap-2 py-0.5">
             <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
@@ -150,24 +218,53 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   return (
     <>
       {/* ── Desktop sidebar ──────────────────────────────────────────── */}
-      <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-[240px] z-20"
-             style={{ background: "var(--cj-bg)", borderRight: "1px solid var(--cj-border)" }}>
-
+      <aside
+        className="hidden md:flex flex-col fixed inset-y-0 left-0 z-20 overflow-hidden"
+        style={{
+          width: sidebarWidth,
+          background: "linear-gradient(180deg, var(--cj-bg) 0%, #120D00 100%)",
+          borderRight: "1px solid var(--cj-border)",
+          transition: "width 0.2s ease",
+        }}
+      >
         {/* Gold gradient top accent line */}
-        <div className="h-[2px] w-full bg-gradient-to-r from-[#F5C518] via-[#C9A227] to-transparent" />
+        <div className="h-[2px] w-full bg-gradient-to-r from-[#F5C518] via-[#C9A227] to-transparent shrink-0" />
 
-        <div className="flex items-center gap-3 px-5 h-16 shrink-0"
+        <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "gap-3 px-5"}`}
              style={{ borderBottom: "1px solid var(--cj-border)" }}>
-          <Logo size="md" />
-          <span className="font-semibold text-sm tracking-tight text-zinc-100">NIRI</span>
+          {collapsed ? (
+            <button onClick={toggleCollapse} title="Expand sidebar">
+              <Logo size="md" />
+            </button>
+          ) : (
+            <>
+              <Logo size="md" />
+              <span className="font-semibold text-sm tracking-tight text-zinc-100 flex-1 whitespace-nowrap">NIRI</span>
+              {/* Collapse toggle */}
+              <button
+                onClick={toggleCollapse}
+                title="Collapse sidebar"
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+                style={{ border: "1px solid var(--cj-border)" }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+            </>
+          )}
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <NavLinks />
+        <nav className={`flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden ${collapsed ? "px-0" : "px-3"}`}>
+          <NavLinks isCollapsed={collapsed} />
         </nav>
 
-        <BottomSection onSignOutClick={onSignOut} />
+        <BottomSection onSignOutClick={onSignOut} isCollapsed={collapsed} />
       </aside>
+
+      {/* ── Content offset div — consumed by page wrappers ───────────────── */}
+      {/* Pages use md:ml-[240px]; when collapsed they'd need 64px. We handle this
+          via a CSS var so pages don't need to change. */}
 
       {/* ── Mobile top bar ───────────────────────────────────────────── */}
       <div className="md:hidden fixed top-0 inset-x-0 z-30 flex items-center justify-between px-4 h-14"

@@ -11,13 +11,21 @@ ALTER TABLE user_profiles
   ADD COLUMN IF NOT EXISTS ai_credits_purchased INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS ai_credits_reset_date TIMESTAMPTZ DEFAULT (now() + interval '30 days');
 
--- Set credit limits based on existing plan
-UPDATE user_profiles
-SET ai_credits_limit = CASE
-  WHEN subscription_status = 'pro'     THEN 90
-  WHEN subscription_status = 'starter' THEN 30
-  ELSE 3
-END;
+-- Set credit limits based on existing plan (safe if subscription_status not yet added)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'user_profiles' AND column_name = 'subscription_status'
+  ) THEN
+    UPDATE user_profiles
+    SET ai_credits_limit = CASE
+      WHEN subscription_status = 'pro'     THEN 90
+      WHEN subscription_status = 'starter' THEN 30
+      ELSE 3
+    END;
+  END IF;
+END $$;
 
 -- ── strategies table ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS strategies (

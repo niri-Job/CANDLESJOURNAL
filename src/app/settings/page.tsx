@@ -8,14 +8,6 @@ import type { User } from "@supabase/supabase-js";
 
 interface SubState { status: string; end: string | null; }
 
-interface SyncToken {
-  id: string;
-  token: string;
-  label: string;
-  last_sync_at: string | null;
-  created_at: string;
-}
-
 interface TradingAccount {
   id: string;
   account_signature: string;
@@ -160,19 +152,12 @@ export default function SettingsPage() {
     window.location.href = "/login";
   }
 
-  const [syncToken,         setSyncToken]         = useState<SyncToken | null>(null);
   const [loading,           setLoading]           = useState(true);
-  const [generating,        setGenerating]        = useState(false);
-  const [genError,          setGenError]          = useState<string | null>(null);
-  const [copiedToken,       setCopiedToken]       = useState(false);
-  const [copiedUrl,         setCopiedUrl]         = useState(false);
   const [sub,               setSub]               = useState<SubState>({ status: "free", end: null });
   const [tradingAccounts,   setTradingAccounts]   = useState<TradingAccount[]>([]);
+  const [eaCleanupNotice,   setEaCleanupNotice]   = useState(false);
   const [editingAccountId,  setEditingAccountId]  = useState<string | null>(null);
   const [editLabel,         setEditLabel]         = useState("");
-  const [syncUrl] = useState(() =>
-    typeof window !== "undefined" ? window.location.origin + "/api/mt5/sync" : ""
-  );
 
   // Quick Connect state
   const [qcForm, setQcForm] = useState<QuickConnectForm>({
@@ -196,15 +181,6 @@ export default function SettingsPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
-      const { data } = await supabase
-        .from("mt5_sync_tokens")
-        .select("id, token, label, last_sync_at, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data) setSyncToken(data as SyncToken);
-
       const { data: subRaw } = await supabase
         .from("user_profiles")
         .select("subscription_status, subscription_end")
@@ -218,7 +194,12 @@ export default function SettingsPage() {
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
-      if (accounts) setTradingAccounts(accounts as TradingAccount[]);
+      if (accounts) {
+        const all = accounts as TradingAccount[];
+        const hasEa = all.some((a) => a.sync_method === "ea");
+        if (hasEa) setEaCleanupNotice(true);
+        setTradingAccounts(all.filter((a) => a.sync_method !== "ea"));
+      }
 
       setLoading(false);
     }
@@ -251,38 +232,6 @@ export default function SettingsPage() {
       .eq("id", accountId)
       .eq("user_id", user.id);
     setTradingAccounts((prev) => prev.filter((a) => a.id !== accountId));
-  }
-
-  async function generateToken() {
-    if (!user) return;
-    setGenerating(true);
-    setGenError(null);
-    const supabase = createClient();
-    if (syncToken) {
-      await supabase.from("mt5_sync_tokens").delete().eq("id", syncToken.id).eq("user_id", user.id);
-    }
-    const newToken = crypto.randomUUID().replace(/-/g, "");
-    const { data, error } = await supabase
-      .from("mt5_sync_tokens")
-      .insert({ user_id: user.id, token: newToken, label: "My MT5 Account" })
-      .select()
-      .single();
-    if (error) setGenError("Failed to save token: " + error.message);
-    else if (data) setSyncToken(data as SyncToken);
-    setGenerating(false);
-  }
-
-  async function copyToken() {
-    if (!syncToken) return;
-    await navigator.clipboard.writeText(syncToken.token);
-    setCopiedToken(true);
-    setTimeout(() => setCopiedToken(false), 2000);
-  }
-
-  async function copyUrl() {
-    await navigator.clipboard.writeText(syncUrl);
-    setCopiedUrl(true);
-    setTimeout(() => setCopiedUrl(false), 2000);
   }
 
   async function handleCsvImport(e: React.FormEvent) {
@@ -521,7 +470,7 @@ export default function SettingsPage() {
                   </div>
                   {qcForm.platform === "MT4" && (
                     <p className="mt-1.5 text-[11px] text-amber-500">
-                      ⚠ MT4 support is limited. EA Sync is recommended for MT4 accounts.
+                      ⚠ MT4 support is limited. Quick Connect is available but may have reduced compatibility.
                     </p>
                   )}
                 </div>
@@ -568,105 +517,14 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ── EA SYNC TOKEN (hidden under collapsible) ───────────────────── */}
-        <details className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl mb-5 group">
-          <summary className="flex items-center justify-between px-6 py-4 cursor-pointer select-none list-none">
-            <div className="flex items-center gap-2">
-              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">MT5 Sync Token</p>
-              {syncToken?.last_sync_at && (
-                <span className="flex items-center gap-1 text-[10px] text-emerald-500">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Active
-                </span>
-              )}
-            </div>
-            <span className="text-zinc-600 text-xs group-open:rotate-180 transition-transform">▼</span>
-          </summary>
-
-          <div className="px-6 pb-6 pt-2">
-            {sub.status === "free" ? (
-              <div className="rounded-xl p-4 bg-zinc-800/60 border border-zinc-700 text-center py-6">
-                <p className="text-sm text-zinc-500 mb-1">Requires Starter or Pro</p>
-                <p className="text-xs text-zinc-600 mb-3">Upgrade to use the EA and sync your trades automatically.</p>
-                <Link href="/pricing"
-                  className="inline-block text-xs font-bold px-4 py-2 rounded-lg transition-all"
-                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-                  Upgrade to unlock
-                </Link>
-              </div>
-            ) : <>
-            <p className="text-xs text-zinc-600 mb-5">
-              Your MT5 Expert Advisor uses this token to securely push trades to your journal.
-            </p>
-
-            {syncToken ? (
-              <>
-                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">Sync Token</p>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex-1 bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-4 py-3
-                                  font-mono text-sm text-zinc-300 break-all select-all">
-                    {syncToken.token}
-                  </div>
-                  <button
-                    onClick={copyToken}
-                    className={`px-4 py-3 rounded-lg border text-xs font-semibold transition-all shrink-0
-                      ${copiedToken
-                        ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
-                        : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-300 hover:border-blue-500/50 hover:text-blue-400"
-                      }`}>
-                    {copiedToken ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-
-                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">Sync URL</p>
-                <div className="flex items-center gap-2 mb-5">
-                  <div className="flex-1 bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-4 py-3
-                                  font-mono text-xs text-zinc-500 break-all">
-                    {syncUrl}
-                  </div>
-                  <button
-                    onClick={copyUrl}
-                    className={`px-4 py-3 rounded-lg border text-xs font-semibold transition-all shrink-0
-                      ${copiedUrl
-                        ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
-                        : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-300 hover:border-blue-500/50 hover:text-blue-400"
-                      }`}>
-                    {copiedUrl ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-
-                <button
-                  onClick={generateToken}
-                  disabled={generating}
-                  className="text-xs text-zinc-600 hover:text-rose-400 transition-colors disabled:opacity-50">
-                  {generating ? "Regenerating..." : "⚠ Regenerate token (invalidates current EA connection)"}
-                </button>
-                {genError && <p className="mt-3 text-xs text-rose-400">{genError}</p>}
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-6">
-                <div className="w-10 h-10 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
-                                flex items-center justify-center mb-3">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
-                  </svg>
-                </div>
-                <p className="text-sm text-zinc-500 mb-4">No sync token generated yet</p>
-                <button
-                  onClick={generateToken}
-                  disabled={generating}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white
-                             font-semibold text-sm transition-all disabled:opacity-50">
-                  {generating ? "Generating..." : "Generate Token"}
-                </button>
-                {genError && <p className="mt-3 text-xs text-rose-400">{genError}</p>}
-              </div>
-            )}
-            </>}
-          </div>
-        </details>
-
         {/* ── CONNECTED ACCOUNTS ────────────────────────────────────────────── */}
+        {eaCleanupNotice && (
+          <div className="mb-5 px-4 py-3 rounded-xl border text-xs"
+               style={{ background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.2)", color: "#C4B89A" }}>
+            <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>EA-connected accounts have been removed.</span>
+            {" "}Please reconnect using Quick Connect above.
+          </div>
+        )}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
           <div className="flex items-center justify-between mb-5">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
@@ -977,59 +835,17 @@ export default function SettingsPage() {
         {/* ── REFERRALS QUICK-VIEW ──────────────────────────────────────────── */}
         <ReferralQuickView />
 
-        {/* ── SETUP GUIDE ───────────────────────────────────────────────────── */}
-        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">MT5 EA Setup Guide</p>
-            <a
-              href="/downloads/NiriEA.ex5"
-              download="NiriEA.ex5"
-              className="text-center text-xs px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white
-                         font-semibold transition-all sm:w-auto w-full">
-              Download EA (.ex5)
-            </a>
+        {/* ── EA SYNC — COMING SOON ─────────────────────────────────────────── */}
+        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 opacity-60 select-none pointer-events-none">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                             bg-zinc-700/50 border border-zinc-700 text-zinc-500">Coming Soon</span>
           </div>
-
-          <ol className="space-y-6">
-            {[
-              {
-                n: "1",
-                title: "Download the Expert Advisor",
-                body: 'Click "Download EA" above to get NiriEA.ex5. This is a pre-compiled file — no MetaEditor or compilation needed.',
-              },
-              {
-                n: "2",
-                title: "Copy the EA into MetaTrader 5",
-                body: "In MT5: File → Open Data Folder → MQL5 → Experts. Copy NiriEA.ex5 into that folder. Then in the Navigator panel, right-click Experts → Refresh.",
-              },
-              {
-                n: "3",
-                title: "Allow WebRequest in MT5",
-                body: `Tools → Options → Expert Advisors → check "Allow WebRequest for listed URL". Add your Sync URL: ${syncUrl || "(shown in MT5 Sync Token section above)"}`,
-              },
-              {
-                n: "4",
-                title: "Attach the EA to a chart",
-                body: 'Drag NiriEA onto any chart (e.g. EURUSD H1). In the Inputs tab, paste your Sync Token and Sync URL. Enable "Allow algo trading" in the Common tab.',
-              },
-              {
-                n: "5",
-                title: "Trades sync automatically",
-                body: 'Every time you close a trade in MT5, the EA sends it to your journal instantly. The "Last sync" timestamp on the account card will update.',
-              },
-            ].map((step) => (
-              <li key={step.n} className="flex gap-4">
-                <div className="w-6 h-6 rounded-full bg-blue-500/15 border border-blue-500/30
-                                flex items-center justify-center text-[11px] font-bold text-blue-400 shrink-0 mt-0.5">
-                  {step.n}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-zinc-200 mb-1">{step.title}</p>
-                  <p className="text-xs text-zinc-500 leading-relaxed">{step.body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <p className="text-sm font-semibold text-zinc-500 mb-2">MT5 EA Sync — Coming Soon</p>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            EA auto-sync is temporarily unavailable.
+            Use Quick Connect to connect your MT5 account instead.
+          </p>
         </div>
 
       </main>

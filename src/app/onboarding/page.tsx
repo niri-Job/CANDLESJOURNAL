@@ -261,7 +261,7 @@ export default function OnboardingPage() {
     setImportError(null);
     const fd = new FormData();
     fd.append("file", importFile);
-    fd.append("accountSig", connectedSig);
+    fd.append("account_signature", connectedSig);
     try {
       const res = await fetch("/api/accounts/import-history", { method: "POST", body: fd });
       const json = (await res.json()) as { imported?: number; skipped?: number; error?: string };
@@ -674,7 +674,7 @@ export default function OnboardingPage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv"
+                    accept=".xml,.htm,.html,.csv,.txt"
                     className="hidden"
                     onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); }}
                   />
@@ -682,8 +682,8 @@ export default function OnboardingPage() {
                     <p className="text-sm text-[var(--cj-gold)] font-medium">{importFile.name}</p>
                   ) : (
                     <>
-                      <p className="text-sm text-zinc-400 font-medium">Click to select CSV file</p>
-                      <p className="text-xs text-zinc-600 mt-1">Export from MT5 → Reports → Account History → Save as CSV</p>
+                      <p className="text-sm text-zinc-400 font-medium">Click to select export file</p>
+                      <p className="text-xs text-zinc-600 mt-1">MT5 → History tab → right-click → Report → Open XML (MS Office Excel 2007)</p>
                     </>
                   )}
                 </div>

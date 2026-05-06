@@ -644,7 +644,7 @@ export default function SettingsPage() {
                 </p>
                 <p className="text-xs text-zinc-500 leading-relaxed">
                   To see your full performance analysis, import your MT5 trade history.
-                  Follow the steps below to export and upload your CSV file.
+                  Follow the steps below to export and upload your file.
                 </p>
               </div>
             )}
@@ -655,9 +655,9 @@ export default function SettingsPage() {
                 { step: 1, text: "Open MetaTrader 5" },
                 { step: 2, text: "Click the History tab at the bottom of the terminal" },
                 { step: 3, text: "Right-click anywhere in the history list" },
-                { step: 4, text: "Select \"Save as Report\"" },
-                { step: 5, text: "Choose CSV format and save the file" },
-                { step: 6, text: "Upload the CSV file below" },
+                { step: 4, text: "Select Report → Open XML (MS Office Excel 2007)" },
+                { step: 5, text: "Save the .xml file to your computer" },
+                { step: 6, text: "Upload the file below — XML, HTML, and CSV are all accepted" },
               ].map(({ step, text }) => (
                 <div key={step} className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
@@ -691,7 +691,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                  MT5 History CSV <span className="text-rose-500">*</span>
+                  MT5 History Export <span className="text-rose-500">*</span>
                 </label>
                 <div className={`relative flex items-center justify-center rounded-xl border-2 border-dashed
                                  px-4 py-8 transition-colors cursor-pointer
@@ -701,7 +701,7 @@ export default function SettingsPage() {
                      style={!importFile ? { borderColor: "rgba(245,197,24,0.25)", background: "rgba(245,197,24,0.03)" } : undefined}>
                   <input
                     type="file"
-                    accept=".csv,.txt"
+                    accept=".xml,.htm,.html,.csv,.txt"
                     onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
@@ -720,8 +720,8 @@ export default function SettingsPage() {
                           <line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
                       </div>
-                      <p className="text-sm font-semibold text-zinc-300">Drop your MT5 history CSV here</p>
-                      <p className="text-xs text-zinc-600 mt-1">or click to browse files</p>
+                      <p className="text-sm font-semibold text-zinc-300">Drop your MT5 history export here</p>
+                      <p className="text-xs text-zinc-600 mt-1">XML, HTML, or CSV · click to browse</p>
                     </div>
                   )}
                 </div>

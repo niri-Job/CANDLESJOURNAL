@@ -72,11 +72,21 @@ export async function POST(request: Request) {
     );
   }
 
-  // Guard against wrong amount or currency (replay with different transaction)
-  if (verifyJson.data.amount !== 500000 || verifyJson.data.currency !== "NGN") {
-    console.error("verify: unexpected amount/currency", verifyJson.data);
+  // Guard against wrong currency
+  if (verifyJson.data.currency !== "NGN") {
+    console.error("verify: unexpected currency", verifyJson.data.currency);
     return NextResponse.json(
-      { error: "Unexpected payment amount or currency" },
+      { error: "Unexpected payment currency" },
+      { status: 400 }
+    );
+  }
+
+  // Accept Pro monthly (1,300,000 kobo) or Pro yearly (14,040,000 kobo)
+  const validAmounts = [1_300_000, 14_040_000];
+  if (!validAmounts.includes(verifyJson.data.amount)) {
+    console.error("verify: unexpected amount", verifyJson.data.amount);
+    return NextResponse.json(
+      { error: "Unexpected payment amount" },
       { status: 400 }
     );
   }

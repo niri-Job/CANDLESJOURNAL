@@ -122,7 +122,20 @@ export default function LoginPage() {
       window.location.href = "/";
     } else {
       const { data: signUpData, error: e } = await supabase.auth.signUp({ email, password });
-      if (e) { setError(e.message); setLoading(false); return; }
+      if (e) {
+        console.dir(e, { depth: null });
+        if (e.message?.toLowerCase().includes("sending") || e.message?.toLowerCase().includes("email")) {
+          console.error("Email error details:", JSON.stringify(e));
+          // Account created but email failed — still let user know
+          setSuccess("Account created! Check your email to confirm, or contact support@niri.live if you don't receive a confirmation email.");
+          switchMode("login");
+          setLoading(false);
+          return;
+        }
+        setError(e.message);
+        setLoading(false);
+        return;
+      }
 
       // Track referral if a code was stored
       if (signUpData.user) {
@@ -140,7 +153,7 @@ export default function LoginPage() {
         }
       }
 
-      setSuccess("Account created! Check your email to confirm, then sign in.");
+      setSuccess("Account created! Check your email to confirm, then sign in. If you don't receive an email, contact support@niri.live.");
       switchMode("login");
     }
     setLoading(false);

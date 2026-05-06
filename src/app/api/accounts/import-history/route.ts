@@ -153,7 +153,12 @@ function parseHtmlRows(text: string): string[][] {
 // ── rows[][] → Deal[] ─────────────────────────────────────────────────────────
 // Works for CSV, XML, and HTML once the raw strings are extracted into rows.
 // Finds the header row automatically (some formats prepend account-info rows).
-function extractDeals(rows: string[][]): { deals: Deal[]; skipped: number } {
+function extractDeals(rows: string[][], logRaw = false): { deals: Deal[]; skipped: number } {
+  // Log first 5 raw rows so we can inspect the actual xlsx column structure
+  if (logRaw) {
+    console.log("[import] raw rows[0..4]:", JSON.stringify(rows.slice(0, 5)));
+  }
+
   const headerIdx = rows.findIndex((row) =>
     row.some((cell) =>
       ["symbol", "deal", "time", "item", "ticket"].includes(cell.toLowerCase().trim())
@@ -170,6 +175,12 @@ function extractDeals(rows: string[][]): { deals: Deal[]; skipped: number } {
     return idx >= 0 ? (row[idx] ?? "").trim().replace(/^["']|["']$/g, "") : "";
   }
 
+  // Safe numeric parse — returns 0 for empty, "-", or non-numeric strings
+  function num(s: string): number {
+    const v = parseFloat(s || "0");
+    return isNaN(v) ? 0 : v;
+  }
+
   const deals: Deal[] = [];
   let skipped = 0;
 
@@ -182,11 +193,11 @@ function extractDeals(rows: string[][]): { deals: Deal[]; skipped: number } {
     const orderId = col(row, "order") || col(row, "deal");
     const dirStr  = col(row, "direction").toLowerCase();
     const typeStr = col(row, "type").toLowerCase();
-    const volume  = parseFloat(col(row, "volume") || col(row, "size") || "0");
-    const price   = parseFloat(col(row, "price") || "0");
-    const profit  = parseFloat(col(row, "profit") || "0");
-    const commission = parseFloat(col(row, "commission") || "0");
-    const swap    = parseFloat(col(row, "swap") || "0");
+    const volume  = num(col(row, "volume") || col(row, "size"));
+    const price   = num(col(row, "price"));
+    const profit  = num(col(row, "profit"));
+    const commission = num(col(row, "commission"));
+    const swap    = num(col(row, "swap"));
     const comment = col(row, "comment");
 
     if (!symbol || !timeStr) { skipped++; continue; }
@@ -252,7 +263,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { deals, skipped: initialSkipped } = extractDeals(rows);
+  const { deals, skipped: initialSkipped } = extractDeals(rows, format === "xlsx");
   let skipped = initialSkipped;
 
   if (deals.length === 0) {
@@ -296,21 +307,25 @@ export async function POST(request: Request) {
     let direction: "BUY" | "SELL" = "BUY";
     if (typeStr.includes("sell") || dirStr.includes("sell")) direction = "SELL";
 
-    const entryPrice = inDeal?.price ?? outDeal.price;
-    const exitPrice  = outDeal.price;
-    const volume     = inDeal?.volume ?? outDeal.volume;
+    // Use inDeal price for entry if non-zero, otherwise fall back to outDeal price
+    const entryPrice = (inDeal?.price && inDeal.price !== 0) ? inDeal.price : outDeal.price;
+    const exitPrice  = outDeal.price || entryPrice; // never zero if we have entry
+    const volume     = (inDeal?.volume || outDeal.volume) || 0.01;
     const profit     = outDeal.profit + (outDeal.commission || 0) + (outDeal.swap || 0);
+
+    // Skip rows where all price values are zero — these are likely empty/summary rows
+    if (entryPrice === 0 && exitPrice === 0) { skipped++; continue; }
 
     const date      = outDate.toISOString().split("T")[0];
     const closeTs   = Math.floor(outDate.getTime() / 1000);
-    const cleanSymbol   = symbol.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const cleanSymbol   = symbol.toUpperCase().replace(/[^A-Z0-9]/g, "") || "UNKNOWN";
     const uniqueTradeId = `${accountSignature}_${orderId}_${closeTs}`;
 
-    trades.push({
+    const tradeRow = {
       user_id:             user.id,
       pair:                cleanSymbol,
       direction,
-      lot:                 volume || 0.01,
+      lot:                 volume,
       date,
       entry:               entryPrice,
       exit_price:          exitPrice,
@@ -327,7 +342,14 @@ export async function POST(request: Request) {
       unique_trade_id:     uniqueTradeId,
       is_verified:         false,
       verification_method: "csv_import",
-    });
+    };
+
+    trades.push(tradeRow);
+  }
+
+  // Log first parsed trade so we can inspect the structure
+  if (trades.length > 0) {
+    console.log("[import] first trade:", JSON.stringify(trades[0]));
   }
 
   // Fallback: if IN/OUT matching produced nothing, try single-row import
@@ -356,8 +378,8 @@ export async function POST(request: Request) {
         direction,
         lot:                 deal.volume || 0.01,
         date,
-        entry:               deal.price,
-        exit_price:          deal.price,
+        entry:               deal.price || 0,
+        exit_price:          deal.price || 0,
         sl:                  null,
         tp:                  null,
         pnl:                 deal.profit,

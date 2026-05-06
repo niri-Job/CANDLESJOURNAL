@@ -108,7 +108,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
       });
   }, [user?.id]);
 
-  const isPaid = plan === "pro" || plan === "starter";
+  const isPaid = plan === "pro";
   const sidebarWidth = collapsed ? 64 : 240;
 
   function NavLinks({ onClick, isCollapsed }: { onClick?: () => void; isCollapsed?: boolean }) {

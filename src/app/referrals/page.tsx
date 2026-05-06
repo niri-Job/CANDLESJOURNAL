@@ -319,7 +319,7 @@ export default function ReferralsPage() {
       <p className="font-bold text-zinc-100 text-lg">Upgrade to unlock Referrals</p>
       <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
         Earn recurring commissions by inviting traders to NIRI.<br/>
-        Available on Starter and Pro plans.
+        Available on the Pro plan.
       </p>
       <Link href="/settings" className="btn-gold px-6 py-3 rounded-xl text-sm font-bold">
         Upgrade Now
@@ -364,9 +364,8 @@ export default function ReferralsPage() {
               <div className="flex-1">
                 <p className="font-bold text-zinc-100 mb-1">Earn recurring commissions every month</p>
                 <p className="text-xs text-zinc-400 leading-relaxed">
-                  Share your referral link and earn <span className="text-[var(--cj-gold)] font-semibold">$0.50/month</span> for
-                  every Starter subscriber you refer, and <span className="text-[var(--cj-gold)] font-semibold">$1.00/month</span> for
-                  Pro subscribers — for as long as they stay subscribed. Minimum payout is $5.
+                  Share your referral link and earn <span className="text-[var(--cj-gold)] font-semibold">$1.00/month</span> for
+                  every Pro subscriber you refer — for as long as they stay subscribed. Minimum payout is $5.
                 </p>
               </div>
               {isFree && (

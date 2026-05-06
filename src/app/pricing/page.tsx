@@ -36,36 +36,25 @@ const FREE_MISSING = [
   "No MT5 Quick Connect",
   "No advanced charts or reports",
 ];
-const STARTER_FEATURES = [
+const PRO_FEATURES = [
   "Unlimited trades",
   "MT5 Quick Connect",
-  "Smart dashboard with all charts",
+  "Full dashboard with all charts",
   "Trade journal (notes, screenshots, emotions)",
   "Market news and economic calendar",
   "Live chart with trade review",
   "Position size calculator",
-  "30 AI analyses per month",
   "Strategy Library (Playbook)",
-  "3 trading accounts",
-  "Referral earnings program",
-];
-const PRO_FEATURES = [
-  "Everything in Starter",
-  "Unlimited AI analyses",
-  "Full 8-tab performance reports",
-  "Psychology insights",
   "Market Intelligence (AI setups)",
-  "Strategy performance tracking",
+  "90 AI analyses per month",
   "10 trading accounts",
+  "Referral earnings program",
   "Priority support",
-  "Yearly billing option (save 10%)",
 ];
 
 // Monthly amounts in kobo (NGN) — kept for Paystack
-const STARTER_MONTHLY_KOBO = 800_000;
-const PRO_MONTHLY_KOBO     = 1_300_000;
-const STARTER_YEARLY_KOBO  = 8_640_000;
-const PRO_YEARLY_KOBO      = 14_040_000;
+const PRO_MONTHLY_KOBO = 1_300_000;
+const PRO_YEARLY_KOBO  = 14_040_000;
 
 interface SubProfile {
   subscription_status: string | null;
@@ -75,7 +64,6 @@ interface SubProfile {
 export default function PricingPage() {
   const [user, setUser]               = useState<User | null>(null);
   const [isPro, setIsPro]             = useState(false);
-  const [isStarter, setIsStarter]     = useState(false);
   const [subEnd, setSubEnd]           = useState<string | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [loading, setLoading]         = useState(true);
@@ -83,7 +71,7 @@ export default function PricingPage() {
   const [payError, setPayError]       = useState<string | null>(null);
   const [paySuccess, setPaySuccess]   = useState(false);
   const [billing, setBilling]         = useState<"monthly" | "yearly">("monthly");
-  const [payingPlan, setPayingPlan]   = useState<"starter" | "pro" | null>(null);
+  const [payingPlan, setPayingPlan]   = useState<"pro" | null>(null);
 
   // ── Load user + subscription ──────────────────────────────────────────────
   useEffect(() => {
@@ -102,9 +90,7 @@ export default function PricingPage() {
 
       const active = !!p?.subscription_end && new Date(p.subscription_end) > new Date();
       const pro = p?.subscription_status === "pro" && active;
-      const starter = p?.subscription_status === "starter" && active;
       setIsPro(pro);
-      setIsStarter(starter);
       setSubEnd(p?.subscription_end ?? null);
       setLoading(false);
     }
@@ -154,12 +140,10 @@ export default function PricingPage() {
     }
   }
 
-  function openPaystack(plan: "starter" | "pro") {
+  function openPaystack(plan: "pro") {
     if (!user || !scriptReady || !process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY) return;
     const isYearly = billing === "yearly";
-    const amount = plan === "starter"
-      ? (isYearly ? STARTER_YEARLY_KOBO : STARTER_MONTHLY_KOBO)
-      : (isYearly ? PRO_YEARLY_KOBO     : PRO_MONTHLY_KOBO);
+    const amount = isYearly ? PRO_YEARLY_KOBO : PRO_MONTHLY_KOBO;
     const ref = `cj_${plan}_${isYearly ? "yr" : "mo"}_${Date.now()}_${user.id.slice(0, 8)}`;
     setPayingPlan(plan);
     const handler = window.PaystackPop.setup({
@@ -287,7 +271,7 @@ export default function PricingPage() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-12 max-w-[720px] mx-auto">
 
           {/* FREE */}
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-7 flex flex-col">
@@ -312,41 +296,8 @@ export default function PricingPage() {
               ))}
             </ul>
             <div className="text-center py-2.5 rounded-xl border border-zinc-800 text-zinc-600 text-sm font-semibold">
-              {!isPro && !isStarter ? "Current plan" : "Basic plan"}
+              {!isPro ? "Current plan" : "Basic plan"}
             </div>
-          </div>
-
-          {/* STARTER */}
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-7 flex flex-col">
-            <div className="mb-6">
-              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Starter Plan</p>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-4xl font-bold">
-                  {billing === "yearly" ? "$7.20" : "$8"}
-                </span>
-                <span className="text-zinc-500 text-sm">/month</span>
-              </div>
-              {billing === "yearly" ? (
-                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">$86.40/year · Save $9.60</p>
-              ) : (
-                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly</p>
-              )}
-            </div>
-            <ul className="space-y-3 flex-1 mb-7">
-              {STARTER_FEATURES.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm text-zinc-200">
-                  <span className="text-emerald-400 shrink-0 mt-0.5">✓</span>{f}
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => openPaystack("starter")}
-              disabled={paying || payingPlan !== null || !scriptReady || !user}
-              className="w-full py-3 rounded-xl font-semibold text-sm transition-all
-                         disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: "linear-gradient(135deg,#3a3220,#2a2410)", border: "1px solid #5a4a30", color: "#d0b060" }}>
-              {payingPlan === "starter" ? "Processing..." : isStarter ? "Renew Starter →" : "Get Starter →"}
-            </button>
           </div>
 
           {/* PRO */}

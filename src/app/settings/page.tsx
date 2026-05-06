@@ -95,7 +95,7 @@ function ReferralQuickView() {
       .then(d => d && setData(d));
   }, []);
 
-  const isFree = !data || (data.subscription_status !== "pro" && data.subscription_status !== "starter");
+  const isFree = !data || data.subscription_status !== "pro";
 
   return (
     <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
@@ -112,7 +112,7 @@ function ReferralQuickView() {
           <div className="flex-1">
             <p className="text-sm font-semibold text-zinc-300 mb-1">Earn recurring commissions</p>
             <p className="text-xs text-zinc-500">
-              Upgrade to Starter or Pro to unlock your referral link and start earning $0.50–$1.00/month per referral.
+              Upgrade to Pro to unlock your referral link and start earning $1.00/month per referral.
             </p>
           </div>
           <Link href="#" className="btn-gold px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
@@ -779,7 +779,7 @@ export default function SettingsPage() {
               Connected Accounts
             </p>
             <span className="text-[11px] text-zinc-500">
-              {tradingAccounts.length} of {sub.status === "pro" ? 10 : sub.status === "starter" ? 3 : 1}
+              {tradingAccounts.length} of {sub.status === "pro" ? 10 : 1}
               <span className="ml-1 text-zinc-600 capitalize">({sub.status})</span>
             </span>
           </div>
@@ -964,7 +964,7 @@ export default function SettingsPage() {
           )}
 
           {(() => {
-            const limit = sub.status === "pro" ? 10 : sub.status === "starter" ? 3 : 1;
+            const limit = sub.status === "pro" ? 10 : 1;
             const atLimit = tradingAccounts.length >= limit;
             return (
               <div className="mt-4 pt-4 border-t border-zinc-800">

@@ -112,9 +112,9 @@ export async function _POST_DISABLED(request: Request) {
   const plan = (profileRow as { subscription_status: string | null } | null)
     ?.subscription_status ?? "free";
 
-  if (plan !== "pro" && plan !== "starter") {
+  if (plan !== "pro") {
     return NextResponse.json(
-      { error: "EA sync requires a paid plan. Upgrade at niri.app/pricing" },
+      { error: "EA sync requires a Pro plan. Upgrade at niri.live/pricing" },
       { status: 403 }
     );
   }

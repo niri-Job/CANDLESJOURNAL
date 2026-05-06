@@ -7,8 +7,7 @@ function serviceDb() {
 }
 
 function getCommissionRate(plan: string): number {
-  if (plan === "pro")     return 1.00;
-  if (plan === "starter") return 0.50;
+  if (plan === "pro") return 1.00;
   return 0.00;
 }
 

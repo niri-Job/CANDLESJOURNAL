@@ -72,8 +72,7 @@ export async function POST(request: Request) {
 
   // ── Plan-based account limits ───────────────────────────────────────────
   function getAccountLimit(p: string): number {
-    if (p === "pro")     return 10;
-    if (p === "starter") return 3;
+    if (p === "pro") return 10;
     return 1; // free: demo only
   }
 
@@ -102,7 +101,7 @@ export async function POST(request: Request) {
     const serverLower = (account_server as string).toLowerCase();
     if (!/demo|test|practice|paper/.test(serverLower)) {
       return NextResponse.json({
-        error: "Free plan only supports demo accounts. Upgrade to Starter to connect live accounts.",
+        error: "Free plan only supports demo accounts. Upgrade to Pro to connect live accounts.",
       }, { status: 403 });
     }
   }

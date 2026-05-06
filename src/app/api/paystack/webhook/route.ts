@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (referral) {
-      const commissionRate = planType === "pro" ? 1.00 : planType === "starter" ? 0.50 : 0.00;
+      const commissionRate = planType === "pro" ? 1.00 : 0.00;
       const month          = now.toISOString().slice(0, 7);
 
       // Activate referral if pending/inactive

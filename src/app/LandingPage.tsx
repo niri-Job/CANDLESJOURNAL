@@ -401,6 +401,53 @@ export default function LandingPage() {
           .cmp-table   { font-size: 0.8rem !important; }
           .cmp-table td{ padding: 0.625rem 0.5rem !important; }
         }
+
+        /* ── Glitch animation ── */
+        @keyframes glitchAnim {
+          0%,89%,100% { transform: none; text-shadow: none; filter: none; }
+          90%  { transform: translateX(-3px); text-shadow: 3px 0 #ff4444; filter: blur(0.3px); }
+          91%  { transform: translateX(3px);  text-shadow: -3px 0 #00ccff; }
+          92%  { transform: translateX(-2px) skewX(-3deg); text-shadow: 2px 0 #ff4444, -2px 0 #00ccff; }
+          93%  { transform: none; text-shadow: none; filter: none; }
+        }
+        @keyframes glitchBefore {
+          0%,89%,100% { transform: none; opacity: 0; }
+          90%  { transform: translateX(3px);  opacity: 0.7; color: #ff4444; clip-path: inset(15% 0 65% 0); }
+          91%  { transform: translateX(-3px); opacity: 0.7; color: #00ccff; clip-path: inset(65% 0 10% 0); }
+          92%  { transform: none; opacity: 0; }
+        }
+        @keyframes glitchAfter {
+          0%,90%,100% { transform: none; opacity: 0; }
+          91%  { transform: translateX(-2px); opacity: 0.5; color: #00ccff; clip-path: inset(40% 0 40% 0); }
+          92%  { transform: translateX(2px);  opacity: 0; }
+        }
+        .glitch-hero {
+          position: relative; display: inline-block;
+          animation: glitchAnim 8s ease infinite;
+        }
+        .glitch-hero::before, .glitch-hero::after {
+          content: attr(data-text); position: absolute; inset: 0;
+          pointer-events: none;
+        }
+        .glitch-hero::before { animation: glitchBefore 8s ease infinite; }
+        .glitch-hero::after  { animation: glitchAfter  8s ease infinite; }
+
+        /* ── Live dashboard preview ── */
+        @keyframes drawPath {
+          from { stroke-dashoffset: 600; }
+          to   { stroke-dashoffset: 0; }
+        }
+        @keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        @keyframes fadeRow { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+        .equity-line {
+          stroke-dasharray: 600;
+          stroke-dashoffset: 600;
+          animation: drawPath 2.4s ease forwards;
+        }
+        .pnl-counter { animation: countUp 0.6s 0.4s ease both; }
+        .trade-row-1 { animation: fadeRow 0.5s 1.2s ease both; opacity: 0; }
+        .trade-row-2 { animation: fadeRow 0.5s 1.6s ease both; opacity: 0; }
+        .trade-row-3 { animation: fadeRow 0.5s 2.0s ease both; opacity: 0; }
       `}</style>
 
       {/* ── NAVBAR ─────────────────────────────────────────────────────────── */}
@@ -487,12 +534,12 @@ export default function LandingPage() {
                 <span>Behavioral Trading Intelligence</span>
               </div>
 
-              <h1 style={{ fontSize: "clamp(2.25rem,5.5vw,3.75rem)", fontWeight: 900, lineHeight: 1.08, marginBottom: "1.375rem", letterSpacing: "-0.02em" }}>
+              <h1 style={{ fontSize: "clamp(2.5rem,5.5vw,3.5rem)", fontWeight: 900, lineHeight: 1.08, marginBottom: "1.375rem", letterSpacing: "-0.02em" }}>
                 <span style={{ color: "#f0e6c8" }}>You&rsquo;re Not Losing</span>
                 <br />
                 <span style={{ color: "#f0e6c8" }}>Because of the</span>
                 <br />
-                <span className="shimmer-text">Market.</span>
+                <span className="shimmer-text glitch-hero" data-text="Market.">Market.</span>
               </h1>
 
               <p style={{ color: "#7a6a4a", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
@@ -552,6 +599,90 @@ export default function LandingPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── LIVE DASHBOARD PREVIEW ──────────────────────────────────────────── */}
+      <section style={{ padding: "5rem 1.5rem", background: "#060500" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <div ref={previewRef} className="fade-up" style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+            <p style={{ color: "#7a6a4a", fontSize: "0.875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
+              Your trades. Your patterns. Your edge.
+            </p>
+            <h2 style={{ fontSize: "clamp(1.5rem,3vw,2rem)", fontWeight: 800, color: "#f0e6c8" }}>
+              See your performance clearly.
+            </h2>
+          </div>
+
+          {/* Mock dashboard card */}
+          <div style={{
+            background: "linear-gradient(145deg,#14120a,#0d0b05)",
+            border: "1px solid rgba(245,197,24,0.2)",
+            borderRadius: "1.5rem",
+            padding: "2rem",
+            boxShadow: "0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(245,197,24,0.05)",
+          }}>
+            {/* Stats row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1rem", marginBottom: "1.75rem" }}>
+              {[
+                { label: "Total P&L", value: "+$2,847", color: "#34d399" },
+                { label: "Win Rate",  value: "68%",     color: "#F5C518" },
+                { label: "Trades",    value: "142",      color: "#c0b080" },
+              ].map((s) => (
+                <div key={s.label} style={{
+                  background: "rgba(245,197,24,0.04)", borderRadius: "0.875rem",
+                  padding: "1rem", border: "1px solid rgba(245,197,24,0.1)", textAlign: "center",
+                }}>
+                  <p style={{ color: "#5a4a2a", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.375rem" }}>{s.label}</p>
+                  <p className="pnl-counter" style={{ color: s.color, fontSize: "1.5rem", fontWeight: 800, fontFamily: "monospace" }}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Equity curve SVG */}
+            <div style={{ marginBottom: "1.75rem", background: "rgba(0,0,0,0.3)", borderRadius: "0.875rem", padding: "1rem", border: "1px solid rgba(245,197,24,0.08)" }}>
+              <p style={{ color: "#5a4a2a", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>Equity Curve</p>
+              <svg viewBox="0 0 500 80" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: 80 }}>
+                <defs>
+                  <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#F5C518" stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor="#F5C518" stopOpacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0 70 L40 65 L80 58 L120 62 L160 48 L200 42 L240 50 L280 35 L320 28 L360 20 L400 14 L440 10 L500 5 L500 80 L0 80 Z"
+                      fill="url(#eqGrad)" />
+                <path className="equity-line"
+                      d="M0 70 L40 65 L80 58 L120 62 L160 48 L200 42 L240 50 L280 35 L320 28 L360 20 L400 14 L440 10 L500 5"
+                      stroke="#F5C518" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+
+            {/* Recent trades */}
+            <div>
+              <p style={{ color: "#5a4a2a", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>Recent Trades</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {[
+                  { pair: "XAUUSD", dir: "BUY",  pnl: "+$184.20", cls: "#34d399" },
+                  { pair: "EURUSD", dir: "SELL", pnl: "+$67.50",  cls: "#34d399" },
+                  { pair: "GBPUSD", dir: "BUY",  pnl: "-$32.00",  cls: "#f87171" },
+                ].map((t, i) => (
+                  <div key={i} className={`trade-row-${i + 1}`} style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    background: "rgba(245,197,24,0.03)", borderRadius: "0.625rem",
+                    padding: "0.625rem 0.875rem", border: "1px solid rgba(245,197,24,0.07)",
+                  }}>
+                    <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#c0b080", fontSize: "0.9rem" }}>{t.pair}</span>
+                    <span style={{
+                      fontSize: "0.7rem", fontWeight: 700, padding: "0.2rem 0.5rem", borderRadius: "0.25rem",
+                      background: t.dir === "BUY" ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)",
+                      color: t.dir === "BUY" ? "#34d399" : "#f87171",
+                    }}>{t.dir}</span>
+                    <span style={{ fontFamily: "monospace", fontWeight: 700, color: t.cls, fontSize: "0.9rem" }}>{t.pnl}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

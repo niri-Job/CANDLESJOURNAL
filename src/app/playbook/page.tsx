@@ -24,6 +24,27 @@ interface Strategy {
   updated_at: string;
 }
 
+interface TaggedTrade {
+  id: string;
+  pair: string;
+  direction: "BUY" | "SELL";
+  pnl: number;
+  date: string;
+  lot: number;
+  entry: number;
+  exit_price: number;
+}
+
+interface StrategyStats {
+  total: number;
+  wins: number;
+  winRate: number;
+  totalPnl: number;
+  avgPnl: number;
+  bestTrade: number;
+  worstTrade: number;
+}
+
 interface StrategyForm {
   name: string;
   asset_class: string;
@@ -69,6 +90,14 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+function fmt(v: number) {
+  return (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(2);
+}
+
+function pnlCls(v: number) {
+  return v > 0 ? "text-emerald-400" : v < 0 ? "text-rose-400" : "text-zinc-400";
+}
+
 // ── Empty state SVG ───────────────────────────────────────────────────────────
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
@@ -98,22 +127,115 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+// ── Strategy Trades Modal ─────────────────────────────────────────────────────
+
+function StrategyModal({
+  strategy,
+  trades,
+  stats,
+  onClose,
+}: {
+  strategy: Strategy;
+  trades: TaggedTrade[];
+  stats: StrategyStats;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+         style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
+      <div className="w-full max-w-xl max-h-[85vh] flex flex-col bg-[var(--cj-surface)] border border-zinc-700 rounded-2xl shadow-2xl">
+
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-zinc-800 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-zinc-100 text-base">{strategy.name}</h3>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {stats.total} trade{stats.total !== 1 ? "s" : ""} tagged
+            </p>
+          </div>
+          <button onClick={onClose} className="text-zinc-600 hover:text-zinc-300 transition-colors text-lg font-bold leading-none">×</button>
+        </div>
+
+        {/* Stats strip */}
+        {stats.total > 0 && (
+          <div className="grid grid-cols-4 gap-px border-b border-zinc-800"
+               style={{ background: "var(--cj-border)" }}>
+            {[
+              { label: "Win Rate", value: `${stats.winRate.toFixed(0)}%`, color: stats.winRate >= 50 ? "text-emerald-400" : "text-rose-400" },
+              { label: "Total PnL", value: fmt(stats.totalPnl), color: pnlCls(stats.totalPnl) },
+              { label: "Avg PnL", value: fmt(stats.avgPnl), color: pnlCls(stats.avgPnl) },
+              { label: "Best", value: fmt(stats.bestTrade), color: "text-emerald-400" },
+            ].map((s) => (
+              <div key={s.label} className="bg-[var(--cj-surface)] px-3 py-3 text-center">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-0.5">{s.label}</p>
+                <p className={`text-sm font-bold font-mono ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Trade list */}
+        <div className="flex-1 overflow-y-auto">
+          {trades.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-sm text-zinc-500 mb-1">No trades tagged yet</p>
+              <p className="text-xs text-zinc-600">Go to Chart → select a trade → tag this strategy</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-800/50">
+              {trades.map((t) => (
+                <div key={t.id} className="flex items-center justify-between px-6 py-3 gap-3 hover:bg-[var(--cj-raised)] transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0
+                      ${t.direction === "BUY" ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>
+                      {t.direction}
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-zinc-200 shrink-0">{t.pair}</span>
+                    <span className="text-xs text-zinc-600 truncate">{fmtDate(t.date)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs text-zinc-600 font-mono">{t.lot}L</span>
+                    <span className={`text-sm font-mono font-semibold ${pnlCls(t.pnl)}`}>{fmt(t.pnl)}</span>
+                    <a href="/chart"
+                       className="text-[11px] px-2.5 py-1 rounded-lg border border-zinc-700
+                                  text-zinc-500 hover:text-[var(--cj-gold)] hover:border-[var(--cj-gold-muted)]
+                                  transition-colors whitespace-nowrap">
+                      View →
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Strategy Card ─────────────────────────────────────────────────────────────
 
 function StrategyCard({
   s,
+  stats,
   onEdit,
   onDelete,
+  onView,
 }: {
   s: Strategy;
+  stats: StrategyStats | null;
   onEdit: (s: Strategy) => void;
   onDelete: (id: string) => void;
+  onView: (s: Strategy) => void;
 }) {
   const entryCount = s.entry_rules?.filter(r => r.trim()).length ?? 0;
 
   return (
-    <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex flex-col gap-3">
-
+    <div
+      className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex flex-col gap-3 cursor-pointer
+                 hover:border-zinc-700 transition-colors"
+      onClick={() => onView(s)}
+    >
       {/* Name */}
       <div>
         <p className="text-base font-bold text-zinc-100">{s.name}</p>
@@ -157,7 +279,27 @@ function StrategyCard({
         </div>
       )}
 
-      {/* Stats row */}
+      {/* Performance stats row */}
+      {stats && stats.total > 0 ? (
+        <div className="px-3 py-2 rounded-xl text-xs"
+             style={{ background: "rgba(245,197,24,0.04)", border: "1px solid rgba(245,197,24,0.1)" }}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-zinc-500">{stats.total} trade{stats.total !== 1 ? "s" : ""}</span>
+            <span className="text-zinc-700">·</span>
+            <span className={`font-semibold ${stats.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
+              {stats.winRate.toFixed(0)}% win rate
+            </span>
+            <span className="text-zinc-700">·</span>
+            <span className={`font-mono font-semibold ${pnlCls(stats.totalPnl)}`}>
+              {fmt(stats.totalPnl)} total PnL
+            </span>
+          </div>
+        </div>
+      ) : stats !== null ? (
+        <p className="text-[11px] text-zinc-700 italic">No trades tagged — select trades on the Chart page</p>
+      ) : null}
+
+      {/* Stats/meta row */}
       <div className="flex items-center gap-4 text-xs text-zinc-600">
         {entryCount > 0 && (
           <span>{entryCount} entry rule{entryCount !== 1 ? "s" : ""}</span>
@@ -166,7 +308,8 @@ function StrategyCard({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 pt-1 border-t border-zinc-800">
+      <div className="flex items-center gap-2 pt-1 border-t border-zinc-800"
+           onClick={(e) => e.stopPropagation()}>
         <button
           onClick={() => onEdit(s)}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-zinc-700
@@ -178,6 +321,12 @@ function StrategyCard({
           className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-zinc-800
                      text-zinc-600 hover:text-rose-400 hover:border-rose-500/30 transition-colors">
           Delete
+        </button>
+        <button
+          onClick={() => onView(s)}
+          className="ml-auto text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--cj-gold)" }}>
+          View trades →
         </button>
       </div>
     </div>
@@ -376,12 +525,14 @@ function StrategyFormPanel({
 export default function PlaybookPage() {
   const [user,        setUser]        = useState<User | null>(null);
   const [strategies,  setStrategies]  = useState<Strategy[]>([]);
+  const [taggedTrades, setTaggedTrades] = useState<Record<string, TaggedTrade[]>>({});
   const [loading,     setLoading]     = useState(true);
   const [showForm,    setShowForm]    = useState(false);
   const [editingId,   setEditingId]   = useState<string | null>(null);
   const [form,        setForm]        = useState<StrategyForm>(EMPTY_FORM);
   const [saving,      setSaving]      = useState(false);
   const [saveError,   setSaveError]   = useState<string | null>(null);
+  const [viewStrategy, setViewStrategy] = useState<Strategy | null>(null);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -396,16 +547,44 @@ export default function PlaybookPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
-      const { data } = await supabase
-        .from("strategies")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      if (data) setStrategies(data as Strategy[]);
+      const [strategiesRes, tradesRes] = await Promise.all([
+        supabase.from("strategies").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("trades").select("id, pair, direction, pnl, date, lot, entry, exit_price, strategy_id")
+          .eq("user_id", user.id).not("strategy_id", "is", null),
+      ]);
+
+      if (strategiesRes.data) setStrategies(strategiesRes.data as Strategy[]);
+
+      if (tradesRes.data) {
+        const map: Record<string, TaggedTrade[]> = {};
+        for (const t of tradesRes.data as (TaggedTrade & { strategy_id: string })[]) {
+          if (!map[t.strategy_id]) map[t.strategy_id] = [];
+          map[t.strategy_id].push(t);
+        }
+        setTaggedTrades(map);
+      }
+
       setLoading(false);
     }
     init();
   }, []);
+
+  function calcStats(strategyId: string): StrategyStats {
+    const trades = taggedTrades[strategyId] ?? [];
+    if (trades.length === 0) return { total: 0, wins: 0, winRate: 0, totalPnl: 0, avgPnl: 0, bestTrade: 0, worstTrade: 0 };
+    const wins = trades.filter(t => t.pnl > 0).length;
+    const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+    const pnls = trades.map(t => t.pnl);
+    return {
+      total: trades.length,
+      wins,
+      winRate: (wins / trades.length) * 100,
+      totalPnl,
+      avgPnl: totalPnl / trades.length,
+      bestTrade: Math.max(...pnls),
+      worstTrade: Math.min(...pnls),
+    };
+  }
 
   function openAdd() {
     setEditingId(null);
@@ -501,14 +680,26 @@ export default function PlaybookPage() {
     );
   }
 
+  const viewStats = viewStrategy ? calcStats(viewStrategy.id) : null;
+
   return (
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
       <Sidebar user={user} onSignOut={handleSignOut} />
 
+      {/* Strategy trades modal */}
+      {viewStrategy && viewStats && (
+        <StrategyModal
+          strategy={viewStrategy}
+          trades={taggedTrades[viewStrategy.id] ?? []}
+          stats={viewStats}
+          onClose={() => setViewStrategy(null)}
+        />
+      )}
+
       <div className="md:ml-[240px] pt-14 md:pt-0">
         <main className="max-w-[900px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
-          {/* ── Header ───────────────────────────────────────────── */}
+          {/* ── Header ───────────────────────────────────────── */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-xl font-bold text-zinc-100">Strategy Library</h1>
@@ -526,7 +717,7 @@ export default function PlaybookPage() {
             )}
           </div>
 
-          {/* ── Form (inline) ─────────────────────────────────────── */}
+          {/* ── Form (inline) ─────────────────────────────────── */}
           {showForm && (
             <StrategyFormPanel
               form={form}
@@ -539,16 +730,23 @@ export default function PlaybookPage() {
             />
           )}
 
-          {/* ── Empty state ───────────────────────────────────────── */}
+          {/* ── Empty state ───────────────────────────────────── */}
           {!showForm && strategies.length === 0 && (
             <EmptyState onAdd={openAdd} />
           )}
 
-          {/* ── Cards grid ───────────────────────────────────────── */}
+          {/* ── Cards grid ───────────────────────────────────── */}
           {strategies.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {strategies.map(s => (
-                <StrategyCard key={s.id} s={s} onEdit={openEdit} onDelete={handleDelete} />
+                <StrategyCard
+                  key={s.id}
+                  s={s}
+                  stats={calcStats(s.id)}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                  onView={setViewStrategy}
+                />
               ))}
             </div>
           )}

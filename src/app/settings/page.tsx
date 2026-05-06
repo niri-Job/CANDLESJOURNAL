@@ -143,6 +143,67 @@ function ReferralQuickView() {
   );
 }
 
+// ── Delete Confirmation Modal ─────────────────────────────────────────────────
+function DeleteModal({
+  account,
+  onConfirm,
+  onCancel,
+  deleting,
+}: {
+  account: TradingAccount;
+  onConfirm: () => void;
+  onCancel: () => void;
+  deleting: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+         style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
+      <div className="w-full max-w-md bg-[var(--cj-surface)] border border-zinc-700 rounded-2xl p-7 shadow-2xl">
+        <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center mb-5">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </div>
+        <h3 className="text-base font-bold text-zinc-100 mb-2">Delete this account?</h3>
+        <p className="text-sm text-zinc-400 leading-relaxed mb-1">
+          This will permanently remove{" "}
+          <span className="font-semibold text-zinc-200">
+            {account.account_label || account.broker_name || account.account_login || "this account"}
+          </span>{" "}
+          and <span className="font-semibold text-rose-400">ALL its trade history</span> from NIRI.
+        </p>
+        <p className="text-xs text-zinc-600 mb-6">This action cannot be undone.</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={deleting}
+            className="flex-1 py-2.5 rounded-xl font-semibold text-sm border border-zinc-700
+                       text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors
+                       disabled:opacity-50">
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={deleting}
+            className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all
+                       disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)", color: "#fff" }}>
+            {deleting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Deleting…
+              </span>
+            ) : "Delete Account"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
 
@@ -159,12 +220,24 @@ export default function SettingsPage() {
   const [editingAccountId,  setEditingAccountId]  = useState<string | null>(null);
   const [editLabel,         setEditLabel]         = useState("");
 
+  // Delete modal state
+  const [deleteTarget,  setDeleteTarget]  = useState<TradingAccount | null>(null);
+  const [deleting,      setDeleting]      = useState(false);
+
+  // Toast state
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  }
+
   // Quick Connect state
   const [qcForm, setQcForm] = useState<QuickConnectForm>({
     server: "", login: "", password: "", platform: "MT5", label: "",
   });
-  const [connecting,    setConnecting]    = useState(false);
-  const [connectError,  setConnectError]  = useState<string | null>(null);
+  const [connecting,     setConnecting]     = useState(false);
+  const [connectError,   setConnectError]   = useState<string | null>(null);
   const [connectSuccess, setConnectSuccess] = useState<{ account_signature: string; ea_warning: string | null } | null>(null);
 
   // CSV import state
@@ -222,16 +295,26 @@ export default function SettingsPage() {
     setEditingAccountId(null);
   }
 
-  async function deleteAccount(accountId: string) {
-    if (!user) return;
-    if (!confirm("Disconnect this account? Its trade history will remain, but the account card will be removed.")) return;
-    const supabase = createClient();
-    await supabase
-      .from("trading_accounts")
-      .delete()
-      .eq("id", accountId)
-      .eq("user_id", user.id);
-    setTradingAccounts((prev) => prev.filter((a) => a.id !== accountId));
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/accounts/${encodeURIComponent(deleteTarget.account_signature)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) {
+        showToast(data.error ?? "Failed to delete account");
+      } else {
+        setTradingAccounts((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+        showToast("Account deleted successfully");
+      }
+    } catch {
+      showToast("Network error — try again.");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
   }
 
   async function handleCsvImport(e: React.FormEvent) {
@@ -292,6 +375,8 @@ export default function SettingsPage() {
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false });
         if (accounts) setTradingAccounts(accounts as TradingAccount[]);
+        // Auto-select new account for CSV import
+        if (data.account_signature) setImportAccountSig(data.account_signature);
       }
     } catch {
       setConnectError("Network error — check your connection.");
@@ -311,6 +396,25 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
       <Sidebar user={user} onSignOut={handleLogout} />
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <DeleteModal
+          account={deleteTarget}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+          deleting={deleting}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl
+                        text-sm font-semibold shadow-xl"
+             style={{ background: "var(--cj-surface)", border: "1px solid rgba(245,197,24,0.3)", color: "var(--cj-gold)" }}>
+          {toast}
+        </div>
+      )}
 
       <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[680px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
@@ -517,6 +621,150 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* ── IMPORT TRADE HISTORY (prominent, always visible when accounts exist or after QC) */}
+        {(tradingAccounts.length > 0 || connectSuccess) && (
+          <div className="bg-[var(--cj-surface)] border rounded-2xl p-6 mb-5"
+               style={{ borderColor: connectSuccess ? "rgba(245,197,24,0.35)" : "var(--cj-border)",
+                        boxShadow: connectSuccess ? "0 0 40px -10px rgba(245,197,24,0.12)" : "none" }}>
+            <div className="flex items-center gap-2 mb-4">
+              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Import Trade History</p>
+              {connectSuccess && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                                 bg-[var(--cj-gold-glow)] border border-[var(--cj-gold)]/25 text-[var(--cj-gold)]">
+                  Recommended
+                </span>
+              )}
+            </div>
+
+            {connectSuccess && (
+              <div className="mb-5 p-4 rounded-xl"
+                   style={{ background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.15)" }}>
+                <p className="text-sm font-semibold mb-1" style={{ color: "var(--cj-gold)" }}>
+                  Import your full MT5 trade history
+                </p>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  To see your full performance analysis, import your MT5 trade history.
+                  Follow the steps below to export and upload your CSV file.
+                </p>
+              </div>
+            )}
+
+            {/* Step-by-step instructions */}
+            <div className="mb-5 space-y-2">
+              {[
+                { step: 1, text: "Open MetaTrader 5" },
+                { step: 2, text: "Click the History tab at the bottom of the terminal" },
+                { step: 3, text: "Right-click anywhere in the history list" },
+                { step: 4, text: "Select \"Save as Report\"" },
+                { step: 5, text: "Choose CSV format and save the file" },
+                { step: 6, text: "Upload the CSV file below" },
+              ].map(({ step, text }) => (
+                <div key={step} className="flex items-start gap-3">
+                  <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
+                        style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
+                    {step}
+                  </span>
+                  <p className="text-xs text-zinc-400 leading-relaxed">{text}</p>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleCsvImport} className="space-y-3">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                  Account <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={importAccountSig}
+                  onChange={(e) => setImportAccountSig(e.target.value)}
+                  className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
+                             text-sm text-zinc-100 focus:outline-none focus:border-[var(--cj-gold-muted)]
+                             transition-colors cursor-pointer">
+                  <option value="">Select account to import into…</option>
+                  {tradingAccounts.map((a) => (
+                    <option key={a.id} value={a.account_signature}>
+                      {a.account_label || a.broker_name || a.account_login || a.account_signature.slice(0, 12)}
+                      {a.account_type === "demo" ? " (Demo)" : " (Live)"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                  MT5 History CSV <span className="text-rose-500">*</span>
+                </label>
+                <div className={`relative flex items-center justify-center rounded-xl border-2 border-dashed
+                                 px-4 py-8 transition-colors cursor-pointer
+                                 ${importFile
+                                   ? "border-emerald-500/40 bg-emerald-500/5"
+                                   : "hover:border-[var(--cj-gold-muted)]"}`}
+                     style={!importFile ? { borderColor: "rgba(245,197,24,0.25)", background: "rgba(245,197,24,0.03)" } : undefined}>
+                  <input
+                    type="file"
+                    accept=".csv,.txt"
+                    onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                  {importFile ? (
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-emerald-400">{importFile.name}</p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">{(importFile.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center"
+                           style={{ background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.2)" }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="17 8 12 3 7 8"/>
+                          <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                      </div>
+                      <p className="text-sm font-semibold text-zinc-300">Drop your MT5 history CSV here</p>
+                      <p className="text-xs text-zinc-600 mt-1">or click to browse files</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {importResult && (
+                <div className="rounded-xl px-4 py-3 bg-emerald-500/8 border border-emerald-500/20">
+                  <p className="text-sm text-emerald-400 font-semibold">
+                    Import complete: {importResult.imported} trade{importResult.imported !== 1 ? "s" : ""} imported!
+                  </p>
+                  {importResult.skipped > 0 && (
+                    <p className="text-xs text-zinc-500 mt-0.5">{importResult.skipped} rows skipped (deposits, withdrawals, etc.)</p>
+                  )}
+                </div>
+              )}
+
+              {importError && (
+                <div className="rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                  <p className="text-xs text-rose-400">{importError}</p>
+                </div>
+              )}
+
+              {importing && (
+                <div className="rounded-xl px-4 py-3 bg-[var(--cj-raised)] border border-zinc-800">
+                  <p className="text-xs text-zinc-400 flex items-center gap-2">
+                    <span className="w-3 h-3 border border-[var(--cj-gold)] border-t-transparent rounded-full animate-spin shrink-0" />
+                    Processing trades…
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={importing || !importFile || !importAccountSig}
+                className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                {importing ? "Importing…" : "Import Trade History"}
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* ── CONNECTED ACCOUNTS ────────────────────────────────────────────── */}
         {eaCleanupNotice && (
           <div className="mb-5 px-4 py-3 rounded-xl border text-xs"
@@ -548,7 +796,7 @@ export default function SettingsPage() {
               </div>
               <p className="text-sm text-zinc-500 mb-1">No accounts connected yet</p>
               <p className="text-xs text-zinc-600">
-                Use Quick Connect above, or install the EA and push your first trade.
+                Use Quick Connect above to connect your MT5 account.
               </p>
             </div>
           ) : (
@@ -694,12 +942,19 @@ export default function SettingsPage() {
                       )}
                     </div>
 
-                    {/* Disconnect */}
-                    <div className="border-t border-zinc-800 pt-3">
+                    {/* Actions */}
+                    <div className="border-t border-zinc-800 pt-3 flex items-center gap-3">
                       <button
-                        onClick={() => deleteAccount(acct.id)}
-                        className="text-[11px] text-zinc-700 hover:text-rose-400 transition-colors">
-                        Disconnect account
+                        onClick={() => setDeleteTarget(acct)}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
+                                   border border-rose-500/20 text-rose-500 hover:bg-rose-500/10
+                                   hover:border-rose-500/40 transition-all">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6M14 11v6"/>
+                        </svg>
+                        Delete Account
                       </button>
                     </div>
                   </div>
@@ -733,104 +988,6 @@ export default function SettingsPage() {
             );
           })()}
         </div>
-
-        {/* ── CSV IMPORT ────────────────────────────────────────────────────── */}
-        {tradingAccounts.length > 0 && (
-          <details className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl mb-5 group">
-            <summary className="flex items-center justify-between px-6 py-4 cursor-pointer select-none list-none">
-              <div className="flex items-center gap-2">
-                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Import MT5 History (CSV)</p>
-                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full
-                                 bg-zinc-800 border border-zinc-700 text-zinc-500">Optional</span>
-              </div>
-              <span className="text-zinc-600 text-xs group-open:rotate-180 transition-transform">▼</span>
-            </summary>
-            <div className="px-6 pb-6 pt-2">
-              <p className="text-xs text-zinc-600 mb-4 leading-relaxed">
-                Export your trade history from MT5 as a CSV (Report → Save As → CSV) and import it here
-                to backfill your journal with past trades.
-              </p>
-              <form onSubmit={handleCsvImport} className="space-y-3">
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                    Account <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={importAccountSig}
-                    onChange={(e) => setImportAccountSig(e.target.value)}
-                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                               text-sm text-zinc-100 focus:outline-none focus:border-[var(--cj-gold-muted)]
-                               transition-colors cursor-pointer">
-                    <option value="">Select account to import into…</option>
-                    {tradingAccounts.map((a) => (
-                      <option key={a.id} value={a.account_signature}>
-                        {a.account_label || a.broker_name || a.account_login || a.account_signature.slice(0, 12)}
-                        {a.account_type === "demo" ? " (Demo)" : " (Live)"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                    MT5 History CSV <span className="text-rose-500">*</span>
-                  </label>
-                  <div className={`relative flex items-center justify-center rounded-xl border-2 border-dashed
-                                   px-4 py-6 transition-colors cursor-pointer
-                                   ${importFile ? "border-emerald-500/40 bg-emerald-500/5" : "border-zinc-700 hover:border-zinc-600"}`}>
-                    <input
-                      type="file"
-                      accept=".csv,.txt"
-                      onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                    />
-                    {importFile ? (
-                      <div className="text-center">
-                        <p className="text-sm font-semibold text-emerald-400">{importFile.name}</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">{(importFile.size / 1024).toFixed(1)} KB</p>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <p className="text-sm text-zinc-500">Click to choose CSV file</p>
-                        <p className="text-[11px] text-zinc-600 mt-0.5">MT5 → History → right-click → Save as Report → CSV</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {importResult && (
-                  <div className="rounded-xl px-4 py-3 bg-emerald-500/8 border border-emerald-500/20">
-                    <p className="text-sm text-emerald-400 font-semibold">
-                      Imported {importResult.imported} trade{importResult.imported !== 1 ? "s" : ""}!
-                    </p>
-                    {importResult.skipped > 0 && (
-                      <p className="text-xs text-zinc-500 mt-0.5">{importResult.skipped} rows skipped (deposits, withdrawals, etc.)</p>
-                    )}
-                  </div>
-                )}
-
-                {importError && (
-                  <div className="rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                    <p className="text-xs text-rose-400">{importError}</p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={importing || !importFile || !importAccountSig}
-                  className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all
-                             disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-                  {importing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-[#0A0A0F] border-t-transparent rounded-full animate-spin" />
-                      Importing…
-                    </span>
-                  ) : "Import Trade History"}
-                </button>
-              </form>
-            </div>
-          </details>
-        )}
 
         {/* ── REFERRALS QUICK-VIEW ──────────────────────────────────────────── */}
         <ReferralQuickView />

@@ -18,8 +18,8 @@ interface Trade {
   direction: "BUY" | "SELL";
   lot: number;
   date: string;
-  opened_at?: string | null;   // ISO timestamp of trade open (from MT5)
-  closed_at?: string | null;   // ISO timestamp of trade close (from MT5)
+  opened_at?: string | null;
+  closed_at?: string | null;
   entry: number;
   exit_price: number;
   sl: number | null;
@@ -29,6 +29,12 @@ interface Trade {
   emotion: string | null;
   session: string;
   setup: string;
+  strategy_id?: string | null;
+}
+
+interface Strategy {
+  id: string;
+  name: string;
 }
 
 interface CandleData {
@@ -488,16 +494,17 @@ function WinBar({ label, winRate, total }: { label: string; winRate: number; tot
 export default function ChartPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [trades,      setTrades]      = useState<Trade[]>([]);
+  const [strategies,  setStrategies]  = useState<Strategy[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [tab,         setTab]         = useState<"chart" | "insights">("chart");
   const [symbol,      setSymbol]      = useState("XAUUSD");
   const [interval,    setIntervalVal] = useState("60");
   const [selected,    setSelected]    = useState<Trade | null>(null);
-  // "live" = TradingView full widget, "review" = Lightweight Charts with overlays
   const [chartMode,   setChartMode]   = useState<"live" | "review">("live");
   const [insights,    setInsights]    = useState<Record<string, string>>({});
   const [loadingAI,   setLoadingAI]   = useState<string | null>(null);
   const [copied,      setCopied]      = useState(false);
+  const [taggingId,   setTaggingId]   = useState<string | null>(null);
 
   // ── Auth + data load ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -506,10 +513,12 @@ export default function ChartPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { window.location.href = "/login"; return; }
       setCurrentUser(user);
-      const { data } = await supabase
-        .from("trades").select("*").eq("user_id", user.id)
-        .order("date", { ascending: false });
-      if (data) setTrades(data as Trade[]);
+      const [tradesRes, strategiesRes] = await Promise.all([
+        supabase.from("trades").select("*").eq("user_id", user.id).order("date", { ascending: false }),
+        supabase.from("strategies").select("id, name").eq("user_id", user.id).order("name"),
+      ]);
+      if (tradesRes.data) setTrades(tradesRes.data as Trade[]);
+      if (strategiesRes.data) setStrategies(strategiesRes.data as Strategy[]);
       setLoading(false);
     })();
   }, []);
@@ -683,6 +692,15 @@ Notes: ${t.notes || "—"}`;
 
     return { sessionStats, dayStats, pairStats, avgRR, maxConsec, consecDelta, simPnl, actualPnl, overallWR, strengths, weaknesses, topRec, bestSession, worstSession, bestPair, worstPair, bestDay, worstDay };
   }, [trades]);
+
+  async function tagStrategy(tradeId: string, strategyId: string | null) {
+    setTaggingId(tradeId);
+    const supabase = createClient();
+    await supabase.from("trades").update({ strategy_id: strategyId || null }).eq("id", tradeId);
+    setTrades((prev) => prev.map((t) => t.id === tradeId ? { ...t, strategy_id: strategyId } : t));
+    if (selected?.id === tradeId) setSelected((s) => s ? { ...s, strategy_id: strategyId } : s);
+    setTaggingId(null);
+  }
 
   async function handleLogout() {
     await createClient().auth.signOut();
@@ -1005,6 +1023,40 @@ Notes: ${t.notes || "—"}`;
                             <p className="text-[12px] text-zinc-400 mb-3 leading-relaxed">
                               <span className="text-zinc-600">Notes: </span>{selected.notes}
                             </p>
+                          )}
+
+                          {/* Strategy tag */}
+                          {strategies.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-[12px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">
+                                Strategy
+                              </p>
+                              <select
+                                value={selected.strategy_id ?? ""}
+                                onChange={(e) => tagStrategy(selected.id, e.target.value || null)}
+                                disabled={taggingId === selected.id}
+                                className="w-full bg-[var(--cj-bg)] border border-zinc-700 rounded-lg px-3 py-2
+                                           text-xs text-zinc-200 focus:outline-none focus:border-[var(--cj-gold-muted)]
+                                           transition-colors cursor-pointer disabled:opacity-50">
+                                <option value="">Select strategy…</option>
+                                {strategies.map((s) => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                              </select>
+                              {selected.strategy_id && (
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                        style={{ background: "var(--cj-gold-glow)", border: "1px solid rgba(245,197,24,0.25)", color: "var(--cj-gold)" }}>
+                                    {strategies.find((s) => s.id === selected.strategy_id)?.name ?? "Tagged"}
+                                  </span>
+                                  <button
+                                    onClick={() => tagStrategy(selected.id, null)}
+                                    className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors">
+                                    remove
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           )}
 
                           {/* AI Insight */}

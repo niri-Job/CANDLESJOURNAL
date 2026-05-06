@@ -53,6 +53,8 @@ body {
   background-color: var(--cj-bg);
   color: var(--cj-text);
   font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 /* ─── Gradient backgrounds ──────────────────────────────────────────────────── */
@@ -80,7 +82,7 @@ body {
   /* Form label — warm golden uppercase */
   .label {
     display: block;
-    font-size: 11px;
+    font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-weight: 500;
@@ -94,7 +96,7 @@ body {
     border-radius: 8px;
     padding: 10px 12px;
     font-family: monospace;
-    font-size: 14px;
+    font-size: 15px;
     outline: none;
     margin-top: 4px;
     transition: border-color 0.15s;
@@ -131,7 +133,7 @@ body {
 
   /* Section card header — gold-muted label */
   .card-label {
-    font-size: 14px;
+    font-size: 16px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 600;
@@ -147,24 +149,37 @@ body {
   --cj-border:       #DDD0B8;
   --cj-border-light: #E8DEC8;
   --cj-text:         #1A1410;
-  --cj-text-muted:   #7A6545;
+  --cj-text-muted:   #4A3F2F;
   --cj-gold:         #C9A227;
   --cj-gold-deep:    #A88620;
   --cj-gold-muted:   #8B6914;
   --cj-gold-glow:    rgba(201,162,39,0.15);
 
-  /* Zinc scale inverted for light background — lower = darker text, higher = lighter bg */
+  /* Zinc scale inverted for light background */
   --color-zinc-100: #1A1410;
   --color-zinc-200: #2A2018;
-  --color-zinc-300: #4A3E30;
-  --color-zinc-400: #6B5C44;
-  --color-zinc-500: #8B7560;
-  --color-zinc-600: #A89070;
+  --color-zinc-300: #3E3020;
+  --color-zinc-400: #5A4830;
+  --color-zinc-500: #7A6545;
+  --color-zinc-600: #9A8565;
   --color-zinc-700: #C8B898;
   --color-zinc-800: #E0D5C0;
   --color-zinc-900: #F0E8D5;
   --color-zinc-950: #FAF7F0;
   --color-zinc-50:  #100B08;
+}
+
+/* Light mode text brightness enhancements */
+[data-theme="light"] body {
+  color: #1A1410;
+}
+
+[data-theme="light"] .text-zinc-500 {
+  opacity: 0.85;
+}
+
+[data-theme="light"] .text-zinc-600 {
+  opacity: 0.85;
 }
 
 /* ─── Midnight theme ─────────────────────────────────────────────────────────── */
@@ -193,4 +208,46 @@ body {
   --color-zinc-200: #D8D0F0;
   --color-zinc-100: #EEE8FF;
   --color-zinc-50:  #FAF6FF;
+}
+
+/* ─── Glitch animation for landing page hero ─────────────────────────────────── */
+@keyframes glitch {
+  0%   { transform: none; clip-path: none; }
+  5%   { transform: translateX(-2px); clip-path: inset(20% 0 60% 0); }
+  6%   { transform: translateX(2px); clip-path: inset(60% 0 20% 0); color: #ff3a3a; text-shadow: 2px 0 #00cfff; }
+  7%   { transform: translateX(-1px) skewX(-2deg); clip-path: inset(40% 0 40% 0); }
+  8%   { transform: none; clip-path: none; color: inherit; text-shadow: none; }
+  100% { transform: none; clip-path: none; }
+}
+
+@keyframes glitch-before {
+  0%   { content: attr(data-text); transform: none; clip-path: none; color: inherit; }
+  5%   { transform: translateX(2px); clip-path: inset(10% 0 80% 0); color: #ff3a3a; }
+  6%   { transform: translateX(-2px); clip-path: inset(70% 0 10% 0); color: #00cfff; }
+  7%   { transform: none; clip-path: none; }
+  100% { transform: none; clip-path: none; color: inherit; }
+}
+
+.glitch-text {
+  position: relative;
+  display: inline-block;
+  animation: glitch 8s infinite;
+}
+
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.glitch-text::before {
+  animation: glitch-before 8s infinite;
+  color: #ff3a3a;
+  opacity: 0;
+}
+
+.glitch-text:is(:hover) {
+  animation-duration: 0.5s;
 }

@@ -26,37 +26,46 @@ declare global {
 
 // ─── Plan content ─────────────────────────────────────────────────────────────
 const FREE_FEATURES = [
-  "Unlimited trades",
+  "Up to 20 trades per month",
   "Manual trade entry",
-  "Quick Connect (investor password)",
-  "Basic dashboard & equity curve",
+  "Basic dashboard",
+  "3 AI analyses per month",
   "1 trading account",
 ];
 const FREE_MISSING = [
-  "No AI analysis",
-  "No advanced charts",
+  "No MT5 Quick Connect",
+  "No advanced charts or reports",
 ];
 const STARTER_FEATURES = [
-  "Everything in Free",
-  "Quick Connect for live accounts",
-  "Up to 3 trading accounts",
+  "Unlimited trades",
+  "MT5 Quick Connect",
+  "Smart dashboard with all charts",
+  "Trade journal (notes, screenshots, emotions)",
+  "Market news and economic calendar",
+  "Live chart with trade review",
+  "Position size calculator",
   "30 AI analyses per month",
-  "Full reports suite",
+  "Strategy Library (Playbook)",
+  "3 trading accounts",
+  "Referral earnings program",
 ];
 const PRO_FEATURES = [
   "Everything in Starter",
-  "Up to 10 trading accounts",
-  "90 AI analyses per month",
+  "Unlimited AI analyses",
+  "Full 8-tab performance reports",
+  "Psychology insights",
   "Market Intelligence (AI setups)",
+  "Strategy performance tracking",
+  "10 trading accounts",
   "Priority support",
+  "Yearly billing option (save 10%)",
 ];
 
-// Monthly amounts in kobo (NGN)
-const STARTER_MONTHLY_KOBO = 800_000;   // ₦8,000
-const PRO_MONTHLY_KOBO     = 1_300_000; // ₦13,000
-// Yearly = monthly × 12 × 0.9 (10% discount)
-const STARTER_YEARLY_KOBO  = 864_000_0; // ₦86,400
-const PRO_YEARLY_KOBO      = 1_404_000_0; // ₦140,400
+// Monthly amounts in kobo (NGN) — kept for Paystack
+const STARTER_MONTHLY_KOBO = 800_000;
+const PRO_MONTHLY_KOBO     = 1_300_000;
+const STARTER_YEARLY_KOBO  = 8_640_000;
+const PRO_YEARLY_KOBO      = 14_040_000;
 
 interface SubProfile {
   subscription_status: string | null;
@@ -138,7 +147,7 @@ export default function PricingPage() {
       setPaySuccess(true);
     } catch {
       setPayError(
-        "Network error while verifying. Contact support with your Paystack reference: " + reference
+        "Network error while verifying. Contact support with your reference: " + reference
       );
     } finally {
       setPaying(false);
@@ -215,13 +224,13 @@ export default function PricingPage() {
         </div>
       </header>
 
-      <main className="max-w-[900px] mx-auto px-4 sm:px-6 py-12">
+      <main className="max-w-[960px] mx-auto px-4 sm:px-6 py-12">
 
         {/* Hero */}
         <div className="text-center mb-12">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Simple, affordable pricing</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-3">Simple, transparent pricing</h1>
           <p className="text-zinc-400 text-base sm:text-lg max-w-md mx-auto">
-            Built for African forex traders. Pay in Naira. No hidden fees.
+            Built for serious forex traders. No hidden fees.
           </p>
         </div>
 
@@ -285,7 +294,7 @@ export default function PricingPage() {
             <div className="mb-6">
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Free Plan</p>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-4xl font-bold">₦0</span>
+                <span className="text-4xl font-bold">$0</span>
                 <span className="text-zinc-500 text-sm">/month</span>
               </div>
               <p className="text-zinc-600 text-xs mt-1.5">No credit card required</p>
@@ -313,14 +322,14 @@ export default function PricingPage() {
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Starter Plan</p>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-4xl font-bold">
-                  {billing === "yearly" ? "₦7,200" : "₦8,000"}
+                  {billing === "yearly" ? "$7.20" : "$8"}
                 </span>
                 <span className="text-zinc-500 text-sm">/month</span>
               </div>
               {billing === "yearly" ? (
-                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">₦86,400/year · Save ₦9,600</p>
+                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">$86.40/year · Save $9.60</p>
               ) : (
-                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly · Paystack</p>
+                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly</p>
               )}
             </div>
             <ul className="space-y-3 flex-1 mb-7">
@@ -353,14 +362,14 @@ export default function PricingPage() {
               <p className="text-[11px] uppercase tracking-widest font-medium mb-3" style={{ color: "var(--cj-gold)" }}>Pro Plan</p>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-4xl font-bold">
-                  {billing === "yearly" ? "₦11,700" : "₦13,000"}
+                  {billing === "yearly" ? "$11.70" : "$13"}
                 </span>
                 <span className="text-zinc-500 text-sm">/month</span>
               </div>
               {billing === "yearly" ? (
-                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">₦140,400/year · Save ₦15,600</p>
+                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">$140.40/year · Save $15.60</p>
               ) : (
-                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly · Paystack</p>
+                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly</p>
               )}
             </div>
             <ul className="space-y-3 flex-1 mb-7">
@@ -386,12 +395,12 @@ export default function PricingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             {
-              title: "Monthly, not annual",
-              body: "Pay each month to keep Pro active. Your trades and history are never deleted if you don't renew.",
+              title: "Monthly or yearly",
+              body: "Pay monthly or save 10% with a yearly plan. Your trades and history are never deleted if you don't renew.",
             },
             {
               title: "Secured by Paystack",
-              body: "Nigeria's most trusted payment gateway. Supports cards, bank transfer, and USSD.",
+              body: "Trusted payment gateway. Supports cards, bank transfer, and USSD.",
             },
             {
               title: "Cancel anytime",

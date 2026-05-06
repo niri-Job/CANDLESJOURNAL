@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
 
 async function serverDb() {
   const cookieStore = await cookies();
@@ -42,14 +43,35 @@ function parseDate(s: string): Date {
 }
 
 // ── Format detection ──────────────────────────────────────────────────────────
-function detectFormat(filename: string, content: string): "xml" | "html" | "csv" {
+function detectFormat(filename: string, content: string): "xlsx" | "xml" | "html" | "csv" {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "xlsx" || ext === "xls") return "xlsx";
   if (ext === "xml") return "xml";
   if (ext === "htm" || ext === "html") return "html";
   const head = content.trimStart().slice(0, 200).toLowerCase();
   if (head.includes("<workbook") || head.includes("ss:type") || head.includes("<?mso")) return "xml";
   if (head.startsWith("<html") || head.includes("<table") || head.includes("<!doctype")) return "html";
   return "csv";
+}
+
+// ── XLSX → rows ───────────────────────────────────────────────────────────────
+// MT5 "Open XML (MS Office Excel 2007)" saves as .xlsx. SheetJS reads the
+// binary workbook and returns each row as a plain string array.
+function parseXlsxRows(buffer: ArrayBuffer): string[][] {
+  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return [];
+  const sheet = workbook.Sheets[sheetName];
+  const json = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
+  return (json as unknown[][]).map((row) =>
+    row.map((cell) => {
+      if (cell instanceof Date) {
+        // Format as "YYYY-MM-DD HH:MM:SS" to match parseDate expectations
+        return cell.toISOString().replace("T", " ").slice(0, 19);
+      }
+      return String(cell ?? "").trim();
+    })
+  );
 }
 
 // ── CSV → rows ────────────────────────────────────────────────────────────────
@@ -207,17 +229,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing file or account_signature" }, { status: 400 });
   }
 
-  const text = await file.text();
-  const format = detectFormat(file.name, text);
+  // xlsx is binary — detect by extension before reading as text
+  const extHint = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const isXlsx  = extHint === "xlsx" || extHint === "xls";
 
-  // Parse to raw rows depending on format
   let rows: string[][];
-  if (format === "xml") {
-    rows = parseXmlRows(text);
-  } else if (format === "html") {
-    rows = parseHtmlRows(text);
+  let format: string;
+
+  if (isXlsx) {
+    format = "xlsx";
+    const buffer = await file.arrayBuffer();
+    rows = parseXlsxRows(buffer);
   } else {
-    rows = parseCsvRows(text);
+    const text = await file.text();
+    format = detectFormat(file.name, text);
+    if (format === "xml") {
+      rows = parseXmlRows(text);
+    } else if (format === "html") {
+      rows = parseHtmlRows(text);
+    } else {
+      rows = parseCsvRows(text);
+    }
   }
 
   const { deals, skipped: initialSkipped } = extractDeals(rows);

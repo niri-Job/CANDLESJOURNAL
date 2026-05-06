@@ -674,7 +674,7 @@ export default function OnboardingPage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".xml,.htm,.html,.csv,.txt"
+                    accept=".xlsx,.xls,.xml,.htm,.html,.csv,.txt"
                     className="hidden"
                     onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); }}
                   />

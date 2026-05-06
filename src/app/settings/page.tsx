@@ -656,8 +656,8 @@ export default function SettingsPage() {
                 { step: 2, text: "Click the History tab at the bottom of the terminal" },
                 { step: 3, text: "Right-click anywhere in the history list" },
                 { step: 4, text: "Select Report → Open XML (MS Office Excel 2007)" },
-                { step: 5, text: "Save the .xml file to your computer" },
-                { step: 6, text: "Upload the file below — XML, HTML, and CSV are all accepted" },
+                { step: 5, text: "Save the .xlsx file to your computer" },
+                { step: 6, text: "Upload the .xlsx file below · XLSX, XML, HTML, and CSV are all accepted" },
               ].map(({ step, text }) => (
                 <div key={step} className="flex items-start gap-3">
                   <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
@@ -701,7 +701,7 @@ export default function SettingsPage() {
                      style={!importFile ? { borderColor: "rgba(245,197,24,0.25)", background: "rgba(245,197,24,0.03)" } : undefined}>
                   <input
                     type="file"
-                    accept=".xml,.htm,.html,.csv,.txt"
+                    accept=".xlsx,.xls,.xml,.htm,.html,.csv,.txt"
                     onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
@@ -721,7 +721,7 @@ export default function SettingsPage() {
                         </svg>
                       </div>
                       <p className="text-sm font-semibold text-zinc-300">Drop your MT5 history export here</p>
-                      <p className="text-xs text-zinc-600 mt-1">XML, HTML, or CSV · click to browse</p>
+                      <p className="text-xs text-zinc-600 mt-1">XLSX, XML, HTML, or CSV · click to browse</p>
                     </div>
                   )}
                 </div>

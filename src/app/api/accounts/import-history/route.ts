@@ -301,8 +301,6 @@ export async function POST(request: Request) {
     const volume     = inDeal?.volume ?? outDeal.volume;
     const profit     = outDeal.profit + (outDeal.commission || 0) + (outDeal.swap || 0);
 
-    const openedAt  = inDeal ? parseDate(inDeal.time).toISOString() : null;
-    const closedAt  = outDate.toISOString();
     const date      = outDate.toISOString().split("T")[0];
     const closeTs   = Math.floor(outDate.getTime() / 1000);
     const cleanSymbol   = symbol.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -327,8 +325,6 @@ export async function POST(request: Request) {
       account_signature:   accountSignature,
       normalized_pnl:      profit,
       unique_trade_id:     uniqueTradeId,
-      opened_at:           openedAt,
-      closed_at:           closedAt,
       is_verified:         false,
       verification_method: "csv_import",
     });
@@ -373,8 +369,6 @@ export async function POST(request: Request) {
         account_signature:   accountSignature,
         normalized_pnl:      deal.profit,
         unique_trade_id:     uniqueTradeId,
-        opened_at:           null,
-        closed_at:           dateObj.toISOString(),
         is_verified:         false,
         verification_method: "csv_import",
       });

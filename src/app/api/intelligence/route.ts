@@ -5,14 +5,24 @@ import Anthropic from "@anthropic-ai/sdk";
 let cached: { data: unknown; ts: number } | null = null;
 const CACHE_TTL = 30 * 60 * 1000;
 
-export async function GET() {
-  // Return cached if fresh
-  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const isTest = searchParams.get("test") === "1";
+
+  // Return cached if fresh (skip cache in test mode)
+  if (!isTest && cached && Date.now() - cached.ts < CACHE_TTL) {
     return NextResponse.json(cached.data);
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "Intelligence service not configured" }, { status: 503 });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error("Intelligence API: ANTHROPIC_API_KEY is not set");
+    return NextResponse.json({ error: "Intelligence service not configured", key_present: false }, { status: 503 });
+  }
+
+  console.log("Intelligence API: key prefix =", apiKey.slice(0, 10));
+  if (isTest) {
+    return NextResponse.json({ key_prefix: apiKey.slice(0, 10), model: "claude-haiku-4-5-20251001", status: "key_present" });
   }
 
   const client = new Anthropic();
@@ -60,12 +70,21 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
       }]
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const data = JSON.parse(text);
+    const raw = response.content[0].type === "text" ? response.content[0].text : "";
+    // Strip markdown code fences the model sometimes adds despite instructions
+    const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch (parseErr) {
+      console.error("Intelligence API — JSON parse failed. Raw response:", raw);
+      throw parseErr;
+    }
     cached = { data, ts: Date.now() };
     return NextResponse.json(data);
   } catch (err) {
-    console.error("Intelligence API error:", err);
-    return NextResponse.json({ error: "Failed to generate analysis" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Intelligence API error:", message);
+    return NextResponse.json({ error: "Failed to generate analysis", detail: message }, { status: 500 });
   }
 }

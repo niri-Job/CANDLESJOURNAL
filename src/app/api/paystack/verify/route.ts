@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { sendPaymentReceipt } from "@/lib/email";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -116,6 +117,30 @@ export async function POST(request: Request) {
   }
 
   console.log("verify: Pro activated for user", user.id, "until", subscriptionEnd.toISOString(), "ref:", reference);
+
+  // ── Send payment receipt (fire-and-forget) ────────────────────────────────
+  if (user.email) {
+    // Fetch name from profile; fall back gracefully if row doesn't exist yet
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const name = (profile as { name?: string | null } | null)?.name ||
+                 user.email.split("@")[0].replace(/[._-]/g, " ");
+
+    // Infer billing type from amount — yearly amounts are 10.8× monthly
+    const isYearly = verifyJson.data!.amount >= 14_000;
+
+    sendPaymentReceipt(user.email, {
+      name,
+      billingType:     isYearly ? "yearly" : "monthly",
+      subscriptionEnd: subscriptionEnd.toISOString(),
+      reference,
+    }).catch((err) => console.error("[verify] receipt email error:", err));
+  }
+
   return NextResponse.json({
     success: true,
     subscription_end: subscriptionEnd.toISOString(),

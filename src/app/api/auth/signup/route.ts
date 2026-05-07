@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendWelcomeEmail } from "@/lib/email";
 
 function adminDb() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY)
@@ -48,6 +49,12 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  // Fire-and-forget — email failure must never block account creation
+  const nameFromEmail = email.split("@")[0].replace(/[._-]/g, " ");
+  sendWelcomeEmail(email, nameFromEmail).catch((err) =>
+    console.error("[signup] welcome email error:", err)
+  );
 
   return NextResponse.json({ success: true, userId: data.user.id });
 }

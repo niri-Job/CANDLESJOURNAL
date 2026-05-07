@@ -3,8 +3,9 @@ import { createClient }       from "@supabase/supabase-js";
 import { cookies }            from "next/headers";
 import { NextResponse }       from "next/server";
 
-const PRO_MONTHLY_KOBO = 1_300_000;
-const PRO_YEARLY_KOBO  = 14_040_000;
+// Amounts in USD cents ($13.00 monthly, $140.40 yearly)
+const PRO_MONTHLY_CENTS = 1_300;
+const PRO_YEARLY_CENTS  = 14_040;
 
 async function userDb() {
   const cookieStore = await cookies();
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
 
   const plan    = body.plan    === "pro" ? "pro" : "pro"; // only pro for now
   const billing = body.billing === "yearly" ? "yearly" : "monthly";
-  const amount  = billing === "yearly" ? PRO_YEARLY_KOBO : PRO_MONTHLY_KOBO;
+  const amount  = billing === "yearly" ? PRO_YEARLY_CENTS : PRO_MONTHLY_CENTS;
 
   const reference = `niri_${plan}_${billing === "yearly" ? "yr" : "mo"}_${Date.now()}_${user.id.slice(0, 8)}`;
   const siteUrl   = process.env.NEXT_PUBLIC_SITE_URL ?? "https://niri.live";
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         email:        user.email,
         amount,
-        currency:     "NGN",
+        currency:     "USD",
         reference,
         callback_url: callbackUrl,
         metadata: {
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
       user_id:      user.id,
       reference,
       amount,
-      currency:     "NGN",
+      currency:     "USD",
       plan_type:    plan,
       billing_type: billing,
       status:       "pending",

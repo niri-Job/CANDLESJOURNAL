@@ -202,12 +202,27 @@ function extractDeals(rows: string[][], logRaw = false): { deals: Deal[]; skippe
 
     if (!symbol || !timeStr) { skipped++; continue; }
 
+    const commentLower = comment.toLowerCase();
+    const symbolUpper  = symbol.toUpperCase();
+
+    // Skip balance/adjustment rows
     const isBalance =
       typeStr.includes("balance") || typeStr.includes("credit") ||
       dirStr.includes("balance")  ||
-      comment.toLowerCase().includes("deposit") ||
-      comment.toLowerCase().includes("withdraw");
+      commentLower.includes("deposit") ||
+      commentLower.includes("withdraw") ||
+      commentLower.includes("d-null") ||
+      /^[wd]-/i.test(comment) ||
+      symbolUpper.includes("NULL") ||
+      symbolUpper.includes("BANK");
     if (isBalance) { skipped++; continue; }
+
+    // Only import actual trades: must have valid symbol, volume > 0, type buy/sell
+    const isTrade = (typeStr === "buy" || typeStr === "sell") && volume > 0;
+    if (!isTrade) { skipped++; continue; }
+
+    // Skip if volume AND profit are both zero (empty/summary rows)
+    if (volume === 0 && profit === 0) { skipped++; continue; }
 
     deals.push({
       deal: dealId, order: orderId, symbol, type: typeStr, direction: dirStr,

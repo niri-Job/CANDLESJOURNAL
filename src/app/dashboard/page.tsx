@@ -544,8 +544,8 @@ export default function TradingJournal() {
 
   // ── Computed stats (based on account-filtered trades) ─────────────────────
   const totalPnl = accountTrades.reduce((s, t) => s + t.pnl, 0);
-  const wins     = accountTrades.filter((t) => t.pnl > 0).length;
-  const losses   = accountTrades.filter((t) => t.pnl < 0).length;
+  const wins     = accountTrades.filter((t) => (t.pnl || 0) > 0).length;
+  const losses   = accountTrades.filter((t) => (t.pnl || 0) < 0).length;
   const winRate  = accountTrades.length > 0 ? ((wins / accountTrades.length) * 100).toFixed(1) : null;
   const avgPnl   = accountTrades.length > 0 ? (totalPnl / accountTrades.length).toFixed(2) : null;
 

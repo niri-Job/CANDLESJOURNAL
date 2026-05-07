@@ -224,7 +224,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         width: "100%", textAlign: "left", padding: "1.375rem 0",
         background: "none", border: "none", cursor: "pointer",
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        color: "#f0e6c8", fontSize: "1rem", fontWeight: 600, gap: "1rem",
+        color: "var(--cj-text)", fontSize: "1rem", fontWeight: 600, gap: "1rem",
       }}>
         <span>{q}</span>
         <span style={{ color: "#F5C518", fontSize: "1.375rem", flexShrink: 0, transition: "transform 0.25s", transform: open ? "rotate(45deg)" : "none" }}>+</span>
@@ -244,7 +244,7 @@ function CmpRow({ label, niri, other, highlight }: { label: string; niri: string
     <tr style={{ background: highlight ? "rgba(245,197,24,0.05)" : "transparent" }}>
       <td style={{ padding: "0.875rem 1rem", color: "#8a7a5a", fontSize: "0.9rem", borderBottom: "1px solid rgba(245,197,24,0.07)" }}>{label}</td>
       <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(245,197,24,0.07)", borderLeft: "2px solid rgba(245,197,24,0.3)" }}>
-        <span style={{ color: "#F5C518", fontWeight: 700, fontSize: "0.9rem" }}>{niri}</span>
+        <span style={{ color: "var(--cj-gold)", fontWeight: 700, fontSize: "0.9rem" }}>{niri}</span>
       </td>
       <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(245,197,24,0.07)" }}>
         <span style={{ color: "#4a3a1a", fontSize: "0.9rem" }}>{other}</span>
@@ -260,7 +260,7 @@ function CheckItem({ text, dim }: { text: string; dim?: boolean }) {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
         <polyline points="20 6 9 17 4 12"/>
       </svg>
-      <span style={{ color: dim ? "#7a6a4a" : "#c0b080", fontSize: "0.9375rem", lineHeight: 1.5 }}>{text}</span>
+      <span style={{ color: dim ? "#7a6a4a" : "var(--cj-text)", fontSize: "0.9375rem", lineHeight: 1.5 }}>{text}</span>
     </div>
   );
 }
@@ -345,7 +345,7 @@ export default function LandingPage() {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        body { background: #080600; color: #f0e6c8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        body { background: var(--cj-bg); color: var(--cj-text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
         .fade-up { opacity: 0; transform: translateY(32px); transition: opacity 0.7s ease, transform 0.7s ease; }
         .fade-up.in-view { opacity: 1; transform: translateY(0); }
@@ -371,6 +371,13 @@ export default function LandingPage() {
           background-clip: text;
           animation: shimmer 3s linear infinite;
         }
+        [data-theme="light"] .shimmer-text {
+          background: linear-gradient(90deg,#8A6A00 0%,#B8920A 40%,#8A6A00 60%,#6A5000 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmer 3s linear infinite;
+        }
         .gold-btn {
           background: linear-gradient(135deg,#F5C518,#C9A227);
           color: #0a0800; border: none; border-radius: 0.5rem;
@@ -385,10 +392,42 @@ export default function LandingPage() {
           transition: background 0.2s, border-color 0.2s;
         }
         .outline-btn:hover { background: rgba(245,197,24,0.1); border-color: #F5C518; }
+        [data-theme="light"] .outline-btn { color: #8A6A00 !important; border-color: rgba(138,106,0,0.5) !important; }
+        [data-theme="light"] .outline-btn:hover { background: rgba(138,106,0,0.08) !important; border-color: #8A6A00 !important; }
         .nav-a { color: #9a8a6a; font-size: 0.9375rem; text-decoration: none; transition: color 0.2s; font-weight: 500; }
         .nav-a:hover { color: #F5C518; }
+        [data-theme="light"] .nav-a { color: #3A2C18; }
+        [data-theme="light"] .nav-a:hover { color: #8A6A00; }
         .card-hover { transition: transform 0.3s, box-shadow 0.3s; }
         .card-hover:hover { transform: translateY(-4px); box-shadow: 0 18px 44px rgba(245,197,24,0.12); }
+        [data-theme="light"] .card-hover:hover { box-shadow: 0 12px 36px rgba(138,106,0,0.14); }
+
+        /* ── Light theme section / card overrides ── */
+        [data-theme="light"] h1 { color: #1A1410 !important; }
+        [data-theme="light"] h2 { color: #1A1410 !important; }
+        [data-theme="light"] h3 { color: #1A1410 !important; }
+
+        /* Scrolled nav */
+        [data-theme="light"] .lp-nav-scrolled {
+          background: rgba(232,224,208,0.97) !important;
+          border-bottom-color: rgba(138,106,0,0.15) !important;
+          box-shadow: 0 2px 12px rgba(138,106,0,0.08) !important;
+        }
+        /* Mobile drawer */
+        [data-theme="light"] .lp-mobile-menu {
+          background: rgba(232,224,208,0.99) !important;
+        }
+        /* Dark gradient cards → light cream cards */
+        [data-theme="light"] .lp-card {
+          background: linear-gradient(145deg, #FEFCF8, #F0E8D8) !important;
+          border-color: rgba(138,106,0,0.2) !important;
+          box-shadow: 0 2px 12px rgba(138,106,0,0.06) !important;
+        }
+        /* FAQ / table wrapper */
+        [data-theme="light"] .lp-surface {
+          background: #FEFCF8 !important;
+          border-color: rgba(138,106,0,0.18) !important;
+        }
 
         @media (max-width: 768px) {
           .desktop-nav { display: none !important; }
@@ -451,7 +490,7 @@ export default function LandingPage() {
       `}</style>
 
       {/* ── NAVBAR ─────────────────────────────────────────────────────────── */}
-      <nav style={{
+      <nav className={scrolled ? "lp-nav-scrolled" : ""} style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
         height: scrolled ? "56px" : "72px", padding: "0 1.5rem",
         background: scrolled ? "rgba(8,6,0,0.97)" : "transparent",
@@ -494,7 +533,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Mobile drawer */}
-      <div style={{
+      <div className="lp-mobile-menu" style={{
         position: "fixed", inset: 0, zIndex: 99,
         background: "rgba(8,6,0,0.99)", padding: "5.5rem 2rem 2rem",
         display: "flex", flexDirection: "column", gap: "1.75rem",
@@ -579,7 +618,7 @@ export default function LandingPage() {
                   transition: "opacity 0.7s ease, transform 0.7s ease",
                   animation: heroCard === i ? "float 4s ease-in-out infinite" : "none",
                 }}>
-                  <div style={{
+                  <div className="lp-card" style={{
                     background: "linear-gradient(145deg,#1a1508,#0f0c04)",
                     border: `1px solid ${card.accent}40`,
                     borderLeft: `3px solid ${card.accent}`,
@@ -605,7 +644,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── LIVE DASHBOARD PREVIEW ──────────────────────────────────────────── */}
-      <section style={{ padding: "5rem 1.5rem", background: "#060500" }}>
+      <section style={{ padding: "5rem 1.5rem", background: "var(--cj-bg)" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div ref={previewRef} className="fade-up" style={{ textAlign: "center", marginBottom: "2.5rem" }}>
             <p style={{ color: "#7a6a4a", fontSize: "0.875rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
@@ -617,7 +656,7 @@ export default function LandingPage() {
           </div>
 
           {/* Mock dashboard card */}
-          <div style={{
+          <div className="lp-card" style={{
             background: "linear-gradient(145deg,#14120a,#0d0b05)",
             border: "1px solid rgba(245,197,24,0.2)",
             borderRadius: "1.5rem",
@@ -689,7 +728,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── PAIN ────────────────────────────────────────────────────────────── */}
-      <section id="why" style={{ padding: "7rem 1.5rem", background: "#080600" }}>
+      <section id="why" style={{ padding: "7rem 1.5rem", background: "var(--cj-bg)" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div ref={painRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
@@ -710,7 +749,7 @@ export default function LandingPage() {
             ].map((p, i) => {
               const ref = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
               return (
-                <div key={p.title} ref={ref} className="fade-up card-hover" style={{ transitionDelay: `${i * 80}ms`,
+                <div key={p.title} ref={ref} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 80}ms`,
                   background: "linear-gradient(145deg,#120f04,#0a0800)",
                   border: "1px solid rgba(245,197,24,0.08)",
                   borderLeft: `3px solid ${p.accent}60`,
@@ -763,7 +802,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── COACHING REPORT SHOWCASE ──────────────────────────────────────────── */}
-      <section id="ai-showcase" style={{ padding: "7rem 1.5rem", background: "#080600" }}>
+      <section id="ai-showcase" style={{ padding: "7rem 1.5rem", background: "var(--cj-bg)" }}>
         <div style={{ maxWidth: 820, margin: "0 auto" }}>
           <div ref={aiRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
@@ -774,7 +813,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div style={{
+          <div className="lp-card" style={{
             background: "linear-gradient(145deg,#1a1508,#0f0c04)",
             border: "1px solid rgba(245,197,24,0.25)",
             borderRadius: "1.5rem", overflow: "hidden",
@@ -837,7 +876,7 @@ export default function LandingPage() {
             {features.map((f, i) => {
               const fRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
               return (
-                <div key={f.title} ref={fRef} className="fade-up card-hover" style={{ transitionDelay: `${i * 60}ms`,
+                <div key={f.title} ref={fRef} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 60}ms`,
                   background: "linear-gradient(145deg,#141108,#0c0a02)",
                   border: "1px solid rgba(245,197,24,0.12)",
                   borderRadius: "1rem", padding: "1.75rem",
@@ -853,14 +892,14 @@ export default function LandingPage() {
       </section>
 
       {/* ── COMPARISON ──────────────────────────────────────────────────────── */}
-      <section style={{ padding: "7rem 1.5rem", background: "#080600" }}>
+      <section style={{ padding: "7rem 1.5rem", background: "var(--cj-bg)" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
           <div ref={cmpRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
               Why Serious MT5 Traders <span className="shimmer-text">Choose NIRI</span>
             </h2>
           </div>
-          <div style={{ background: "linear-gradient(145deg,#141108,#0c0a02)", border: "1px solid rgba(245,197,24,0.15)", borderRadius: "1.25rem", overflow: "hidden" }}>
+          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#141108,#0c0a02)", border: "1px solid rgba(245,197,24,0.15)", borderRadius: "1.25rem", overflow: "hidden" }}>
             <table className="cmp-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "rgba(245,197,24,0.06)" }}>
@@ -899,7 +938,7 @@ export default function LandingPage() {
           <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.5rem" }}>
 
             {/* Dashboard */}
-            <div className="card-hover" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.04)", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
                 <span style={{ color: "#6a5a3a", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>DASHBOARD</span>
               </div>
@@ -924,7 +963,7 @@ export default function LandingPage() {
             </div>
 
             {/* Chart review */}
-            <div className="card-hover" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.04)", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
                 <span style={{ color: "#6a5a3a", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>CHART REVIEW</span>
               </div>
@@ -948,7 +987,7 @@ export default function LandingPage() {
             </div>
 
             {/* Psychology */}
-            <div className="card-hover" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.04)", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
                 <span style={{ color: "#6a5a3a", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>PSYCHOLOGY</span>
               </div>
@@ -971,7 +1010,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── STATS ────────────────────────────────────────────────────────────── */}
-      <section style={{ padding: "5rem 1.5rem", background: "#080600", borderTop: "1px solid rgba(245,197,24,0.08)", borderBottom: "1px solid rgba(245,197,24,0.08)" }}>
+      <section style={{ padding: "5rem 1.5rem", background: "var(--cj-bg)", borderTop: "1px solid rgba(245,197,24,0.08)", borderBottom: "1px solid rgba(245,197,24,0.08)" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1.5rem" }}>
             <div ref={stat1.ref} style={{ textAlign: "center" }}>
@@ -1007,7 +1046,7 @@ export default function LandingPage() {
           </div>
           <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", maxWidth: 800, margin: "3rem auto 0" }}>
 
-            <div style={{ background: "linear-gradient(145deg,#141108,#0c0a02)", border: "1px solid rgba(245,197,24,0.15)", borderRadius: "1.375rem", padding: "2.25rem" }}>
+            <div className="lp-card" style={{ background: "linear-gradient(145deg,#141108,#0c0a02)", border: "1px solid rgba(245,197,24,0.15)", borderRadius: "1.375rem", padding: "2.25rem" }}>
               <p style={{ color: "#6a5a3a", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Free</p>
               <p style={{ color: "#5a4a2a", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Start tracking with no credit card</p>
               <div style={{ marginBottom: "1.75rem" }}>
@@ -1026,7 +1065,7 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div style={{ background: "linear-gradient(145deg,#1e1a06,#131000)", border: "2px solid #F5C518", borderRadius: "1.375rem", padding: "2.25rem", position: "relative", boxShadow: "0 0 50px rgba(245,197,24,0.1)" }}>
+            <div className="lp-card" style={{ background: "linear-gradient(145deg,#1e1a06,#131000)", border: "2px solid #F5C518", borderRadius: "1.375rem", padding: "2.25rem", position: "relative", boxShadow: "0 0 50px rgba(245,197,24,0.1)" }}>
               <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0a0800", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
                 ALL FEATURES
               </div>
@@ -1060,7 +1099,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────────── */}
-      <section style={{ padding: "7rem 1.5rem", background: "#080600" }}>
+      <section style={{ padding: "7rem 1.5rem", background: "var(--cj-bg)" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div ref={testRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
@@ -1079,7 +1118,7 @@ export default function LandingPage() {
             ].map((t, i) => {
               const tRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
               return (
-                <div key={t.name} ref={tRef} className="fade-up card-hover" style={{ transitionDelay: `${i * 100}ms`,
+                <div key={t.name} ref={tRef} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 100}ms`,
                   background: "linear-gradient(145deg,#141108,#0c0a02)",
                   border: "1px solid rgba(245,197,24,0.12)",
                   borderRadius: "1.25rem", padding: "2rem",
@@ -1107,7 +1146,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── DERIV TRADERS ────────────────────────────────────────────────────── */}
-      <section style={{ padding: "5rem 1.5rem", background: "linear-gradient(180deg, #0a0800 0%, #100d00 50%, #0a0800 100%)" }}>
+      <section style={{ padding: "5rem 1.5rem", background: "var(--cj-bg)" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", alignItems: "center" }} className="grid-2">
             <div>
@@ -1151,7 +1190,7 @@ export default function LandingPage() {
                 { label: "Risk exposure", value: "$2.40 average risk per synthetic trade" },
                 { label: "Pattern detection", value: "Revenge trading after Crash 500 losses" },
               ].map(item => (
-                <div key={item.label} style={{
+                <div key={item.label} className="lp-card" style={{
                   background: "linear-gradient(145deg,#1a1508,#0f0c04)",
                   border: "1px solid rgba(245,197,24,0.1)",
                   borderRadius: "0.875rem", padding: "1rem 1.25rem",
@@ -1173,7 +1212,7 @@ export default function LandingPage() {
               Frequently Asked <span className="shimmer-text">Questions</span>
             </h2>
           </div>
-          <div style={{ background: "linear-gradient(145deg,#0f0c04,#080600)", border: "1px solid rgba(245,197,24,0.1)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
+          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#0f0c04,#080600)", border: "1px solid rgba(245,197,24,0.1)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
             <FaqItem q="How is NIRI different from TradeZella?"
               a="NIRI is built specifically for MT5 traders and costs 70% less ($13/mo compared to $29 to $49/mo). NIRI also includes features TradeZella does not: emotion tracking per trade, trade visualization on a live chart, a dedicated Psychology report tab, and a referral earnings program." />
             <FaqItem q="Do I need to manually import my trades?"
@@ -1193,7 +1232,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FINAL CTA ────────────────────────────────────────────────────────── */}
-      <section style={{ padding: "8rem 1.5rem", background: "#080600" }}>
+      <section style={{ padding: "8rem 1.5rem", background: "var(--cj-bg)" }}>
         <div ref={ctaRef} className="fade-up" style={{ maxWidth: 660, margin: "0 auto", textAlign: "center" }}>
           <h2 style={{ fontSize: "clamp(2rem,5.5vw,3.25rem)", fontWeight: 900, color: "#f0e6c8", lineHeight: 1.1, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
             Stop Repeating the<br />Same Mistakes.
@@ -1216,7 +1255,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────────────────── */}
-      <footer style={{ background: "#040300", borderTop: "1px solid rgba(245,197,24,0.07)", padding: "3.5rem 1.5rem 2rem" }}>
+      <footer style={{ background: "var(--cj-surface)", borderTop: "1px solid rgba(245,197,24,0.07)", padding: "3.5rem 1.5rem 2rem" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "2.5rem", marginBottom: "3rem" }}>
             <div>

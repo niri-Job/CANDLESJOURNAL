@@ -121,40 +121,43 @@ export default function LoginPage() {
       if (e) { setError(e.message); setLoading(false); return; }
       window.location.href = "/";
     } else {
-      const { data: signUpData, error: e } = await supabase.auth.signUp({ email, password });
-      if (e) {
-        console.dir(e, { depth: null });
-        if (e.message?.toLowerCase().includes("sending") || e.message?.toLowerCase().includes("email")) {
-          console.error("Email error details:", JSON.stringify(e));
-          // Account created but email failed — still let user know
-          setSuccess("Account created! Check your email to confirm, or contact support@niri.live if you don't receive a confirmation email.");
-          switchMode("login");
-          setLoading(false);
-          return;
-        }
-        setError("Sign up failed. Please try again or contact support@niri.live for help.");
+      // Use server-side admin route to create + auto-confirm user
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json.error ?? "Sign up failed. Please try again or contact support@niri.live for help.");
+        setLoading(false);
+        return;
+      }
+
+      // Account created and confirmed — sign in immediately
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInErr) {
+        setError("Account created! Sign in failed: " + signInErr.message);
         setLoading(false);
         return;
       }
 
       // Track referral if a code was stored
-      if (signUpData.user) {
-        const refCode = localStorage.getItem("cj_ref");
-        if (refCode) {
-          try {
-            await fetch("/api/referrals/track", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ referral_code: refCode }),
-            });
-          } finally {
-            localStorage.removeItem("cj_ref");
-          }
+      const refCode = localStorage.getItem("cj_ref");
+      if (refCode) {
+        try {
+          await fetch("/api/referrals/track", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ referral_code: refCode }),
+          });
+        } finally {
+          localStorage.removeItem("cj_ref");
         }
       }
 
-      setSuccess("Account created! Check your email to confirm, then sign in. If you don't receive an email, contact support@niri.live.");
-      switchMode("login");
+      window.location.href = "/";
     }
     setLoading(false);
   }

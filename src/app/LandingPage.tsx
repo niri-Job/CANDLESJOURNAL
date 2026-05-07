@@ -572,10 +572,10 @@ export default function LandingPage() {
                 display: "inline-flex", alignItems: "center", gap: "0.625rem",
                 background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.2)",
                 borderRadius: "2rem", padding: "0.375rem 1rem",
-                color: "#F5C518", fontSize: "0.8125rem", fontWeight: 600,
+                color: "var(--cj-gold)", fontSize: "0.8125rem", fontWeight: 600,
                 marginBottom: "1.75rem", letterSpacing: "0.05em",
               }}>
-                <IcoTarget color="#F5C518" size={14} />
+                <IcoTarget color="var(--cj-gold)" size={14} />
                 <span>Behavioral Trading Intelligence</span>
               </div>
 
@@ -769,7 +769,7 @@ export default function LandingPage() {
             })}
           </div>
           <div style={{ textAlign: "center", marginTop: "3rem" }}>
-            <p style={{ color: "#F5C518", fontWeight: 800, fontSize: "1.375rem" }}>NIRI addresses all of this with data.</p>
+            <p style={{ color: "var(--cj-gold)", fontWeight: 800, fontSize: "1.375rem" }}>NIRI addresses all of this with data.</p>
           </div>
         </div>
       </section>
@@ -923,7 +923,7 @@ export default function LandingPage() {
                 <CmpRow label="Report types" niri="8 full report types" other="Overview and basic metrics only" highlight />
                 <CmpRow label="Referral earnings program" niri="Yes" other="No" />
                 <CmpRow label="African broker support" niri="WAT timezone, African broker support" other="No regional optimization" highlight />
-                <CmpRow label="Monthly price" niri="$8 to $13" other="$29 to $49" />
+                <CmpRow label="Monthly price" niri="$13 / month" other="$29 to $49" />
               </tbody>
             </table>
           </div>

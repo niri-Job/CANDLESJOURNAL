@@ -428,6 +428,12 @@ export default function LandingPage() {
           background: #FEFCF8 !important;
           border-color: rgba(138,106,0,0.18) !important;
         }
+        /* Social icon links */
+        [data-theme="light"] .lp-social-link {
+          background: rgba(74,63,47,0.08) !important;
+          border-color: rgba(74,63,47,0.18) !important;
+        }
+        [data-theme="light"] .lp-social-link svg { stroke: #4A3F2F !important; }
 
         @media (max-width: 768px) {
           .desktop-nav { display: none !important; }
@@ -507,7 +513,7 @@ export default function LandingPage() {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontWeight: 800, color: "#0a0800", fontSize: "0.875rem",
           }}>NI</div>
-          <span style={{ fontWeight: 800, fontSize: "1.125rem", color: "#f0e6c8", letterSpacing: "-0.01em" }}>NIRI</span>
+          <span style={{ fontWeight: 800, fontSize: "1.125rem", color: "var(--cj-text)", letterSpacing: "-0.01em" }}>NIRI</span>
         </Link>
 
         <div className="desktop-nav" style={{ display: "flex", alignItems: "center", gap: "2.25rem" }}>
@@ -574,9 +580,9 @@ export default function LandingPage() {
               </div>
 
               <h1 style={{ fontSize: "clamp(2.5rem,5.5vw,3.5rem)", fontWeight: 900, lineHeight: 1.08, marginBottom: "1.375rem", letterSpacing: "-0.02em" }}>
-                <span style={{ color: "#f0e6c8" }}>You&rsquo;re Not Losing</span>
+                <span style={{ color: "var(--cj-text)" }}>You&rsquo;re Not Losing</span>
                 <br />
-                <span style={{ color: "#f0e6c8" }}>Because of the</span>
+                <span style={{ color: "var(--cj-text)" }}>Because of the</span>
                 <br />
                 <span className="shimmer-text glitch-hero" data-text="Market.">Market.</span>
               </h1>
@@ -1050,7 +1056,7 @@ export default function LandingPage() {
               <p style={{ color: "#6a5a3a", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Free</p>
               <p style={{ color: "#5a4a2a", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Start tracking with no credit card</p>
               <div style={{ marginBottom: "1.75rem" }}>
-                <span style={{ color: "#f0e6c8", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>$0</span>
+                <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>$0</span>
                 <span style={{ color: "#3a2a0a", fontSize: "0.875rem" }}> / month</span>
               </div>
               <CheckItem text="Up to 20 trades per month" dim />
@@ -1072,7 +1078,7 @@ export default function LandingPage() {
               <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Pro</p>
               <p style={{ color: "#7a6a4a", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Everything you need to improve as a trader</p>
               <div style={{ marginBottom: "1.75rem" }}>
-                <span style={{ color: "#f0e6c8", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>$13</span>
+                <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>$13</span>
                 <span style={{ color: "#4a3a1a", fontSize: "0.875rem" }}> / month</span>
               </div>
               <CheckItem text="Unlimited trades + MT5 Quick Connect" />
@@ -1130,7 +1136,7 @@ export default function LandingPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0800", fontSize: "1rem", flexShrink: 0 }}>{t.name[0]}</div>
                     <div>
-                      <div style={{ color: "#f0e6c8", fontWeight: 700, fontSize: "0.875rem" }}>{t.name}</div>
+                      <div style={{ color: "var(--cj-text)", fontWeight: 700, fontSize: "0.875rem" }}>{t.name}</div>
                       <div style={{ color: "#3a2a0a", fontSize: "0.8125rem" }}>{t.location}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: 2 }}>
                         <IcoAward color="#C9A227" size={12} />
@@ -1262,7 +1268,7 @@ export default function LandingPage() {
               <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "0.75rem" }}>
                 {/* Logo placeholder — swap with <img src="/logo.png"> when brand assets arrive */}
                 <div style={{ width: 28, height: 28, borderRadius: "7px", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0800", fontSize: "0.75rem" }}>NI</div>
-                <span style={{ fontWeight: 800, color: "#f0e6c8", fontSize: "1rem", letterSpacing: "-0.01em" }}>NIRI</span>
+                <span style={{ fontWeight: 800, color: "var(--cj-text)", fontSize: "1rem", letterSpacing: "-0.01em" }}>NIRI</span>
               </div>
               <p style={{ color: "#2a1a04", fontSize: "0.875rem", lineHeight: 1.65, maxWidth: 220 }}>
                 Behavioral trading intelligence for MT5 traders worldwide.
@@ -1273,7 +1279,7 @@ export default function LandingPage() {
                   { ico: <IcoTelegram />, label: "Telegram" },
                   { ico: <IcoWhatsapp />, label: "WhatsApp" },
                 ].map(({ ico, label }) => (
-                  <a key={label} href="#" aria-label={label} style={{ width: 32, height: 32, borderRadius: "8px", background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.1)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", transition: "background 0.2s" }}
+                  <a key={label} href="#" aria-label={label} className="lp-social-link" style={{ width: 32, height: 32, borderRadius: "8px", background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.1)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", transition: "background 0.2s" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "rgba(245,197,24,0.15)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "rgba(245,197,24,0.08)")}
                   >{ico}</a>

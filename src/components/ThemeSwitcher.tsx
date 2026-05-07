@@ -20,7 +20,7 @@ export function ThemeSwitcher({ user }: { user: User | null }) {
   const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
-    const saved = (localStorage.getItem("cj_theme") as Theme | null) ?? "dark";
+    const saved = (localStorage.getItem("cj_theme") as Theme | null) ?? "light";
     setTheme(saved);
     applyTheme(saved);
   }, []);

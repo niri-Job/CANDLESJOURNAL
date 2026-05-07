@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-// Cache for 30 min — live prices are fetched on every cache miss
+// Cache for 30 min — live prices fetched on every cache miss
 let cached: { data: unknown; ts: number } | null = null;
 const CACHE_TTL = 30 * 60 * 1000;
 
@@ -10,54 +10,92 @@ interface LivePrices {
   GBPUSD: number;
   XAUUSD: number;
   fetchedAt: string;
+  source: string;
 }
 
-async function fetchLivePrices(): Promise<LivePrices> {
-  const now = new Date().toISOString();
-
-  // Frankfurter returns the rate FROM the base TO the symbol
-  // e.g. from=EUR&to=USD gives { rates: { USD: 1.0831 } } → EURUSD = 1.0831
-  const [eurRes, gbpRes, goldRes] = await Promise.all([
-    fetch("https://api.frankfurter.app/latest?from=EUR&to=USD", {
-      signal: AbortSignal.timeout(8000),
-    }),
-    fetch("https://api.frankfurter.app/latest?from=GBP&to=USD", {
-      signal: AbortSignal.timeout(8000),
-    }),
-    fetch("https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X?interval=1m&range=1d", {
-      headers: { "User-Agent": "Mozilla/5.0" },
-      signal: AbortSignal.timeout(8000),
-    }),
-  ]);
-
-  if (!eurRes.ok)  throw new Error(`Frankfurter EUR fetch failed: ${eurRes.status}`);
-  if (!gbpRes.ok)  throw new Error(`Frankfurter GBP fetch failed: ${gbpRes.status}`);
-  if (!goldRes.ok) throw new Error(`Yahoo Finance gold fetch failed: ${goldRes.status}`);
-
-  const [eurJson, gbpJson, goldJson] = await Promise.all([
-    eurRes.json()  as Promise<{ rates: { USD: number } }>,
-    gbpRes.json()  as Promise<{ rates: { USD: number } }>,
-    goldRes.json() as Promise<{ chart: { result?: { meta: { regularMarketPrice: number } }[] } }>,
-  ]);
-
-  const eurusd = eurJson?.rates?.USD;
-  const gbpusd = gbpJson?.rates?.USD;
-  const xauusd = goldJson?.chart?.result?.[0]?.meta?.regularMarketPrice;
-
-  if (!eurusd || !gbpusd || !xauusd) {
-    throw new Error(
-      `Incomplete price data — EURUSD:${eurusd} GBPUSD:${gbpusd} XAUUSD:${xauusd}`
-    );
-  }
-
+// ── Primary: open.er-api.com (free, no key, very reliable) ───────────────────
+async function fetchForexPrimary(): Promise<{ EURUSD: number; GBPUSD: number }> {
+  const res = await fetch("https://open.er-api.com/v6/latest/USD", {
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw new Error(`open.er-api: ${res.status}`);
+  const json = await res.json() as { rates?: Record<string, number> };
+  const eur = json.rates?.EUR;
+  const gbp = json.rates?.GBP;
+  if (!eur || !gbp) throw new Error(`open.er-api: missing rates (EUR=${eur} GBP=${gbp})`);
   return {
-    EURUSD: Math.round(eurusd * 10000) / 10000,
-    GBPUSD: Math.round(gbpusd * 10000) / 10000,
-    XAUUSD: Math.round(xauusd * 100) / 100,
-    fetchedAt: now,
+    EURUSD: Math.round((1 / eur) * 100000) / 100000,
+    GBPUSD: Math.round((1 / gbp) * 100000) / 100000,
   };
 }
 
+// ── Primary: metals.live (free, no key) ──────────────────────────────────────
+async function fetchGoldPrimary(): Promise<number> {
+  const res = await fetch("https://api.metals.live/v1/spot/gold", {
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw new Error(`metals.live: ${res.status}`);
+  const json = await res.json() as unknown;
+  // metals.live returns [{ gold: number }] or { gold: number }
+  const raw = (Array.isArray(json) ? json[0] : json) as Record<string, number> | null;
+  const price = raw?.gold ?? raw?.price ?? raw?.xau ?? raw?.XAU;
+  if (!price || typeof price !== "number") {
+    throw new Error(`metals.live: unexpected format — ${JSON.stringify(json).slice(0, 120)}`);
+  }
+  return Math.round(price * 100) / 100;
+}
+
+// ── Fallback: CDN-hosted currency API (never goes down) ───────────────────────
+async function fetchCdnFallback(): Promise<{ EURUSD: number; GBPUSD: number; XAUUSD: number }> {
+  const res = await fetch(
+    "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json",
+    { signal: AbortSignal.timeout(10000) }
+  );
+  if (!res.ok) throw new Error(`CDN fallback: ${res.status}`);
+  const json = await res.json() as { usd?: Record<string, number> };
+  const rates = json.usd;
+  const eur = rates?.eur;
+  const gbp = rates?.gbp;
+  const xau = rates?.xau; // amount of XAU per 1 USD → invert for XAUUSD
+  if (!eur || !gbp || !xau) {
+    throw new Error(`CDN fallback: missing rates (eur=${eur} gbp=${gbp} xau=${xau})`);
+  }
+  return {
+    EURUSD: Math.round((1 / eur) * 100000) / 100000,
+    GBPUSD: Math.round((1 / gbp) * 100000) / 100000,
+    XAUUSD: Math.round((1 / xau) * 100) / 100,
+  };
+}
+
+// ── Orchestrator: parallel primary fetch → CDN fallback ──────────────────────
+async function fetchLivePrices(): Promise<LivePrices> {
+  const now = new Date().toISOString();
+
+  const [forexRes, goldRes] = await Promise.allSettled([
+    fetchForexPrimary(),
+    fetchGoldPrimary(),
+  ]);
+
+  if (forexRes.status === "fulfilled" && goldRes.status === "fulfilled") {
+    return {
+      ...forexRes.value,
+      XAUUSD: goldRes.value,
+      fetchedAt: now,
+      source: "open.er-api + metals.live",
+    };
+  }
+
+  // At least one primary failed — log and try CDN fallback
+  console.warn("Intelligence API: primary fetch partial failure — trying CDN fallback", {
+    forex: forexRes.status === "rejected" ? String(forexRes.reason) : "ok",
+    gold:  goldRes.status  === "rejected" ? String(goldRes.reason)  : "ok",
+  });
+
+  const fallback = await fetchCdnFallback(); // throws if this also fails
+  return { ...fallback, fetchedAt: now, source: "cdn.jsdelivr.net/fawazahmed0" };
+}
+
+// ── Route handler ─────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const isTest = searchParams.get("test") === "1";
@@ -94,16 +132,21 @@ export async function GET(request: Request) {
     return NextResponse.json(cached.data);
   }
 
-  // ── Fetch live prices — hard fail if unavailable ──────────────────────────
+  // ── Hard-fail if live prices are unavailable ──────────────────────────────
   let prices: LivePrices;
   try {
     prices = await fetchLivePrices();
-    console.log("Intelligence API: live prices fetched —", prices);
+    console.log(`Intelligence API: prices from [${prices.source}] —`, {
+      EURUSD: prices.EURUSD,
+      GBPUSD: prices.GBPUSD,
+      XAUUSD: prices.XAUUSD,
+    });
   } catch (err) {
-    console.error("Intelligence API: price fetch failed:", err);
+    console.error("Intelligence API: all price sources failed:", err);
     return NextResponse.json(
       {
-        error: "Unable to fetch live prices. Analysis paused to protect traders from stale data.",
+        error:
+          "Unable to fetch live prices. Analysis paused to protect traders from stale data.",
         detail: String(err),
       },
       { status: 502 }
@@ -160,7 +203,8 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
     "EURUSD": ${prices.EURUSD},
     "GBPUSD": ${prices.GBPUSD},
     "XAUUSD": ${prices.XAUUSD},
-    "fetched_at": "${prices.fetchedAt}"
+    "fetched_at": "${prices.fetchedAt}",
+    "source": "${prices.source}"
   },
   "generated_at": "${new Date().toISOString()}"
 }`,

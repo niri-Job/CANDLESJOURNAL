@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { UpgradeModal } from "./UpgradeModal";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -77,9 +78,10 @@ interface SidebarProps {
 
 export function Sidebar({ user, onSignOut }: SidebarProps) {
   const pathname = usePathname();
-  const [open,      setOpen]      = useState(false);
-  const [plan,      setPlan]      = useState<string>("free");
-  const [collapsed, setCollapsed] = useState(false);
+  const [open,         setOpen]         = useState(false);
+  const [plan,         setPlan]         = useState<string>("free");
+  const [collapsed,    setCollapsed]    = useState(false);
+  const [upgradeOpen,  setUpgradeOpen]  = useState(false);
 
   // Load collapse preference from localStorage
   useEffect(() => {
@@ -187,11 +189,12 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             </Link>
           </div>
         ) : (
-          <Link href="/pricing"
-            className="block w-full text-center text-xs font-bold py-2 rounded-xl transition-all"
+          <button
+            onClick={() => setUpgradeOpen(true)}
+            className="block w-full text-center text-xs font-bold py-2 rounded-xl transition-all hover:opacity-90"
             style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
             Upgrade to Pro
-          </Link>
+          </button>
         )}
 
         <button
@@ -282,6 +285,15 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           {open ? "✕" : "☰"}
         </button>
       </div>
+
+      {/* ── Upgrade modal ────────────────────────────────────────────── */}
+      <UpgradeModal
+        isOpen={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        email={user?.email}
+        userId={user?.id}
+        onSuccess={() => { setUpgradeOpen(false); setPlan("pro"); }}
+      />
 
       {/* ── Mobile overlay sidebar ────────────────────────────────────── */}
       {open && (

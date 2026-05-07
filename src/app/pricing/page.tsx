@@ -6,24 +6,6 @@ import { createClient } from "@/lib/supabase";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { User } from "@supabase/supabase-js";
 
-// ─── Paystack global type ─────────────────────────────────────────────────────
-declare global {
-  interface Window {
-    PaystackPop: {
-      setup(config: {
-        key: string;
-        email: string;
-        amount: number;
-        currency: string;
-        ref: string;
-        metadata: Record<string, unknown>;
-        callback: (response: { reference: string }) => void;
-        onClose: () => void;
-      }): { openIframe(): void };
-    };
-  }
-}
-
 // ─── Plan content ─────────────────────────────────────────────────────────────
 const FREE_FEATURES = [
   "Up to 20 trades per month",
@@ -101,7 +83,7 @@ export default function PricingPage() {
   useEffect(() => {
     const SCRIPT_ID = "paystack-inline-js";
     if (document.getElementById(SCRIPT_ID)) {
-      if ((window as Window & { PaystackPop?: unknown }).PaystackPop) setScriptReady(true);
+      if (window.PaystackPop) setScriptReady(true);
       return;
     }
     const script = document.createElement("script");
@@ -146,7 +128,7 @@ export default function PricingPage() {
     const amount = isYearly ? PRO_YEARLY_KOBO : PRO_MONTHLY_KOBO;
     const ref = `cj_${plan}_${isYearly ? "yr" : "mo"}_${Date.now()}_${user.id.slice(0, 8)}`;
     setPayingPlan(plan);
-    const handler = window.PaystackPop.setup({
+    const handler = window.PaystackPop!.setup({
       key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
       email: user.email!,
       amount,

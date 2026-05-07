@@ -1,28 +1,113 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
-// Simple in-memory cache (30 min TTL)
+// Cache for 30 min — live prices are fetched on every cache miss
 let cached: { data: unknown; ts: number } | null = null;
 const CACHE_TTL = 30 * 60 * 1000;
+
+interface LivePrices {
+  EURUSD: number;
+  GBPUSD: number;
+  XAUUSD: number;
+  fetchedAt: string;
+}
+
+async function fetchLivePrices(): Promise<LivePrices> {
+  const now = new Date().toISOString();
+
+  // Frankfurter returns the rate FROM the base TO the symbol
+  // e.g. from=EUR&to=USD gives { rates: { USD: 1.0831 } } → EURUSD = 1.0831
+  const [eurRes, gbpRes, goldRes] = await Promise.all([
+    fetch("https://api.frankfurter.app/latest?from=EUR&to=USD", {
+      signal: AbortSignal.timeout(8000),
+    }),
+    fetch("https://api.frankfurter.app/latest?from=GBP&to=USD", {
+      signal: AbortSignal.timeout(8000),
+    }),
+    fetch("https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X?interval=1m&range=1d", {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(8000),
+    }),
+  ]);
+
+  if (!eurRes.ok)  throw new Error(`Frankfurter EUR fetch failed: ${eurRes.status}`);
+  if (!gbpRes.ok)  throw new Error(`Frankfurter GBP fetch failed: ${gbpRes.status}`);
+  if (!goldRes.ok) throw new Error(`Yahoo Finance gold fetch failed: ${goldRes.status}`);
+
+  const [eurJson, gbpJson, goldJson] = await Promise.all([
+    eurRes.json()  as Promise<{ rates: { USD: number } }>,
+    gbpRes.json()  as Promise<{ rates: { USD: number } }>,
+    goldRes.json() as Promise<{ chart: { result?: { meta: { regularMarketPrice: number } }[] } }>,
+  ]);
+
+  const eurusd = eurJson?.rates?.USD;
+  const gbpusd = gbpJson?.rates?.USD;
+  const xauusd = goldJson?.chart?.result?.[0]?.meta?.regularMarketPrice;
+
+  if (!eurusd || !gbpusd || !xauusd) {
+    throw new Error(
+      `Incomplete price data — EURUSD:${eurusd} GBPUSD:${gbpusd} XAUUSD:${xauusd}`
+    );
+  }
+
+  return {
+    EURUSD: Math.round(eurusd * 10000) / 10000,
+    GBPUSD: Math.round(gbpusd * 10000) / 10000,
+    XAUUSD: Math.round(xauusd * 100) / 100,
+    fetchedAt: now,
+  };
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const isTest = searchParams.get("test") === "1";
 
-  // Return cached if fresh (skip cache in test mode)
-  if (!isTest && cached && Date.now() - cached.ts < CACHE_TTL) {
-    return NextResponse.json(cached.data);
-  }
-
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     console.error("Intelligence API: ANTHROPIC_API_KEY is not set");
-    return NextResponse.json({ error: "Intelligence service not configured", key_present: false }, { status: 503 });
+    return NextResponse.json(
+      { error: "Intelligence service not configured", key_present: false },
+      { status: 503 }
+    );
   }
 
-  console.log("Intelligence API: key prefix =", apiKey.slice(0, 10));
+  // Test mode: verify key + live price fetch without calling Claude
   if (isTest) {
-    return NextResponse.json({ key_prefix: apiKey.slice(0, 10), model: "claude-haiku-4-5-20251001", status: "key_present" });
+    try {
+      const prices = await fetchLivePrices();
+      return NextResponse.json({
+        key_prefix: apiKey.slice(0, 10),
+        model: "claude-haiku-4-5-20251001",
+        status: "ok",
+        live_prices: prices,
+      });
+    } catch (err) {
+      return NextResponse.json(
+        { key_prefix: apiKey.slice(0, 10), status: "price_fetch_failed", error: String(err) },
+        { status: 502 }
+      );
+    }
+  }
+
+  // Return cached if still fresh
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return NextResponse.json(cached.data);
+  }
+
+  // ── Fetch live prices — hard fail if unavailable ──────────────────────────
+  let prices: LivePrices;
+  try {
+    prices = await fetchLivePrices();
+    console.log("Intelligence API: live prices fetched —", prices);
+  } catch (err) {
+    console.error("Intelligence API: price fetch failed:", err);
+    return NextResponse.json(
+      {
+        error: "Unable to fetch live prices. Analysis paused to protect traders from stale data.",
+        detail: String(err),
+      },
+      { status: 502 }
+    );
   }
 
   const client = new Anthropic();
@@ -32,11 +117,17 @@ export async function GET(request: Request) {
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 2000,
-      messages: [{
-        role: "user",
-        content: `You are a professional forex and financial market analyst. Today is ${today}.
+      messages: [
+        {
+          role: "user",
+          content: `You are a professional forex and financial market analyst. Today is ${today}.
 
-Analyse current market conditions and identify the 3 strongest trading setups available today based on typical technical patterns, major fundamental drivers, and market structure.
+LIVE MARKET PRICES (fetched ${prices.fetchedAt}):
+- EURUSD: ${prices.EURUSD}
+- GBPUSD: ${prices.GBPUSD}
+- XAUUSD (Gold/USD): ${prices.XAUUSD}
+
+Using these exact current prices, identify the 3 strongest trading setups available today. Base ALL entry zones, stop loss, and take profit levels on the real prices above — do not invent prices. Apply standard technical analysis (support/resistance, moving averages, structure) relative to these actual levels.
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
 {
@@ -65,13 +156,19 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
     "pairs_to_watch": ["XAUUSD", "EURUSD", "GBPUSD"],
     "pairs_to_avoid": ["USDJPY", "USDCHF"]
   },
+  "live_prices": {
+    "EURUSD": ${prices.EURUSD},
+    "GBPUSD": ${prices.GBPUSD},
+    "XAUUSD": ${prices.XAUUSD},
+    "fetched_at": "${prices.fetchedAt}"
+  },
   "generated_at": "${new Date().toISOString()}"
-}`
-      }]
+}`,
+        },
+      ],
     });
 
     const raw = response.content[0].type === "text" ? response.content[0].text : "";
-    // Strip markdown code fences the model sometimes adds despite instructions
     const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
     let data: unknown;
     try {
@@ -85,6 +182,9 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Intelligence API error:", message);
-    return NextResponse.json({ error: "Failed to generate analysis", detail: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to generate analysis", detail: message },
+      { status: 500 }
+    );
   }
 }

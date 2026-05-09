@@ -32,13 +32,38 @@ export async function DELETE(
   // Verify the account belongs to this user
   const { data: account } = await supabase
     .from("trading_accounts")
-    .select("id")
+    .select("id, metaapi_account_id")
     .eq("account_signature", signature)
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!account) {
     return NextResponse.json({ error: "Account not found" }, { status: 404 });
+  }
+
+  // Remove the MetaAPI cloud account so it doesn't count against the plan limit.
+  // Non-fatal: Supabase deletion proceeds even if MetaAPI cleanup fails.
+  const metaapiId = (account as Record<string, string | null>).metaapi_account_id;
+  if (metaapiId && process.env.METAAPI_TOKEN) {
+    const provUrl = (
+      process.env.METAAPI_PROVISIONING_URL ??
+      "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai"
+    ).replace(/\/$/, "");
+    const headers: Record<string, string> = {
+      "auth-token":   process.env.METAAPI_TOKEN,
+      "Content-Type": "application/json",
+    };
+    try {
+      // Undeploy first (MetaAPI requires this before delete on deployed accounts)
+      await fetch(`${provUrl}/users/current/accounts/${metaapiId}/undeploy`, {
+        method: "POST", headers, body: "{}",
+      }).catch(() => {});
+      await fetch(`${provUrl}/users/current/accounts/${metaapiId}`, {
+        method: "DELETE", headers,
+      }).catch(() => {});
+    } catch {
+      console.warn(`MetaAPI cleanup failed for account ${metaapiId} — remove manually at app.metaapi.cloud`);
+    }
   }
 
   // Delete trades first (preserve FK integrity)

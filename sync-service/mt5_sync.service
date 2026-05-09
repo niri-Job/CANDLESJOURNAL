@@ -1,0 +1,20 @@
+[Unit]
+Description=CandlesJournal MetaAPI Sync Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/candlesjournal/sync-service
+ExecStart=/opt/candlesjournal/sync-service/venv/bin/python mt5_sync.py
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cj-sync
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

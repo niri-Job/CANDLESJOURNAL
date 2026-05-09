@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createCipheriv, randomBytes } from "crypto";
+import { getTrialStatus } from "@/lib/trial";
 
 // ── Encryption ─────────────────────────────────────────────────────────────
 // AES-256-CBC. ENCRYPTION_KEY must be set in env (32 chars recommended).
@@ -68,6 +69,15 @@ export async function POST(request: Request) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Block MT5 connection if trial has expired and user is not on Pro
+  const trialStatus = await getTrialStatus(user.id);
+  if (!trialStatus.isPro && trialStatus.expired) {
+    return NextResponse.json({
+      error: "Your 3-day free trial has ended. Upgrade to Pro to connect MT5 accounts.",
+      trial_reason: "expired",
+    }, { status: 403 });
   }
 
   // ── Plan-based account limits ───────────────────────────────────────────

@@ -155,6 +155,7 @@ export default function IntelligencePage() {
   const [loading,      setLoading]      = useState(true);
   const [lastUpdated,  setLastUpdated]  = useState<Date | null>(null);
   const [error,        setError]        = useState<string | null>(null);
+  const [trialBlock,   setTrialBlock]   = useState<{ reason: "expired" | "limit_reached"; message: string } | null>(null);
 
   async function fetchAnalysis(bust = false) {
     setLoading(true);
@@ -163,7 +164,11 @@ export default function IntelligencePage() {
       const url = bust ? `/api/intelligence?t=${Date.now()}` : "/api/intelligence";
       const res = await fetch(url);
       if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
+        const body = await res.json().catch(() => ({})) as { error?: string; trial_reason?: string };
+        if (res.status === 403 && (body.trial_reason === "expired" || body.trial_reason === "limit_reached")) {
+          setTrialBlock({ reason: body.trial_reason, message: body.error ?? "Trial limit reached." });
+          return;
+        }
         throw new Error(body.error ?? `Request failed (${res.status})`);
       }
       const data = await res.json() as IntelligenceData;
@@ -256,6 +261,44 @@ export default function IntelligencePage() {
               {loading ? "Analysing…" : "Refresh Analysis"}
             </button>
           </div>
+
+          {/* ── Trial block (non-dismissable) ───────────────────── */}
+          {trialBlock && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+              <div className="relative mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-[var(--cj-surface)] p-8 text-center shadow-2xl">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10 border border-amber-500/20">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </div>
+                <h2 className="mb-2 text-lg font-bold text-zinc-100">
+                  {trialBlock.reason === "expired" ? "Your free trial has ended" : "Trial limit reached"}
+                </h2>
+                <p className="mb-6 text-sm text-zinc-400">{trialBlock.message}</p>
+                <div className="mb-4 grid grid-cols-2 gap-2 text-left">
+                  {[
+                    "AI Trade Analysis",
+                    "Market Intelligence",
+                    "Psychology Reports",
+                    "Unlimited MT5 Accounts",
+                    "Full Trade History",
+                    "Priority Support",
+                  ].map((f) => (
+                    <div key={f} className="flex items-center gap-2 text-xs text-zinc-400">
+                      <span className="text-[var(--cj-gold)]">✓</span> {f}
+                    </div>
+                  ))}
+                </div>
+                <a
+                  href="/pricing"
+                  className="block w-full rounded-xl py-3 text-sm font-bold text-[#0A0A0F] transition-opacity hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)" }}>
+                  Upgrade to Pro — ₦15,000/month
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* ── Loading ──────────────────────────────────────────── */}
           {loading && !analysis && (

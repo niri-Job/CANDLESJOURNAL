@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkTrialAccess } from "@/lib/trial";
 
 export const maxDuration = 30;
 
@@ -53,6 +54,15 @@ export async function POST(request: Request) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ── Trial enforcement ─────────────────────────────────────────────────────
+  const trial = await checkTrialAccess(user.id, "psychology_reports", { consume: true });
+  if (!trial.ok) {
+    return NextResponse.json(
+      { error: trial.message, trial_reason: trial.reason },
+      { status: trial.httpStatus }
+    );
   }
 
   // Verify trade belongs to this user

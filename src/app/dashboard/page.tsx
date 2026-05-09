@@ -752,9 +752,16 @@ export default function TradingJournal() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ period }),
       });
-      const data = await res.json();
-      if (!res.ok) { showToast(data.error || "Analysis failed", "err"); return; }
-      setCurrentAnalysis({ analysis: data.analysis, period, created_at: data.created_at || new Date().toISOString() });
+      const data = await res.json() as { analysis?: string; error?: string; trial_reason?: string; created_at?: string };
+      if (!res.ok) {
+        if (res.status === 403 && data.trial_reason === "expired") {
+          setShowUpgradeModal(true);
+        } else {
+          showToast(data.error || "Analysis failed", "err");
+        }
+        return;
+      }
+      setCurrentAnalysis({ analysis: data.analysis!, period, created_at: data.created_at || new Date().toISOString() });
       await loadPastAnalyses();
       // Refresh credit counter from DB after analysis is saved
       const supabase = createClient();
@@ -820,33 +827,58 @@ export default function TradingJournal() {
       <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-5 sm:py-7">
 
-        {/* UPGRADE MODAL — shown when trial expires */}
+        {/* TRIAL EXPIRED — full-screen, non-dismissable */}
         {showUpgradeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-               style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
-            <div className="w-full max-w-md bg-[var(--cj-surface)] border rounded-2xl p-8 shadow-2xl text-center"
-                 style={{ borderColor: "rgba(245,197,24,0.35)", boxShadow: "0 0 80px -10px rgba(245,197,24,0.2)" }}>
-              <div className="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-                   style={{ background: "linear-gradient(135deg,rgba(245,197,24,0.15),rgba(201,162,39,0.08))", border: "1px solid rgba(245,197,24,0.3)" }}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/>
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-zinc-100 mb-2">Your trial has ended</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed mb-6">
-                Upgrade to Pro to continue tracking trades, syncing MT5, and getting AI coaching.
-              </p>
-              <div className="flex flex-col gap-3">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+               style={{ background: "rgba(7,7,13,0.92)", backdropFilter: "blur(8px)" }}>
+            {/* Blurred dashboard content hint visible behind overlay — motivates upgrade */}
+            <div className="w-full max-w-lg mx-4 mb-4 sm:mb-0">
+              <div className="bg-[var(--cj-surface)] border rounded-3xl p-8 shadow-2xl text-center"
+                   style={{ borderColor: "rgba(245,197,24,0.4)", boxShadow: "0 0 100px -10px rgba(245,197,24,0.25)" }}>
+                {/* Lock icon */}
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+                     style={{ background: "linear-gradient(135deg,rgba(245,197,24,0.12),rgba(201,162,39,0.05))", border: "1px solid rgba(245,197,24,0.3)" }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </div>
+                <div className="text-[11px] font-bold uppercase tracking-widest mb-3 px-3 py-1 rounded-full inline-block"
+                     style={{ background: "rgba(245,197,24,0.1)", border: "1px solid rgba(245,197,24,0.25)", color: "var(--cj-gold)" }}>
+                  Trial Expired
+                </div>
+                <h3 className="text-2xl font-bold text-zinc-100 mb-3">
+                  Your 3-day trial has ended
+                </h3>
+                <p className="text-sm text-zinc-400 leading-relaxed mb-2 max-w-sm mx-auto">
+                  Upgrade to Pro to continue using AI analysis, Market Intelligence, MT5 sync, and all other features.
+                </p>
+                <p className="text-xs text-zinc-600 mb-7">Your trade data is safe and waiting for you.</p>
+
+                {/* What they're missing */}
+                <div className="grid grid-cols-2 gap-2 mb-7 text-left">
+                  {[
+                    "90 AI analyses/month",
+                    "Market Intelligence setups",
+                    "MT5 Quick Connect",
+                    "Full psychology reports",
+                    "Unlimited trade journal",
+                    "Priority support",
+                  ].map((f) => (
+                    <div key={f} className="flex items-center gap-2 text-[11px] text-zinc-500">
+                      <span style={{ color: "var(--cj-gold)" }}>✓</span>{f}
+                    </div>
+                  ))}
+                </div>
+
                 <a href="/pricing"
-                   className="block w-full py-3 rounded-xl font-bold text-sm"
+                   className="block w-full py-3.5 rounded-xl font-bold text-base mb-3"
                    style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
                   Upgrade to Pro — ₦15,000/month →
                 </a>
-                <button
-                  onClick={() => setShowUpgradeModal(false)}
-                  className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors py-1">
-                  Continue with limited access
-                </button>
+                <p className="text-[11px] text-zinc-600">
+                  Secured by Paystack · Cards, bank transfer, USSD accepted
+                </p>
               </div>
             </div>
           </div>

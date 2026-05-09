@@ -1,5 +1,8 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { checkTrialAccess } from "@/lib/trial";
 
 // Cache for 30 min — live prices fetched on every cache miss
 let cached: { data: unknown; ts: number } | null = null;
@@ -109,7 +112,24 @@ export async function GET(request: Request) {
     );
   }
 
-  // Test mode: verify key + live price fetch without calling Claude
+  // ── Authenticate user (required for trial enforcement) ───────────────────
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll:  () => cookieStore.getAll(),
+        setAll:  (cs) => cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)),
+      },
+    }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Test mode: skip trial check, verify key + live prices only
   if (isTest) {
     try {
       const prices = await fetchLivePrices();
@@ -127,8 +147,16 @@ export async function GET(request: Request) {
     }
   }
 
-  // Return cached if still fresh
+  // Return cached if still fresh — trial expiry check still runs to block expired users
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    // Still enforce trial expiry on cached responses (no credit consumed for cache hits)
+    const trialExpiry = await checkTrialAccess(user.id, "market_intelligence", { consume: false });
+    if (!trialExpiry.ok && trialExpiry.reason === "expired") {
+      return NextResponse.json(
+        { error: trialExpiry.message, trial_reason: trialExpiry.reason },
+        { status: trialExpiry.httpStatus }
+      );
+    }
     return NextResponse.json(cached.data);
   }
 
@@ -150,6 +178,15 @@ export async function GET(request: Request) {
         detail: String(err),
       },
       { status: 502 }
+    );
+  }
+
+  // ── Trial enforcement (consume credit only on cache miss / fresh Claude call) ─
+  const trial = await checkTrialAccess(user.id, "market_intelligence", { consume: true });
+  if (!trial.ok) {
+    return NextResponse.json(
+      { error: trial.message, trial_reason: trial.reason },
+      { status: trial.httpStatus }
     );
   }
 

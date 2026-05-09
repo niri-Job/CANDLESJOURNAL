@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { analyzeJournal } from "@/lib/analyzeJournal";
+import { checkTrialAccess } from "@/lib/trial";
 
 // Increase Netlify/Vercel function timeout — Claude analysis takes 15–30s
 export const maxDuration = 60;
@@ -56,6 +57,15 @@ export async function POST(request: Request) {
 
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ── Trial enforcement ─────────────────────────────────────────────────────
+  const trial = await checkTrialAccess(user.id, "ai_analyses", { consume: true });
+  if (!trial.ok) {
+    return NextResponse.json(
+      { error: trial.message, trial_reason: trial.reason },
+      { status: trial.httpStatus }
+    );
   }
 
   const today = new Date().toISOString().split("T")[0];

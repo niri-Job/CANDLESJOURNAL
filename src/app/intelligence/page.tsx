@@ -27,10 +27,19 @@ interface MarketOverview {
   pairs_to_avoid: string[];
 }
 
+interface LivePrices {
+  EURUSD: number;
+  GBPUSD: number;
+  XAUUSD: number;
+  fetched_at: string;
+  source: string;
+}
+
 interface IntelligenceData {
   setups: Setup[];
   overview: MarketOverview;
   generated_at: string;
+  live_prices?: LivePrices;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -211,6 +220,30 @@ export default function IntelligencePage() {
                 <p className="text-[11px] text-zinc-600 mt-1">
                   Last updated: {fmtTs(lastUpdated)}
                 </p>
+              )}
+              {analysis?.live_prices && !loading && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
+                  <span className="flex items-center gap-1 text-[10px] text-zinc-600">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    Live prices
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-500">
+                    EUR <span className="text-zinc-400">{analysis.live_prices.EURUSD.toFixed(5)}</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-700">·</span>
+                  <span className="text-[10px] font-mono text-zinc-500">
+                    GBP <span className="text-zinc-400">{analysis.live_prices.GBPUSD.toFixed(5)}</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-700">·</span>
+                  <span className="text-[10px] font-mono text-zinc-500">
+                    XAU <span className="text-zinc-400">{analysis.live_prices.XAUUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-700">·</span>
+                  <span className="text-[10px] text-zinc-600">{analysis.live_prices.source}</span>
+                </div>
               )}
             </div>
             <button

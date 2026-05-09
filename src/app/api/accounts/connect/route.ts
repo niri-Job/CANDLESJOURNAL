@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   // ── Plan-based account limits ───────────────────────────────────────────
   function getAccountLimit(p: string): number {
     if (p === "pro") return 10;
-    return 1; // free: demo only
+    return 1; // free/trial: 1 account (demo or live)
   }
 
   const [profileRes, countRes] = await Promise.all([
@@ -92,18 +92,8 @@ export async function POST(request: Request) {
 
   if (accountCount >= limit) {
     return NextResponse.json({
-      error: `Account limit reached (${accountCount}/${limit}). Your ${plan} plan allows ${limit} account${limit !== 1 ? "s" : ""}. Upgrade at /pricing.`,
+      error: `You already have an MT5 account connected. Free plan allows 1 account. Remove the existing account first, or upgrade to Pro for up to 10 accounts.`,
     }, { status: 403 });
-  }
-
-  // Free plan: only demo accounts allowed (detect by server name)
-  if (plan === "free") {
-    const serverLower = (account_server as string).toLowerCase();
-    if (!/demo|test|practice|paper/.test(serverLower)) {
-      return NextResponse.json({
-        error: "Free plan only supports demo accounts. Upgrade to Pro to connect live accounts.",
-      }, { status: 403 });
-    }
   }
 
   const account_signature = `${account_login}_${account_server}`;

@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
-const PRO_MONTHLY_KOBO = 1_300_000;
-const PRO_YEARLY_KOBO  = 14_040_000;
+const PRO_MONTHLY_KOBO = 1_500_000; // ₦15,000
+const PRO_YEARLY_KOBO  = 16_200_000; // ₦13,500 × 12 = ₦162,000
 
 const PRO_FEATURES = [
   "Unlimited trades",
@@ -202,14 +202,14 @@ export function UpgradeModal({ isOpen, onClose, email, userId, onSuccess }: Prop
             {/* Price */}
             <div className="flex items-baseline gap-1.5 mb-1">
               <span className="text-3xl font-bold text-zinc-100">
-                {billing === "yearly" ? "$11.70" : "$13"}
+                {billing === "yearly" ? "₦13,500" : "₦15,000"}
               </span>
               <span className="text-zinc-500 text-sm">/month</span>
             </div>
             {billing === "yearly" ? (
-              <p className="text-xs text-emerald-400 font-semibold mb-5">$140.40 billed yearly · Save $15.60</p>
+              <p className="text-xs text-emerald-400 font-semibold mb-5">₦162,000 billed yearly · Save ₦18,000</p>
             ) : (
-              <p className="text-xs text-zinc-600 mb-5">Billed monthly · Cancel anytime</p>
+              <p className="text-xs text-zinc-600 mb-5">Billed monthly in NGN · Cancel anytime</p>
             )}
 
             {/* Feature list */}
@@ -235,7 +235,7 @@ export function UpgradeModal({ isOpen, onClose, email, userId, onSuccess }: Prop
               className="w-full py-3.5 rounded-xl text-sm font-bold text-[#0A0A0F] transition-all
                          disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)" }}>
-              {paying ? "Processing…" : `Upgrade to Pro · ${billing === "yearly" ? "$140.40/yr" : "$13/mo"} →`}
+              {paying ? "Processing…" : `Upgrade to Pro · ${billing === "yearly" ? "₦162,000/yr" : "₦15,000/mo"} →`}
             </button>
 
             <p className="text-center text-[11px] text-zinc-600 mt-3">

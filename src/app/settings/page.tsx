@@ -112,7 +112,7 @@ function ReferralQuickView() {
           <div className="flex-1">
             <p className="text-sm font-semibold text-zinc-300 mb-1">Earn recurring commissions</p>
             <p className="text-xs text-zinc-500">
-              Upgrade to Pro to unlock your referral link and start earning $1.00/month per referral.
+              Upgrade to Pro to unlock your referral link and start earning ₦1,000/month per referral.
             </p>
           </div>
           <Link href="#" className="btn-gold px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
@@ -134,7 +134,7 @@ function ReferralQuickView() {
           <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">This Month</p>
             <p className="font-bold text-zinc-100 text-lg">
-              ${(data?.this_month_earnings ?? 0).toFixed(2)}
+              ₦{(data?.this_month_earnings ?? 0).toLocaleString("en-NG")}
             </p>
           </div>
         </div>
@@ -247,6 +247,9 @@ export default function SettingsPage() {
   const [importResult,      setImportResult]     = useState<{ imported: number; skipped: number } | null>(null);
   const [importError,       setImportError]      = useState<string | null>(null);
 
+  // Sync Now state — tracks which account is currently being triggered
+  const [syncingAccount, setSyncingAccount] = useState<string | null>(null);
+
   useEffect(() => {
     async function init() {
       const supabase = createClient();
@@ -334,6 +337,32 @@ export default function SettingsPage() {
       else { setImportResult({ imported: data.imported ?? 0, skipped: data.skipped ?? 0 }); setImportFile(null); }
     } catch { setImportError("Network error — check your connection."); }
     finally { setImporting(false); }
+  }
+
+  async function handleSyncNow(accountSignature: string) {
+    setSyncingAccount(accountSignature);
+    try {
+      const res = await fetch("/api/accounts/trigger-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_signature: accountSignature }),
+      });
+      if (res.ok) {
+        setTradingAccounts((prev) =>
+          prev.map((a) => a.account_signature === accountSignature
+            ? { ...a, sync_status: "pending" }
+            : a
+          )
+        );
+        showToast("Sync requested — trades will appear within 30 seconds.");
+      } else {
+        showToast("Sync request failed. Try again.");
+      }
+    } catch {
+      showToast("Network error — check your connection.");
+    } finally {
+      setSyncingAccount(null);
+    }
   }
 
   async function handleQuickConnect(e: React.FormEvent) {
@@ -943,7 +972,31 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="border-t border-zinc-800 pt-3 flex items-center gap-3">
+                    <div className="border-t border-zinc-800 pt-3 flex items-center gap-3 flex-wrap">
+                      {isQC && (
+                        <button
+                          onClick={() => handleSyncNow(acct.account_signature)}
+                          disabled={syncingAccount === acct.account_signature}
+                          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
+                                     border border-[var(--cj-gold)]/25 text-[var(--cj-gold)]
+                                     hover:bg-[var(--cj-gold-glow)] hover:border-[var(--cj-gold)]/50
+                                     disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                          {syncingAccount === acct.account_signature ? (
+                            <>
+                              <span className="w-3 h-3 border border-[var(--cj-gold)] border-t-transparent rounded-full animate-spin" />
+                              Syncing…
+                            </>
+                          ) : (
+                            <>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="23 4 23 10 17 10"/>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                              </svg>
+                              Sync Now
+                            </>
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => setDeleteTarget(acct)}
                         className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg

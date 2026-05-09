@@ -399,6 +399,8 @@ export default function TradingJournal() {
   const [noteModalTrade,   setNoteModalTrade]   = useState<Trade | null>(null);
   const [aiCreditsUsed,    setAiCreditsUsed]    = useState<number>(0);
   const [aiCreditsLimit,   setAiCreditsLimit]   = useState<number>(3);
+  const [trialDaysLeft,    setTrialDaysLeft]    = useState<number | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   function showToast(msg: string, type: "ok" | "err") { setToast({ msg, type }); }
 
@@ -415,7 +417,7 @@ export default function TradingJournal() {
       const [profileRes, tradesRes, accountsRes] = await Promise.all([
         supabase
           .from("user_profiles")
-          .select("subscription_status, subscription_end, ai_credits_used, ai_credits_limit")
+          .select("subscription_status, subscription_end, ai_credits_used, ai_credits_limit, created_at")
           .eq("user_id", user.id).maybeSingle(),
         supabase
           .from("trades")
@@ -443,10 +445,27 @@ export default function TradingJournal() {
       setLoading(false);
 
       if (profileRes.data) {
-        const p = profileRes.data as { ai_credits_used?: number; ai_credits_limit?: number } | null;
+        const p = profileRes.data as {
+          ai_credits_used?: number;
+          ai_credits_limit?: number;
+          subscription_status?: string;
+          subscription_end?: string;
+          created_at?: string;
+        } | null;
         if (p) {
           setAiCreditsUsed(p.ai_credits_used ?? 0);
           setAiCreditsLimit(p.ai_credits_limit ?? 3);
+
+          const isPaid = p.subscription_status === "pro" &&
+            !!p.subscription_end && new Date(p.subscription_end) > new Date();
+          if (!isPaid && p.created_at) {
+            const trialEnd = new Date(new Date(p.created_at).getTime() + 3 * 86_400_000);
+            const days = Math.max(0, Math.ceil((trialEnd.getTime() - Date.now()) / 86_400_000));
+            setTrialDaysLeft(days);
+            if (days === 0) setShowUpgradeModal(true);
+          } else if (isPaid) {
+            setTrialDaysLeft(null);
+          }
         }
       }
 
@@ -737,6 +756,18 @@ export default function TradingJournal() {
       if (!res.ok) { showToast(data.error || "Analysis failed", "err"); return; }
       setCurrentAnalysis({ analysis: data.analysis, period, created_at: data.created_at || new Date().toISOString() });
       await loadPastAnalyses();
+      // Refresh credit counter from DB after analysis is saved
+      const supabase = createClient();
+      const { data: prof } = await supabase
+        .from("user_profiles")
+        .select("ai_credits_used, ai_credits_limit")
+        .eq("user_id", currentUser!.id)
+        .maybeSingle();
+      if (prof) {
+        const p = prof as { ai_credits_used?: number; ai_credits_limit?: number };
+        setAiCreditsUsed(p.ai_credits_used ?? 0);
+        setAiCreditsLimit(p.ai_credits_limit ?? 3);
+      }
     } catch {
       showToast("Analysis failed", "err");
     } finally {
@@ -788,6 +819,62 @@ export default function TradingJournal() {
 
       <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-5 sm:py-7">
+
+        {/* UPGRADE MODAL — shown when trial expires */}
+        {showUpgradeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+               style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
+            <div className="w-full max-w-md bg-[var(--cj-surface)] border rounded-2xl p-8 shadow-2xl text-center"
+                 style={{ borderColor: "rgba(245,197,24,0.35)", boxShadow: "0 0 80px -10px rgba(245,197,24,0.2)" }}>
+              <div className="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+                   style={{ background: "linear-gradient(135deg,rgba(245,197,24,0.15),rgba(201,162,39,0.08))", border: "1px solid rgba(245,197,24,0.3)" }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/>
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-zinc-100 mb-2">Your trial has ended</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-6">
+                Upgrade to Pro to continue tracking trades, syncing MT5, and getting AI coaching.
+              </p>
+              <div className="flex flex-col gap-3">
+                <a href="/pricing"
+                   className="block w-full py-3 rounded-xl font-bold text-sm"
+                   style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                  Upgrade to Pro — ₦15,000/month →
+                </a>
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors py-1">
+                  Continue with limited access
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TRIAL BANNER — shown while trial is active */}
+        {trialDaysLeft !== null && trialDaysLeft > 0 && (
+          <div className="mb-5 flex items-center justify-between gap-3 px-4 py-3 rounded-xl border"
+               style={{ background: "rgba(245,197,24,0.06)", borderColor: "rgba(245,197,24,0.2)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                   style={{ background: "rgba(245,197,24,0.12)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <p className="text-xs" style={{ color: "#C4B89A" }}>
+                <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>Free trial</span>
+                {" "}— {trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""} remaining. All Pro features are unlocked.
+              </p>
+            </div>
+            <a href="/pricing"
+               className="text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0"
+               style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+              Upgrade →
+            </a>
+          </div>
+        )}
 
         {/* ACCOUNT SWITCHER ── only shown when MT5 accounts are connected */}
         {tradingAccounts.length > 0 && (() => {

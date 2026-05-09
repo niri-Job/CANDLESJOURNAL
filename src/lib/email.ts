@@ -113,7 +113,7 @@ export async function sendPaymentReceipt(email: string, data: ReceiptData) {
   const displayName = name || "Trader";
 
   const isYearly    = billingType === "yearly";
-  const amountLabel = isYearly ? "$140.40 / year" : "$13.00 / month";
+  const amountLabel = isYearly ? "₦162,000 / year" : "₦15,000 / month";
   const nextDate    = new Date(subscriptionEnd).toLocaleDateString("en-GB", {
     day: "numeric", month: "long", year: "numeric",
   });

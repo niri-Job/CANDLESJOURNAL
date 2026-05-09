@@ -34,9 +34,9 @@ const PRO_FEATURES = [
   "Priority support",
 ];
 
-// Monthly amounts in kobo (NGN) — kept for Paystack
-const PRO_MONTHLY_KOBO = 1_300_000;
-const PRO_YEARLY_KOBO  = 14_040_000;
+// Monthly amounts in kobo (NGN) — ₦15,000/month = 1,500,000 kobo
+const PRO_MONTHLY_KOBO = 1_500_000;
+const PRO_YEARLY_KOBO  = 16_200_000; // ₦13,500/month × 12 = ₦162,000 (10% off)
 
 interface SubProfile {
   subscription_status: string | null;
@@ -260,7 +260,7 @@ export default function PricingPage() {
             <div className="mb-6">
               <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Free Plan</p>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-4xl font-bold">$0</span>
+                <span className="text-4xl font-bold">₦0</span>
                 <span className="text-zinc-500 text-sm">/month</span>
               </div>
               <p className="text-zinc-600 text-xs mt-1.5">No credit card required</p>
@@ -295,14 +295,14 @@ export default function PricingPage() {
               <p className="text-[11px] uppercase tracking-widest font-medium mb-3" style={{ color: "var(--cj-gold)" }}>Pro Plan</p>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-4xl font-bold">
-                  {billing === "yearly" ? "$11.70" : "$13"}
+                  {billing === "yearly" ? "₦13,500" : "₦15,000"}
                 </span>
                 <span className="text-zinc-500 text-sm">/month</span>
               </div>
               {billing === "yearly" ? (
-                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">$140.40/year · Save $15.60</p>
+                <p className="text-emerald-400 text-xs mt-1.5 font-semibold">₦162,000/year · Save ₦18,000</p>
               ) : (
-                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly</p>
+                <p className="text-zinc-600 text-xs mt-1.5">Billed monthly · paid in NGN</p>
               )}
             </div>
             <ul className="space-y-3 flex-1 mb-7">
@@ -318,7 +318,7 @@ export default function PricingPage() {
               className="w-full py-3 rounded-xl font-semibold text-sm transition-all
                          disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-              {payingPlan === "pro" ? "Processing..." : isPro ? "Renew Pro →" : "Upgrade to Pro →"}
+              {payingPlan === "pro" ? "Processing..." : isPro ? "Renew Pro →" : "Upgrade to Pro — ₦15,000/mo →"}
             </button>
             <p className="text-center text-[11px] text-zinc-600 mt-3">Secured by Paystack</p>
           </div>

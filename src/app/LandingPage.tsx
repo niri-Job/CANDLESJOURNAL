@@ -923,7 +923,7 @@ export default function LandingPage() {
                 <CmpRow label="Report types" niri="8 full report types" other="Overview and basic metrics only" highlight />
                 <CmpRow label="Referral earnings program" niri="Yes" other="No" />
                 <CmpRow label="African broker support" niri="WAT timezone, African broker support" other="No regional optimization" highlight />
-                <CmpRow label="Monthly price" niri="$13 / month" other="$29 to $49" />
+                <CmpRow label="Monthly price" niri="₦15,000/month" other="$29 to $49" />
               </tbody>
             </table>
           </div>
@@ -1047,7 +1047,7 @@ export default function LandingPage() {
               Invest in Your <span className="shimmer-text">Trading Education</span>
             </h2>
             <p style={{ color: "#5a4a2a", fontSize: "1rem", maxWidth: 560, margin: "0 auto" }}>
-              Behavioral mistakes cost the average trader $200 to $500 per month. NIRI costs less than $15. The math is straightforward.
+              Behavioral mistakes cost the average trader $200 to $500 per month. NIRI costs ₦15,000/month. The math is straightforward.
             </p>
           </div>
           <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", maxWidth: 800, margin: "3rem auto 0" }}>
@@ -1056,7 +1056,7 @@ export default function LandingPage() {
               <p style={{ color: "#6a5a3a", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Free</p>
               <p style={{ color: "#5a4a2a", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Start tracking with no credit card</p>
               <div style={{ marginBottom: "1.75rem" }}>
-                <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>$0</span>
+                <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦0</span>
                 <span style={{ color: "#3a2a0a", fontSize: "0.875rem" }}> / month</span>
               </div>
               <CheckItem text="Up to 20 trades per month" dim />
@@ -1078,7 +1078,7 @@ export default function LandingPage() {
               <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Pro</p>
               <p style={{ color: "#7a6a4a", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Everything you need to improve as a trader</p>
               <div style={{ marginBottom: "1.75rem" }}>
-                <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>$13</span>
+                <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦15,000</span>
                 <span style={{ color: "#4a3a1a", fontSize: "0.875rem" }}> / month</span>
               </div>
               <CheckItem text="Unlimited trades + MT5 Quick Connect" />
@@ -1120,7 +1120,7 @@ export default function LandingPage() {
               { name: "Kwame A.", location: "Accra, Ghana", badge: "Diamond Trader",
                 text: "The chart trade review is the feature I use most. I can click any losing trade and see exactly where I went wrong on the actual candle." },
               { name: "Fatima M.", location: "Nairobi, Kenya", badge: "Gold Trader",
-                text: "NIRI costs $13 per month. It helped me fix a behavioral pattern that was costing me $400 per month. It paid for itself in the first week." },
+                text: "NIRI costs ₦15,000 per month. It helped me fix a behavioral pattern that was costing me $400 per month. It paid for itself in the first week." },
             ].map((t, i) => {
               const tRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
               return (
@@ -1220,13 +1220,13 @@ export default function LandingPage() {
           </div>
           <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#0f0c04,#080600)", border: "1px solid rgba(245,197,24,0.1)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
             <FaqItem q="How is NIRI different from TradeZella?"
-              a="NIRI is built specifically for MT5 traders and costs 70% less ($13/mo compared to $29 to $49/mo). NIRI also includes features TradeZella does not: emotion tracking per trade, trade visualization on a live chart, a dedicated Psychology report tab, and a referral earnings program." />
+              a="NIRI is built specifically for MT5 traders and costs 70% less (₦15,000/month compared to $29–$49/month). NIRI also includes features TradeZella does not: emotion tracking per trade, trade visualization on a live chart, a dedicated Psychology report tab, and a referral earnings program." />
             <FaqItem q="Do I need to manually import my trades?"
               a="No. Download the free NiriEA, attach it to any chart in MT5, and trades sync automatically the moment they close. No manual work is required." />
             <FaqItem q="How does the coaching report work?"
               a="After each session, NIRI analyses your trade history and generates a report covering your best and worst trades, behavioral patterns such as revenge trading or early exits, and specific observations for the next session." />
             <FaqItem q="Is it free to start?"
-              a="Yes. No credit card is required to create an account. Upgrade to Pro ($13/mo) when you want access to all features." />
+              a="Yes. No credit card is required to create an account. Upgrade to Pro (₦15,000/month) when you want access to all features." />
             <FaqItem q="Which brokers does NIRI support?"
               a="NIRI works with any broker that provides an MT5 platform. This includes Exness, ICMarkets, HFM, FBS, OctaFX, XM, Deriv and hundreds more." />
             <FaqItem q="Is my trading data secure?"

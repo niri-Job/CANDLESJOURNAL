@@ -80,10 +80,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unexpected payment currency" }, { status: 400 });
   }
 
-  // NGN: 1,300,000 kobo ($13) or 14,040,000 kobo ($140.40)
-  // USD: 1,300 cents ($13) or 14,040 cents ($140.40)
+  // NGN: 1,500,000 kobo (₦15,000/mo) or 16,200,000 kobo (₦162,000/yr)
+  // Also accept old amounts during transition
   const validAmounts: Record<string, number[]> = {
-    NGN: [1_300_000, 14_040_000],
+    NGN: [1_500_000, 16_200_000, 1_300_000, 14_040_000],
     USD: [1_300,     14_040],
   };
   if (!validAmounts[currency].includes(verifyJson.data.amount)) {

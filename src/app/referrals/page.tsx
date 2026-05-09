@@ -59,7 +59,7 @@ interface Payout {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(n: number) { return `$${n.toFixed(2)}`; }
+function fmt(n: number) { return `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`; }
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
@@ -364,8 +364,8 @@ export default function ReferralsPage() {
               <div className="flex-1">
                 <p className="font-bold text-zinc-100 mb-1">Earn recurring commissions every month</p>
                 <p className="text-xs text-zinc-400 leading-relaxed">
-                  Share your referral link and earn <span className="text-[var(--cj-gold)] font-semibold">$1.00/month</span> for
-                  every Pro subscriber you refer — for as long as they stay subscribed. Minimum payout is $5.
+                  Share your referral link and earn <span className="text-[var(--cj-gold)] font-semibold">₦1,000/month</span> for
+                  every Pro subscriber you refer — for as long as they stay subscribed. Minimum payout is ₦5,000.
                 </p>
               </div>
               {isFree && (
@@ -537,7 +537,7 @@ export default function ReferralsPage() {
                             <td className="py-2.5 pr-4"><StatusBadge status={r.status} /></td>
                             <td className="py-2.5 pr-4 capitalize text-zinc-400">{r.plan_type}</td>
                             <td className="py-2.5 pr-4 text-zinc-400">
-                              {r.commission_rate > 0 ? `$${r.commission_rate.toFixed(2)}` : "—"}
+                              {r.commission_rate > 0 ? `₦${r.commission_rate.toLocaleString("en-NG")}` : "—"}
                             </td>
                             <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(r.joined_at)}</td>
                             <td className="py-2.5 text-right font-semibold text-zinc-300">{fmt(r.earnings)}</td>
@@ -589,9 +589,9 @@ export default function ReferralsPage() {
                   </div>
                 )}
 
-                {canRequest === false && isPayoutWindow && (stats?.available_for_payout ?? 0) < 5 && (
+                {canRequest === false && isPayoutWindow && (stats?.available_for_payout ?? 0) < 5000 && (
                   <p className="text-xs text-zinc-600 mb-4">
-                    Minimum payout is $5.00. You have {fmt(stats?.available_for_payout ?? 0)} available.
+                    Minimum payout is ₦5,000. You have {fmt(stats?.available_for_payout ?? 0)} available.
                   </p>
                 )}
 

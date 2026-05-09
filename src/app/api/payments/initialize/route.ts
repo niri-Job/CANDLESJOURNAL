@@ -3,9 +3,9 @@ import { createClient }       from "@supabase/supabase-js";
 import { cookies }            from "next/headers";
 import { NextResponse }       from "next/server";
 
-// Amounts in USD cents ($13.00 monthly, $140.40 yearly)
-const PRO_MONTHLY_CENTS = 1_300;
-const PRO_YEARLY_CENTS  = 14_040;
+// Amounts in NGN kobo (₦15,000 monthly, ₦162,000 yearly)
+const PRO_MONTHLY_CENTS = 1_500_000;
+const PRO_YEARLY_CENTS  = 16_200_000;
 
 async function userDb() {
   const cookieStore = await cookies();
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         email:        user.email,
         amount,
-        currency:     "USD",
+        currency:     "NGN",
         reference,
         callback_url: callbackUrl,
         metadata: {
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       user_id:      user.id,
       reference,
       amount,
-      currency:     "USD",
+      currency:     "NGN",
       plan_type:    plan,
       billing_type: billing,
       status:       "pending",

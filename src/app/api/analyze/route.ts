@@ -128,9 +128,24 @@ export async function POST(request: Request) {
 
   if (saveError) {
     console.error("analyze: failed to save analysis:", saveError.message);
-    // Still return the analysis even if saving failed
     return NextResponse.json({ analysis, saved: false });
   }
+
+  // Increment ai_credits_used — best-effort, never blocks the response
+  ;(async () => {
+    const { data: prof } = await supabase
+      .from("user_profiles")
+      .select("ai_credits_used")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const used = ((prof as { ai_credits_used?: number } | null)?.ai_credits_used ?? 0) + 1;
+    await supabase
+      .from("user_profiles")
+      .update({ ai_credits_used: used })
+      .eq("user_id", user.id);
+  })().catch((err: unknown) =>
+    console.warn("analyze: ai_credits increment failed:", err)
+  );
 
   return NextResponse.json({
     analysis,

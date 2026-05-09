@@ -18,12 +18,11 @@ Environment variables (.env file or system env):
 
 from __future__ import annotations
 
-import asyncio
 import binascii
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from cryptography.hazmat.backends import default_backend
@@ -47,6 +46,13 @@ MT5_TERMINAL_PATH    = os.getenv("MT5_TERMINAL_PATH", "")  # optional
 SYNC_INTERVAL_SEC    = 30
 ACCOUNT_DELAY_SEC    = 2   # delay between accounts to avoid hammering brokers
 MAX_ACCOUNTS         = 100
+SERVICE_VERSION      = "1.1.0"
+
+# Safety window: fetch deals this many hours before last_synced_at.
+# Catches broker-server lag, clock drift, and any deal that appeared in
+# history after the cycle that updated last_synced_at ran.
+# mt5_deal_id deduplication means re-fetching old deals is always safe.
+SYNC_SAFETY_HOURS    = 2
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,10 +104,13 @@ def _asset_class(symbol: str) -> str:
 
 def normalise_deal(deal) -> Optional[dict]:
     """Convert an MT5 deal object to a trades table row dict. Returns None to skip."""
-    # Only closed/exit deals
+    # Only entry deal types that represent position exits
     if deal.type not in (mt5.DEAL_TYPE_BUY, mt5.DEAL_TYPE_SELL):
         return None
-    if deal.entry != mt5.DEAL_ENTRY_OUT:
+    # DEAL_ENTRY_OUT    = normal close
+    # DEAL_ENTRY_INOUT  = position reversal (partial close + reopen in opposite)
+    # DEAL_ENTRY_OUT_BY = close by another position (hedge accounts)
+    if deal.entry not in (mt5.DEAL_ENTRY_OUT, mt5.DEAL_ENTRY_INOUT, mt5.DEAL_ENTRY_OUT_BY):
         return None
 
     direction = "BUY" if deal.type == mt5.DEAL_TYPE_BUY else "SELL"
@@ -180,21 +189,37 @@ def sync_account(supabase: Client, acct: dict) -> tuple[int, Optional[str]]:
         return 0, f"Login failed: {err}"
 
     try:
-        # Fetch deals since last_synced_at (or last 90 days if first sync)
         last_sync_raw = acct.get("last_synced_at")
         if last_sync_raw:
-            since = datetime.fromisoformat(last_sync_raw.replace("Z", "+00:00"))
+            last_sync = datetime.fromisoformat(last_sync_raw.replace("Z", "+00:00"))
+            # Safety buffer: fetch SYNC_SAFETY_HOURS before last_synced_at.
+            # This catches deals that appeared in broker history after the last
+            # cycle ran — e.g. broker server lag, history delayed by ~seconds.
+            # mt5_deal_id dedup ensures no duplicate trades in the DB.
+            since = last_sync - timedelta(hours=SYNC_SAFETY_HOURS)
         else:
+            # First sync: fetch full year history
             since = datetime(datetime.now(timezone.utc).year, 1, 1, tzinfo=timezone.utc)
 
         from_ts = int(since.timestamp())
         to_ts   = int(time.time()) + 60
 
-        history = mt5.history_deals_get(from_ts, to_ts)
-        if history is None:
-            history = []
+        log.debug("  %s — fetching deals from %s (safety buffer: -%dh)",
+                  sig, since.isoformat(), SYNC_SAFETY_HOURS if last_sync_raw else 0)
 
-        if len(history) == 0 and acct.get("last_synced_at") is None:
+        history = mt5.history_deals_get(from_ts, to_ts)
+
+        # CRITICAL: None means API error, NOT "no deals".
+        # Do NOT update last_synced_at on API failure — preserves the window
+        # so the missing trades are retried on the next cycle.
+        if history is None:
+            err_code = mt5.last_error()
+            log.warning("  %s — history_deals_get returned None: %s", sig, err_code)
+            return 0, f"history_deals_get failed: {err_code} — MT5 terminal may have lost broker connection"
+
+        log.debug("  %s — %d raw deals in window", sig, len(history))
+
+        if len(history) == 0 and not last_sync_raw:
             return 0, "No trade history found on this account"
 
         synced = 0
@@ -219,7 +244,8 @@ def sync_account(supabase: Client, acct: dict) -> tuple[int, Optional[str]]:
             if ins.data:
                 synced += 1
 
-        # Update last_synced_at + status on trading_accounts
+        # Only update last_synced_at when history_deals_get succeeded (not None).
+        # This preserves the fetch window on broker errors so no deals are missed.
         supabase.table("trading_accounts").update({
             "last_synced_at": datetime.now(timezone.utc).isoformat(),
             "sync_status":    "connected",
@@ -259,6 +285,20 @@ def set_account_error(supabase: Client, user_id: str, sig: str, error: str):
         log.warning("Could not update account error state: %s", e)
 
 
+def write_heartbeat(supabase: Client, account_count: int):
+    """Upsert a heartbeat row so the web app can detect if this service is running."""
+    try:
+        supabase.table("sync_service_health").upsert({
+            "service_name":       "mt5_sync",
+            "last_heartbeat":     datetime.now(timezone.utc).isoformat(),
+            "version":            SERVICE_VERSION,
+            "last_account_count": account_count,
+        }, on_conflict="service_name").execute()
+    except Exception as e:
+        # Non-fatal — heartbeat failure does not stop sync
+        log.warning("Heartbeat write failed (sync_service_health table may not exist): %s", e)
+
+
 # ── Main sync loop ───────────────────────────────────────────────────────────
 def run_sync_cycle(supabase: Client):
     """Fetch all investor accounts and sync each one."""
@@ -270,6 +310,10 @@ def run_sync_cycle(supabase: Client):
         .execute()
 
     accounts = result.data or []
+
+    # Write heartbeat every cycle so the app can detect if we're running
+    write_heartbeat(supabase, len(accounts))
+
     if not accounts:
         log.info("No Quick Connect accounts found — nothing to sync")
         return
@@ -301,7 +345,10 @@ def run_sync_cycle(supabase: Client):
                 set_account_error(supabase, acct["user_id"], sig, error)
                 record_log(supabase, acct["user_id"], sig, "failed", 0, error)
             else:
-                log.info("  %s — synced %d new trade(s)", sig, trades_synced)
+                if trades_synced > 0:
+                    log.info("  %s — synced %d new trade(s)", sig, trades_synced)
+                else:
+                    log.debug("  %s — no new trades", sig)
                 record_log(supabase, acct["user_id"], sig, "success", trades_synced, None)
 
             time.sleep(ACCOUNT_DELAY_SEC)
@@ -310,8 +357,9 @@ def run_sync_cycle(supabase: Client):
 
 
 def main():
-    log.info("CandlesJournal MT5 Quick Connect Sync Service starting")
-    log.info("Sync interval: %ds | Max accounts: %d", SYNC_INTERVAL_SEC, MAX_ACCOUNTS)
+    log.info("CandlesJournal MT5 Quick Connect Sync Service v%s starting", SERVICE_VERSION)
+    log.info("Sync interval: %ds | Safety buffer: %dh | Max accounts: %d",
+             SYNC_INTERVAL_SEC, SYNC_SAFETY_HOURS, MAX_ACCOUNTS)
 
     if not MT5_AVAILABLE:
         log.error("MetaTrader5 library missing.  Run: pip install MetaTrader5")
@@ -333,7 +381,7 @@ def main():
             run_sync_cycle(supabase)
         except Exception as e:
             log.exception("Unexpected error in sync cycle: %s", e)
-        log.info("Sleeping %ds until next cycle…", SYNC_INTERVAL_SEC)
+        log.debug("Sleeping %ds until next cycle…", SYNC_INTERVAL_SEC)
         time.sleep(SYNC_INTERVAL_SEC)
 
 

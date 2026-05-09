@@ -239,6 +239,7 @@ export default function MarketPage() {
   const [calendarData, setCalendarData] = useState<CalendarEvent[]>([]);
   const [newsData, setNewsData] = useState<NewsItem[]>([]);
   const [calLoading, setCalLoading] = useState(true);
+  const [calFetchedAt, setCalFetchedAt] = useState<Date | null>(null);
   const [newsLoading, setNewsLoading] = useState(false);
   const [calError, setCalError] = useState<string | null>(null);
   const [newsError, setNewsError] = useState<string | null>(null);
@@ -272,22 +273,22 @@ export default function MarketPage() {
   }, []);
 
   // ── Fetch calendar ────────────────────────────────────────────────────────
-  useEffect(() => {
-    async function load() {
-      setCalLoading(true);
-      setCalError(null);
-      try {
-        const res = await fetch("/api/market/calendar");
-        const data = await res.json() as CalendarEvent[];
-        setCalendarData(Array.isArray(data) ? data : []);
-      } catch {
-        setCalError("Unable to load economic calendar");
-      } finally {
-        setCalLoading(false);
-      }
+  const loadCalendar = useCallback(async () => {
+    setCalLoading(true);
+    setCalError(null);
+    try {
+      const res = await fetch(`/api/market/calendar?t=${Date.now()}`);
+      const data = await res.json() as CalendarEvent[];
+      setCalendarData(Array.isArray(data) ? data : []);
+      setCalFetchedAt(new Date());
+    } catch {
+      setCalError("Unable to load economic calendar");
+    } finally {
+      setCalLoading(false);
     }
-    load();
   }, []);
+
+  useEffect(() => { loadCalendar(); }, [loadCalendar]);
 
   // ── Fetch news on tab switch ───────────────────────────────────────────────
   useEffect(() => {
@@ -326,10 +327,17 @@ export default function MarketPage() {
   }, [updateCountdown]);
 
   // ── Filtered calendar ─────────────────────────────────────────────────────
+  const todayWAT = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+
   const filteredCalendar = calendarData.filter((e) => {
     if (e.impact === "Holiday") return false;
-    if (calFilter === "high" && e.impact !== "High") return false;
     if (calFilter === "today" && !isToday(e.date)) return false;
+    if (calFilter === "high" && e.impact !== "High") return false;
+    // Default "all": hide events from previous days — show today onwards
+    if (calFilter === "all") {
+      const evDate = new Date(e.date).toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+      if (evDate < todayWAT) return false;
+    }
     return true;
   });
 
@@ -406,23 +414,39 @@ export default function MarketPage() {
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <div className="flex gap-1 bg-[var(--cj-surface)] border border-zinc-800 rounded-lg p-1">
                 {([
-                  { key: "all", label: "All Events" },
-                  { key: "high", label: "High Impact" },
+                  { key: "all",   label: "This Week" },
                   { key: "today", label: "Today" },
+                  { key: "high",  label: "High Impact" },
                 ] as { key: CalFilter; label: string }[]).map(({ key, label }) => (
                   <button
                     key={key}
                     onClick={() => setCalFilter(key)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all
                       ${calFilter === key
-                        ? "bg-zinc-700 text-zinc-100"
+                        ? key === "high"
+                          ? "bg-red-500/20 text-red-300"
+                          : "bg-zinc-700 text-zinc-100"
                         : "text-zinc-500 hover:text-zinc-300"
                       }`}
                   >
-                    {label}
+                    {key === "high" && <span className="mr-1">🔴</span>}{label}
                   </button>
                 ))}
               </div>
+              <button
+                onClick={loadCalendar}
+                disabled={calLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                           border border-zinc-700 text-zinc-400 hover:text-zinc-200
+                           hover:border-zinc-500 disabled:opacity-40 transition-all">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                     className={calLoading ? "animate-spin" : ""}>
+                  <polyline points="23 4 23 10 17 10"/>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                Refresh
+              </button>
 
               {preferredPairs.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -472,11 +496,14 @@ export default function MarketPage() {
                         {filteredCalendar.map((ev, i) => {
                           const today = isToday(ev.date);
                           const relevant = isEventRelevantToUser(ev.country, preferredPairs);
+                          const isHigh = ev.impact === "High";
                           return (
                             <tr
                               key={i}
-                              className={`border-b border-zinc-800/60 transition-colors
-                                ${today
+                              className={`border-b border-zinc-800/60 transition-colors relative
+                                ${isHigh
+                                  ? "bg-red-500/5 hover:bg-red-500/8 border-l-2 border-l-red-500/60"
+                                  : today
                                   ? "bg-blue-500/5 hover:bg-blue-500/8"
                                   : "hover:bg-[var(--cj-raised)]"
                                 }
@@ -501,8 +528,10 @@ export default function MarketPage() {
                               <td className="px-4 py-3">
                                 <ImpactBadge impact={ev.impact} />
                               </td>
-                              <td className="px-4 py-3 text-xs text-zinc-200 max-w-[280px]">
-                                <span className="font-medium">{ev.title}</span>
+                              <td className="px-4 py-3 text-xs max-w-[280px]">
+                                <span className={isHigh ? "font-bold text-zinc-100" : "font-medium text-zinc-200"}>
+                                  {ev.title}
+                                </span>
                               </td>
                               <td className="px-4 py-3 font-mono text-xs text-zinc-500">
                                 {ev.previous || "—"}
@@ -538,7 +567,12 @@ export default function MarketPage() {
                     {filteredCalendar.length} event{filteredCalendar.length !== 1 ? "s" : ""} · Times in WAT (UTC+1)
                     {preferredPairs.length > 0 && " · Dimmed events don't affect your pairs"}
                   </p>
-                  <p className="text-[10px] text-zinc-700">Source: ForexFactory</p>
+                  <p className="text-[10px] text-zinc-700">
+                    ForexFactory
+                    {calFetchedAt && (
+                      <> · fetched {calFetchedAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</>
+                    )}
+                  </p>
                 </div>
               </div>
             )}

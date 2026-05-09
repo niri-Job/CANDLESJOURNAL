@@ -249,6 +249,8 @@ export default function SettingsPage() {
 
   // Sync Now state — tracks which account is currently being triggered
   const [syncingAccount, setSyncingAccount] = useState<string | null>(null);
+  // Whether we're actively polling for status updates after a Sync Now
+  const [pollingSync, setPollingSync] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -281,6 +283,36 @@ export default function SettingsPage() {
     }
     init();
   }, []);
+
+  async function refreshAccounts() {
+    if (!user) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("trading_accounts")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (data) {
+      setTradingAccounts((data as TradingAccount[]).filter((a) => a.sync_method !== "ea"));
+    }
+  }
+
+  // Auto-poll account status while any QC account is pending/syncing,
+  // or for 60s after a manual Sync Now so the user sees the result live.
+  useEffect(() => {
+    if (!user) return;
+    const hasPending = tradingAccounts.some(
+      (a) => a.sync_method === "investor" &&
+             (a.sync_status === "pending" || a.sync_status === "syncing")
+    );
+    if (!hasPending && !pollingSync) return;
+
+    const id = setInterval(() => { refreshAccounts(); }, 10_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, pollingSync,
+      // re-register when pending/syncing state changes
+      tradingAccounts.map(a => a.sync_status).join(",")]);
 
   async function saveLabel(accountId: string) {
     if (!user) return;
@@ -354,7 +386,10 @@ export default function SettingsPage() {
             : a
           )
         );
-        showToast("Sync requested — trades will appear within 30 seconds.");
+        showToast("Sync requested — status will update below within 30 seconds.");
+        // Start polling so the user sees the result without a page reload
+        setPollingSync(true);
+        setTimeout(() => setPollingSync(false), 90_000); // stop after 90s
       } else {
         showToast("Sync request failed. Try again.");
       }
@@ -929,6 +964,18 @@ export default function SettingsPage() {
                     {isQC && acct.sync_status === "failed" && acct.sync_error && (
                       <div className="mb-3 rounded-lg px-3 py-2 bg-rose-500/8 border border-rose-500/20">
                         <p className="text-[11px] text-rose-400">{acct.sync_error}</p>
+                      </div>
+                    )}
+
+                    {/* Never-synced warning — sync service may not be running */}
+                    {isQC && !acct.last_synced_at && acct.sync_status === "pending" && (
+                      <div className="mb-3 rounded-lg px-3 py-2 bg-amber-500/8 border border-amber-500/20">
+                        <p className="text-[11px] text-amber-400 font-semibold mb-0.5">
+                          Waiting for sync service…
+                        </p>
+                        <p className="text-[11px] text-amber-400/70">
+                          Trades sync via a background service that runs on our servers. If this stays pending for more than 2 minutes, the service may be temporarily offline — try again later or import your history manually below.
+                        </p>
                       </div>
                     )}
 

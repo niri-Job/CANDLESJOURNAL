@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 
-export const revalidate = 3600;
+// Never serve a cached ISR snapshot — always proxy fresh data from ForexFactory.
+// The CDN caches the response for 15 min via Cache-Control, giving freshness
+// without hammering the upstream on every page load.
+export const dynamic = "force-dynamic";
 
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 8000;
 
 export async function GET() {
   const controller = new AbortController();
@@ -14,7 +17,7 @@ export async function GET() {
       {
         headers: { "Accept": "application/json" },
         signal: controller.signal,
-        next: { revalidate: 3600 },
+        cache: "no-store", // bypass Next.js fetch cache — always hit ForexFactory
       }
     );
     clearTimeout(timeout);
@@ -22,12 +25,15 @@ export async function GET() {
     if (!res.ok) throw new Error(`upstream ${res.status}`);
     const data = await res.json();
     return NextResponse.json(data, {
-      headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=300" },
+      headers: {
+        // CDN caches 15 min; serves stale for up to 3 min during revalidation
+        "Cache-Control": "public, s-maxage=900, stale-while-revalidate=180",
+      },
     });
   } catch (err) {
     clearTimeout(timeout);
     const isTimeout = (err as Error).name === "AbortError";
-    console.error("calendar proxy:", isTimeout ? "timed out after 5s" : err);
+    console.error("calendar proxy:", isTimeout ? "timed out after 8s" : err);
     return NextResponse.json([], { status: 200 }); // empty array so UI degrades gracefully
   }
 }

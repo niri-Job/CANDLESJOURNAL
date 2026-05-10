@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -401,8 +401,16 @@ export default function TradingJournal() {
   const [aiCreditsLimit,   setAiCreditsLimit]   = useState<number>(3);
   const [trialDaysLeft,    setTrialDaysLeft]    = useState<number | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [isSyncing,        setIsSyncing]        = useState(false);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function showToast(msg: string, type: "ok" | "err") { setToast({ msg, type }); }
+
+  function markSyncing() {
+    setIsSyncing(true);
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => setIsSyncing(false), 5000);
+  }
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -485,7 +493,10 @@ export default function TradingJournal() {
             const t = payload.new as Trade;
             setTrades((prev) => {
               if (prev.some((e) => e.id === t.id)) return prev;
-              if (t.mt5_deal_id) showToast("New trade synced from MT5", "ok");
+              if (t.mt5_deal_id) {
+                showToast("Trade synced from MT5", "ok");
+                markSyncing();
+              }
               return [t, ...prev];
             });
           }
@@ -881,6 +892,15 @@ export default function TradingJournal() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* MT5 SYNC INDICATOR */}
+        {isSyncing && (
+          <div className="mb-4 flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-medium"
+               style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)" }}>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="text-emerald-400">Syncing trades from MT5...</span>
           </div>
         )}
 

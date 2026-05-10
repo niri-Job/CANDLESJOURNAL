@@ -2,6 +2,28 @@
 
 import { useState, useEffect, useCallback } from "react";
 
+const THEMES = [
+  { key: "dark",     icon: "🌑", label: "Dark Gold" },
+  { key: "light",    icon: "☀️",  label: "Light"     },
+  { key: "midnight", icon: "🌙", label: "Midnight"  },
+] as const;
+
+type Theme = (typeof THEMES)[number]["key"];
+
+function readThemeCookie(): Theme {
+  if (typeof document === "undefined") return "dark";
+  const m = document.cookie.match(/(?:^|;\s*)cj_theme=([^;]+)/);
+  return (m?.[1] as Theme) ?? "dark";
+}
+
+function writeThemeCookie(t: Theme) {
+  document.cookie = `cj_theme=${t};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`;
+}
+
+function applyTheme(t: Theme) {
+  document.documentElement.setAttribute("data-theme", t);
+}
+
 interface Stats {
   total_users: number;
   pro_count: number;
@@ -45,6 +67,7 @@ function fmt(date: string | null) {
 }
 
 export default function AdminPage() {
+  const [theme, setTheme] = useState<Theme>("dark");
   const [view, setView] = useState<"loading" | "login" | "dashboard">("loading");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -57,6 +80,19 @@ export default function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [inPayoutWindow, setInPayoutWindow] = useState(false);
+
+  // Restore theme from cookie on mount
+  useEffect(() => {
+    const saved = readThemeCookie();
+    setTheme(saved);
+    applyTheme(saved);
+  }, []);
+
+  function selectTheme(t: Theme) {
+    setTheme(t);
+    writeThemeCookie(t);
+    applyTheme(t);
+  }
 
   const loadDashboard = useCallback(async () => {
     const [statsRes, usersRes, payoutsRes] = await Promise.all([
@@ -118,8 +154,7 @@ export default function AdminPage() {
   }
 
   async function userAction(action: string, userId: string) {
-    const key = `${action}-${userId}`;
-    setActionLoading(key);
+    setActionLoading(`${action}-${userId}`);
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -150,9 +185,29 @@ export default function AdminPage() {
     }
   }
 
+  const ThemePicker = () => (
+    <div className="flex items-center gap-1.5">
+      {THEMES.map(({ key, icon, label }) => (
+        <button
+          key={key}
+          title={label}
+          onClick={() => selectTheme(key)}
+          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm
+                      transition-all border
+                      ${theme === key
+                        ? "border-[var(--cj-gold)] bg-[var(--cj-gold-glow)] scale-110"
+                        : "border-[var(--cj-border)] hover:border-[var(--cj-border-light)] bg-[var(--cj-raised)] hover:scale-105"
+                      }`}
+        >
+          {icon}
+        </button>
+      ))}
+    </div>
+  );
+
   if (view === "loading") {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-white/30 text-sm">
+      <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center text-[var(--cj-text-muted)] text-sm">
         Loading…
       </div>
     );
@@ -160,87 +215,103 @@ export default function AdminPage() {
 
   if (view === "login") {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <form
-          onSubmit={handleLogin}
-          className="bg-[#111] border border-white/10 rounded-xl p-8 w-full max-w-sm space-y-4"
-        >
-          <h1 className="text-white text-xl font-semibold">Niri Admin</h1>
-          {loginError && <p className="text-red-400 text-sm">{loginError}</p>}
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500"
-            autoFocus
-          />
-          <button
-            type="submit"
-            disabled={logging || !password}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg py-2 text-sm font-medium transition-colors"
+      <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="flex justify-center">
+            <ThemePicker />
+          </div>
+          <form
+            onSubmit={handleLogin}
+            className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-8 space-y-4"
           >
-            {logging ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
+            <h1 className="text-[var(--cj-text)] text-xl font-semibold">Niri Admin</h1>
+            {loginError && <p className="text-red-400 text-sm">{loginError}</p>}
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-2
+                         text-[var(--cj-text)] placeholder:text-[var(--cj-text-muted)] text-sm outline-none
+                         focus:border-[var(--cj-gold)] focus:shadow-[0_0_0_2px_var(--cj-gold-glow)]
+                         transition-[border-color,box-shadow]"
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={logging || !password}
+              className="btn-gold w-full rounded-lg py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              {logging ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <div className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[var(--cj-bg)] text-[var(--cj-text)]">
+      {/* Header */}
+      <div className="border-b border-[var(--cj-border)] px-6 py-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold">Niri Admin</h1>
-        <button
-          onClick={handleLogout}
-          className="text-sm text-white/50 hover:text-white transition-colors"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-4">
+          <ThemePicker />
+          <button
+            onClick={handleLogout}
+            className="text-sm text-[var(--cj-text-muted)] hover:text-[var(--cj-text)] transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-12">
         {/* Stats */}
         <section>
-          <h2 className="text-xs font-medium text-white/40 uppercase tracking-wider mb-4">Overview</h2>
+          <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">
+            Overview
+          </h2>
           {stats ? (
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               {[
-                { label: "Total Users",      value: stats.total_users },
-                { label: "Pro",              value: stats.pro_count },
-                { label: "Active Trials",    value: stats.active_trials },
-                { label: "7-day Signups",    value: stats.recent_signups },
-                { label: "Monthly Revenue",  value: `₦${stats.monthly_revenue.toLocaleString()}` },
+                { label: "Total Users",     value: stats.total_users },
+                { label: "Pro",             value: stats.pro_count },
+                { label: "Active Trials",   value: stats.active_trials },
+                { label: "7-day Signups",   value: stats.recent_signups },
+                { label: "Monthly Revenue", value: `₦${stats.monthly_revenue.toLocaleString()}` },
               ].map(({ label, value }) => (
-                <div key={label} className="bg-[#111] border border-white/10 rounded-xl p-4">
-                  <div className="text-white/40 text-xs mb-1">{label}</div>
+                <div key={label} className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-4">
+                  <div className="text-[var(--cj-text-muted)] text-xs mb-1">{label}</div>
                   <div className="text-2xl font-semibold">{value}</div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-white/30 text-sm">No stats available</div>
+            <div className="text-[var(--cj-text-muted)] text-sm">No stats available</div>
           )}
         </section>
 
         {/* Users */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-medium text-white/40 uppercase tracking-wider">
+            <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider">
               Users ({users.length})
             </h2>
             <input
               value={search}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search by email…"
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-emerald-500 w-60"
+              className="bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-1.5
+                         text-sm text-[var(--cj-text)] placeholder:text-[var(--cj-text-muted)] outline-none
+                         focus:border-[var(--cj-gold)] transition-[border-color] w-60"
             />
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-white/10">
+          <div className="overflow-x-auto rounded-xl border border-[var(--cj-border)]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-white/40">
+                <tr className="border-b border-[var(--cj-border)] text-[var(--cj-text-muted)]">
                   <th className="text-left px-4 py-3 font-medium">Email</th>
                   <th className="text-left px-4 py-3 font-medium">Plan</th>
                   <th className="text-left px-4 py-3 font-medium">Trial</th>
@@ -253,37 +324,37 @@ export default function AdminPage() {
               <tbody>
                 {loadingUsers ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-white/30">Loading…</td>
+                    <td colSpan={7} className="py-8 text-center text-[var(--cj-text-muted)]">Loading…</td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-white/30">No users found</td>
+                    <td colSpan={7} className="py-8 text-center text-[var(--cj-text-muted)]">No users found</td>
                   </tr>
                 ) : (
                   users.map((u) => (
-                    <tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                      <td className="px-4 py-3 text-white/80 font-mono text-xs">{u.email}</td>
+                    <tr key={u.id} className="border-b border-[var(--cj-border)]/50 hover:bg-[var(--cj-raised)]">
+                      <td className="px-4 py-3 text-[var(--cj-text)] font-mono text-xs">{u.email}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
                             u.is_pro
                               ? "bg-emerald-500/20 text-emerald-400"
-                              : "bg-white/10 text-white/50"
+                              : "bg-[var(--cj-raised)] text-[var(--cj-text-muted)]"
                           }`}
                         >
                           {u.is_pro ? "Pro" : u.subscription_status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-white/50 text-xs">
+                      <td className="px-4 py-3 text-xs">
                         {u.trial_active ? (
                           <span className="text-amber-400">Until {fmt(u.trial_ends_at)}</span>
                         ) : (
-                          "—"
+                          <span className="text-[var(--cj-text-muted)]">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-white/50 text-xs">{fmt(u.created_at)}</td>
-                      <td className="px-4 py-3 text-white/50 text-xs">{fmt(u.last_sign_in_at)}</td>
-                      <td className="px-4 py-3 text-white/50 text-xs">
+                      <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">{fmt(u.created_at)}</td>
+                      <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">{fmt(u.last_sign_in_at)}</td>
+                      <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">
                         {u.ai_credits_used}/{u.ai_credits_limit}
                       </td>
                       <td className="px-4 py-3">
@@ -291,14 +362,16 @@ export default function AdminPage() {
                           <button
                             onClick={() => userAction("set_pro", u.id)}
                             disabled={actionLoading === `set_pro-${u.id}`}
-                            className="text-xs px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded transition-colors disabled:opacity-50"
+                            className="text-xs px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/40
+                                       text-emerald-400 rounded transition-colors disabled:opacity-50"
                           >
                             Set Pro
                           </button>
                           <button
                             onClick={() => userAction("extend_trial", u.id)}
                             disabled={actionLoading === `extend_trial-${u.id}`}
-                            className="text-xs px-2 py-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 rounded transition-colors disabled:opacity-50"
+                            className="text-xs px-2 py-1 bg-amber-600/20 hover:bg-amber-600/40
+                                       text-amber-400 rounded transition-colors disabled:opacity-50"
                           >
                             +3d Trial
                           </button>
@@ -314,7 +387,7 @@ export default function AdminPage() {
 
         {/* Payouts */}
         <section>
-          <h2 className="text-xs font-medium text-white/40 uppercase tracking-wider mb-4">
+          <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">
             Payout Requests
             {inPayoutWindow && (
               <span className="ml-2 text-amber-400 normal-case font-normal text-xs">
@@ -323,10 +396,10 @@ export default function AdminPage() {
             )}
           </h2>
 
-          <div className="overflow-x-auto rounded-xl border border-white/10">
+          <div className="overflow-x-auto rounded-xl border border-[var(--cj-border)]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-white/40">
+                <tr className="border-b border-[var(--cj-border)] text-[var(--cj-text-muted)]">
                   <th className="text-left px-4 py-3 font-medium">Referrer</th>
                   <th className="text-left px-4 py-3 font-medium">Amount</th>
                   <th className="text-left px-4 py-3 font-medium">Method</th>
@@ -338,17 +411,17 @@ export default function AdminPage() {
               <tbody>
                 {payouts.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-white/30">
+                    <td colSpan={6} className="py-8 text-center text-[var(--cj-text-muted)]">
                       No payout requests
                     </td>
                   </tr>
                 ) : (
                   payouts.map((p) => (
-                    <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                      <td className="px-4 py-3 text-white/80 text-xs font-mono">{p.referrer_email}</td>
-                      <td className="px-4 py-3 text-white/80">₦{p.amount_ngn.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-white/50 text-xs">{p.payout_method ?? "—"}</td>
-                      <td className="px-4 py-3 text-white/50 text-xs">{fmt(p.requested_at)}</td>
+                    <tr key={p.id} className="border-b border-[var(--cj-border)]/50 hover:bg-[var(--cj-raised)]">
+                      <td className="px-4 py-3 text-[var(--cj-text)] text-xs font-mono">{p.referrer_email}</td>
+                      <td className="px-4 py-3 text-[var(--cj-text)]">₦{p.amount_ngn.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">{p.payout_method ?? "—"}</td>
+                      <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">{fmt(p.requested_at)}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
@@ -370,20 +443,22 @@ export default function AdminPage() {
                             <button
                               onClick={() => payoutAction("approve", p.id)}
                               disabled={!!actionLoading}
-                              className="text-xs px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded transition-colors disabled:opacity-50"
+                              className="text-xs px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600/40
+                                         text-emerald-400 rounded transition-colors disabled:opacity-50"
                             >
                               Approve
                             </button>
                             <button
                               onClick={() => payoutAction("reject", p.id)}
                               disabled={!!actionLoading}
-                              className="text-xs px-2 py-1 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded transition-colors disabled:opacity-50"
+                              className="text-xs px-2 py-1 bg-red-600/20 hover:bg-red-600/40
+                                         text-red-400 rounded transition-colors disabled:opacity-50"
                             >
                               Reject
                             </button>
                           </div>
                         ) : (
-                          "—"
+                          <span className="text-[var(--cj-text-muted)]">—</span>
                         )}
                       </td>
                     </tr>

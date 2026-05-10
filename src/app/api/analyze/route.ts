@@ -59,6 +59,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ── Pro rate limiting (90 analyses / month) ──────────────────────────────
+  const DEV_USER_ID = "b9433d15-02e3-44ed-b66f-b4f51f22fac7";
+  if (user.id !== DEV_USER_ID) {
+    const { data: prof } = await supabase
+      .from("user_profiles")
+      .select("subscription_status, subscription_end, ai_credits_used, ai_credits_reset_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const isProActive =
+      prof?.subscription_status === "pro" &&
+      !!prof?.subscription_end &&
+      new Date((prof as { subscription_end: string }).subscription_end) > new Date();
+
+    if (isProActive) {
+      const today = new Date();
+      const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
+      const resetAt = (prof as { ai_credits_reset_at?: string | null }).ai_credits_reset_at;
+      let used = (prof as { ai_credits_used?: number }).ai_credits_used ?? 0;
+
+      if (!resetAt || resetAt < monthStart) {
+        await supabase
+          .from("user_profiles")
+          .update({ ai_credits_used: 0, ai_credits_reset_at: monthStart })
+          .eq("user_id", user.id);
+        used = 0;
+      }
+
+      if (used >= 90) {
+        return NextResponse.json(
+          { error: "You've used your 90 AI analyses for this month. Your limit resets on the 1st of next month." },
+          { status: 429 }
+        );
+      }
+    }
+  }
+
   // ── Trial enforcement ─────────────────────────────────────────────────────
   const trial = await checkTrialAccess(user.id, "ai_analyses", { consume: true });
   if (!trial.ok) {

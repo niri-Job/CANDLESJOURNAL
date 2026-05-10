@@ -219,7 +219,7 @@ export default function SettingsPage() {
   const [editLabel,        setEditLabel]        = useState("");
 
   // EA token state
-  const [eaToken,       setEaToken]       = useState<EaTokenRow | null>(null);
+  const [eaTokens,      setEaTokens]      = useState<EaTokenRow[]>([]);
   const [eaAccountNum,  setEaAccountNum]  = useState("");
   const [eaBrokerSrv,   setEaBrokerSrv]   = useState("");
   const [generating,    setGenerating]    = useState(false);
@@ -266,14 +266,14 @@ export default function SettingsPage() {
           .from("ea_tokens")
           .select("token, account_number, broker_server, last_used_at")
           .eq("user_id", user.id)
-          .maybeSingle(),
+          .order("created_at", { ascending: false }),
       ]);
 
       const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
       setSub({ status: subData?.subscription_status ?? "free", end: subData?.subscription_end ?? null });
 
       if (accountsRes.data) setTradingAccounts(accountsRes.data as TradingAccount[]);
-      if (tokenRes.data)    setEaToken(tokenRes.data as EaTokenRow);
+      if (tokenRes.data)    setEaTokens(tokenRes.data as EaTokenRow[]);
 
       setLoading(false);
     }
@@ -319,8 +319,8 @@ export default function SettingsPage() {
         showToast(data.error ?? "Failed to delete account");
       } else {
         setTradingAccounts((prev) => prev.filter((a) => a.id !== deleteTarget.id));
-        // If the deleted account was the EA account, clear the token display
-        if (deleteTarget.sync_method === "ea") setEaToken(null);
+        if (deleteTarget.sync_method === "ea")
+          setEaTokens((prev) => prev.filter((t) => t.account_number !== deleteTarget.account_login));
         showToast("Account deleted successfully");
       }
     } catch {
@@ -353,12 +353,15 @@ export default function SettingsPage() {
       if (!res.ok) {
         setGenerateError(json.error ?? "Failed to generate token.");
       } else {
-        setEaToken({
+        const newToken: EaTokenRow = {
           token:          json.token!,
           account_number: json.account_number!,
           broker_server:  json.broker_server!,
           last_used_at:   null,
-        });
+        };
+        setEaTokens((prev) => [newToken, ...prev]);
+        setEaAccountNum("");
+        setEaBrokerSrv("");
         await refreshAccounts();
         showToast("EA token generated — download your files below.");
       }
@@ -424,35 +427,128 @@ export default function SettingsPage() {
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">MT5 Sync</p>
 
-          {!eaToken ? (
-            /* ── Generate token form ─────────────────────────────────────── */
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm font-semibold text-zinc-100">Connect MT5 via EA Sync</p>
+          {/* Connected token cards */}
+          {eaTokens.length > 0 && (
+            <div className="space-y-3 mb-3">
+              {eaTokens.map((tok) => (
+                <div key={tok.account_number}
+                     className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider
+                                       px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        EA Registered
+                      </span>
+                      <p className="text-sm font-semibold text-zinc-100">Account #{tok.account_number}</p>
+                      <span className="text-xs text-zinc-500">{tok.broker_server}</span>
+                    </div>
+                    {tok.last_used_at && (
+                      <span className="text-[11px] text-zinc-500">
+                        Last sync: {timeAgo(tok.last_used_at)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <a
+                      href="/NIRI_EA.ex5"
+                      download="NIRI_EA.ex5"
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
+                                 transition-all"
+                      style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      Download NIRI_EA.ex5
+                    </a>
+                    <a
+                      href={`/api/mt5/download/settings?account=${tok.account_number}`}
+                      download={`NIRI_settings_${tok.account_number}.set`}
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
+                                 border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-all">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      Download Settings File
+                    </a>
+                  </div>
+                </div>
+              ))}
+
+              {/* Installation steps — shown once when at least one token exists */}
+              <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
+                  Installation guide
+                </p>
+                <div className="space-y-2">
+                  {[
+                    { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
+                    { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
+                    { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live" },
+                    { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
+                    { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
+                    { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
+                  ].map(({ n, icon, text }) => (
+                    <div key={n} className="flex items-start gap-3">
+                      <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
+                            style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
+                        {n}
+                      </span>
+                      <p className="text-xs text-zinc-400 leading-relaxed">
+                        <span className="mr-1">{icon}</span>{text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 px-4 py-3 rounded-xl"
+                     style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                  <p className="text-xs text-emerald-400 font-semibold">
+                    Trades sync automatically — no manual action needed after setup.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Generate / Add account form — always visible */}
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm font-semibold text-zinc-100">
+                {eaTokens.length > 0 ? "Add Another MT5 Account" : "Connect MT5 via EA Sync"}
+              </p>
+              {eaTokens.length === 0 && (
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
                                  bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
                   Real-time
                 </span>
-              </div>
-              <p className="text-xs text-zinc-500 leading-relaxed mb-4">
-                Install our Expert Advisor in MetaTrader 5. Trades sync automatically within seconds of closing.
-                No investor password needed — the EA runs inside your MT5.
+              )}
+            </div>
+            <p className="text-xs text-zinc-500 leading-relaxed mb-4">
+              {eaTokens.length > 0
+                ? "Connect an additional live MT5 account to sync its trades automatically."
+                : "Install our Expert Advisor in MetaTrader 5. Trades sync automatically within seconds of closing. No investor password needed — the EA runs inside your MT5."}
+            </p>
+
+            {/* Live accounts only notice */}
+            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
+                 style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <p className="text-xs text-amber-400 leading-relaxed">
+                <span className="font-semibold">NIRI connects to live MT5 accounts only.</span>{" "}
+                Demo accounts are not supported.
               </p>
+            </div>
 
-              {/* Live accounts only notice */}
-              <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
-                   style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)" }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-                <p className="text-xs text-amber-400 leading-relaxed">
-                  <span className="font-semibold">NIRI connects to live MT5 accounts only.</span>{" "}
-                  Demo accounts are not supported.
-                </p>
-              </div>
-
-              {/* 8-step installation overview */}
+            {/* 8-step overview — only when no accounts connected yet */}
+            {eaTokens.length === 0 && (
               <div className="mb-5 space-y-2">
                 <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
                   How it works — 8 steps
@@ -482,153 +578,65 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
+            )}
 
-              <form onSubmit={handleGenerateEa} className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                      MT5 Account Number <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={eaAccountNum}
-                      onChange={(e) => setEaAccountNum(e.target.value)}
-                      placeholder="e.g. 12345678"
-                      className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                                 text-sm text-zinc-100 placeholder-zinc-600
-                                 focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors
-                                 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
-                                 [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <p className="mt-1.5 text-[11px] text-zinc-600">Find in MT5 → top-left account number</p>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                      Broker Server <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={eaBrokerSrv}
-                      onChange={(e) => setEaBrokerSrv(e.target.value)}
-                      placeholder="e.g. ICMarkets-MT5"
-                      className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                                 text-sm text-zinc-100 placeholder-zinc-600
-                                 focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
-                    />
-                    <p className="mt-1.5 text-[11px] text-zinc-600">MT5 → File → Open an Account</p>
-                  </div>
+            <form onSubmit={handleGenerateEa} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                    MT5 Account Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={eaAccountNum}
+                    onChange={(e) => setEaAccountNum(e.target.value)}
+                    placeholder="e.g. 12345678"
+                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
+                               text-sm text-zinc-100 placeholder-zinc-600
+                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors
+                               [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
+                               [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <p className="mt-1.5 text-[11px] text-zinc-600">Find in MT5 → top-left account number</p>
                 </div>
-
-                {generateError && (
-                  <div className="rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                    <p className="text-xs text-rose-400">{generateError}</p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={generating}
-                  className="w-full py-3 rounded-xl font-semibold text-sm transition-all
-                             disabled:opacity-60 disabled:cursor-not-allowed"
-                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-                  {generating ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-[#0A0A0F] border-t-transparent rounded-full animate-spin" />
-                      Generating…
-                    </span>
-                  ) : "Generate EA Token →"}
-                </button>
-              </form>
-            </div>
-          ) : (
-            /* ── Token exists — connected status + downloads ─────────────── */
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider
-                                   px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    EA Registered
-                  </span>
-                  <p className="text-sm font-semibold text-zinc-100">
-                    Account #{eaToken.account_number}
-                  </p>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                    Broker Server <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={eaBrokerSrv}
+                    onChange={(e) => setEaBrokerSrv(e.target.value)}
+                    placeholder="e.g. ICMarkets-MT5"
+                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
+                               text-sm text-zinc-100 placeholder-zinc-600
+                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
+                  />
+                  <p className="mt-1.5 text-[11px] text-zinc-600">MT5 → File → Open an Account</p>
                 </div>
-                {eaToken.last_used_at && (
-                  <span className="text-[11px] text-zinc-500">
-                    Last sync: {timeAgo(eaToken.last_used_at)}
+              </div>
+
+              {generateError && (
+                <div className="rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                  <p className="text-xs text-rose-400">{generateError}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={generating}
+                className="w-full py-3 rounded-xl font-semibold text-sm transition-all
+                           disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                {generating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-[#0A0A0F] border-t-transparent rounded-full animate-spin" />
+                    Generating…
                   </span>
-                )}
-              </div>
-
-              <p className="text-xs text-zinc-500 leading-relaxed mb-5">
-                Your EA is locked to account <span className="font-mono text-zinc-300">#{eaToken.account_number}</span> on{" "}
-                <span className="text-zinc-300">{eaToken.broker_server}</span>.
-                Download the files below and install the EA in MetaTrader 5.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                <a
-                  href="/NIRI_EA.ex5"
-                  download="NIRI_EA.ex5"
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
-                             border transition-all"
-                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F", border: "none" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Download NIRI_EA.ex5
-                </a>
-                <a
-                  href="/api/mt5/download/settings"
-                  download="NIRI_settings.set"
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
-                             border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-all">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Download Settings File
-                </a>
-              </div>
-
-              {/* Installation steps 3–8 */}
-              <div className="space-y-2">
-                {[
-                  { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
-                  { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
-                  { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live" },
-                  { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
-                  { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
-                  { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
-                ].map(({ n, icon, text }) => (
-                  <div key={n} className="flex items-start gap-3">
-                    <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
-                          style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
-                      {n}
-                    </span>
-                    <p className="text-xs text-zinc-400 leading-relaxed">
-                      <span className="mr-1">{icon}</span>{text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 px-4 py-3 rounded-xl"
-                   style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                <p className="text-xs text-emerald-400 font-semibold">
-                  Trades sync automatically — no manual action needed after setup.
-                </p>
-              </div>
-
-              <p className="mt-4 text-[11px] text-zinc-600">
-                To switch accounts, delete the connected account below — this will allow you to register a new account number.
-              </p>
-            </div>
-          )}
+                ) : eaTokens.length > 0 ? "Add Account →" : "Generate EA Token →"}
+              </button>
+            </form>
+          </div>
         </div>
 
         {/* ── IMPORT TRADE HISTORY ──────────────────────────────────────────── */}

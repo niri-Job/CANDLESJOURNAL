@@ -44,8 +44,9 @@ export async function POST(request: Request) {
       volume == null || close_time == null || profit == null)
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
 
-  // Block demo accounts
-  if (String(acctType ?? "").toLowerCase() === "demo") {
+  // Block demo accounts — developer account is exempt for testing
+  const DEV_USER_ID = "b9433d15-02e3-44ed-b66f-b4f51f22fac7";
+  if (String(acctType ?? "").toLowerCase() === "demo" && tokenRow.user_id !== DEV_USER_ID) {
     return NextResponse.json({
       error: "NIRI only supports live MT5 accounts. Demo accounts are not supported.",
     }, { status: 403 });

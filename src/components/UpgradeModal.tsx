@@ -8,7 +8,7 @@ const PRO_YEARLY_KOBO  = 16_200_000; // ₦13,500 × 12 = ₦162,000
 
 const PRO_FEATURES = [
   "Unlimited trades",
-  "MT5 Quick Connect",
+  "MT5 EA Sync",
   "Full dashboard with all charts",
   "Trade journal (notes, screenshots, emotions)",
   "Market Intelligence (AI setups)",

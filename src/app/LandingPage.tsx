@@ -1081,7 +1081,7 @@ export default function LandingPage() {
                 <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦15,000</span>
                 <span style={{ color: "#4a3a1a", fontSize: "0.875rem" }}> / month</span>
               </div>
-              <CheckItem text="Unlimited trades + MT5 Quick Connect" />
+              <CheckItem text="Unlimited trades + MT5 EA Sync" />
               <CheckItem text="Full dashboard, reports, chart review" />
               <CheckItem text="Trade journal with emotions" />
               <CheckItem text="Market Intelligence (AI setups)" />

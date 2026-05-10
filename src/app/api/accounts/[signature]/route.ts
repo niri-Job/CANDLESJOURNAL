@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 async function serverDb() {
   const cookieStore = await cookies();
@@ -14,6 +15,15 @@ async function serverDb() {
           cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)),
       },
     }
+  );
+}
+
+function serviceDb() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY)
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY not set");
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 }
 
@@ -32,7 +42,7 @@ export async function DELETE(
   // Verify the account belongs to this user
   const { data: account } = await supabase
     .from("trading_accounts")
-    .select("id, metaapi_account_id")
+    .select("id, sync_method")
     .eq("account_signature", signature)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -41,40 +51,27 @@ export async function DELETE(
     return NextResponse.json({ error: "Account not found" }, { status: 404 });
   }
 
-  // Remove the MetaAPI cloud account so it doesn't count against the plan limit.
-  // Non-fatal: Supabase deletion proceeds even if MetaAPI cleanup fails.
-  const metaapiId = (account as Record<string, string | null>).metaapi_account_id;
-  if (metaapiId && process.env.METAAPI_TOKEN) {
-    const provUrl = (
-      process.env.METAAPI_PROVISIONING_URL ??
-      "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai"
-    ).replace(/\/$/, "");
-    const headers: Record<string, string> = {
-      "auth-token":   process.env.METAAPI_TOKEN,
-      "Content-Type": "application/json",
-    };
-    try {
-      // Undeploy first (MetaAPI requires this before delete on deployed accounts)
-      await fetch(`${provUrl}/users/current/accounts/${metaapiId}/undeploy`, {
-        method: "POST", headers, body: "{}",
-      }).catch(() => {});
-      await fetch(`${provUrl}/users/current/accounts/${metaapiId}`, {
-        method: "DELETE", headers,
-      }).catch(() => {});
-    } catch {
-      console.warn(`MetaAPI cleanup failed for account ${metaapiId} — remove manually at app.metaapi.cloud`);
-    }
+  const svc = serviceDb();
+
+  // If this was an EA account, also revoke the token so the EA stops syncing
+  // and the user can register a different account number.
+  const syncMethod = (account as Record<string, string>).sync_method;
+  if (syncMethod === "ea") {
+    await svc
+      .from("ea_tokens")
+      .delete()
+      .eq("user_id", user.id);
   }
 
-  // Delete trades first (preserve FK integrity)
-  await supabase
+  // Delete trades first (FK integrity)
+  await svc
     .from("trades")
     .delete()
     .eq("account_signature", signature)
     .eq("user_id", user.id);
 
   // Delete the account
-  const { error } = await supabase
+  const { error } = await svc
     .from("trading_accounts")
     .delete()
     .eq("account_signature", signature)

@@ -71,7 +71,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
 
     <div style="margin:24px 0;border-radius:12px;border:1px solid #2a2415;overflow:hidden;">
       ${[
-        ["📡", "Connect your MT5 account", "Use Quick Connect in onboarding to sync your trades automatically — no manual entry needed."],
+        ["📡", "Connect your MT5 account", "Use EA Sync in onboarding to sync your trades automatically — no manual entry needed."],
         ["📊", "Track every trade", "Your dashboard shows equity curve, win rate, best sessions, and more — all updated in real time."],
         ["🤖", "Get AI coaching", "After a few trades, hit Analyse to get personalised feedback on your patterns and psychology."],
       ].map(([icon, title, body], i) => `
@@ -157,7 +157,7 @@ export async function sendPaymentReceipt(email: string, data: ReceiptData) {
       </tbody>
     </table>
 
-    ${p("Your Pro access includes unlimited trades, MT5 Quick Connect, AI coaching, advanced analytics, and more.", "font-size:0.875rem;")}
+    ${p("Your Pro access includes unlimited trades, MT5 EA Sync, AI coaching, advanced analytics, and more.", "font-size:0.875rem;")}
 
     ${goldButton("Go to Dashboard →", "https://niri.live/dashboard")}
 

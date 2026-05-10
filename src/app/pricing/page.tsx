@@ -15,12 +15,12 @@ const FREE_FEATURES = [
   "1 trading account",
 ];
 const FREE_MISSING = [
-  "No MT5 Quick Connect",
+  "No MT5 EA Sync",
   "No advanced charts or reports",
 ];
 const PRO_FEATURES = [
   "Unlimited trades",
-  "MT5 Quick Connect",
+  "MT5 EA Sync",
   "Full dashboard with all charts",
   "Trade journal (notes, screenshots, emotions)",
   "Market news and economic calendar",

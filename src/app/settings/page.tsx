@@ -28,12 +28,11 @@ interface TradingAccount {
   is_verified: boolean;
 }
 
-interface QuickConnectForm {
-  server: string;
-  login: string;
-  password: string;
-  platform: "MT4" | "MT5";
-  label: string;
+interface EaTokenRow {
+  token: string;
+  account_number: string;
+  broker_server: string;
+  last_used_at: string | null;
 }
 
 function timeAgo(iso: string | null): string {
@@ -213,16 +212,22 @@ export default function SettingsPage() {
     window.location.href = "/login";
   }
 
-  const [loading,           setLoading]           = useState(true);
-  const [sub,               setSub]               = useState<SubState>({ status: "free", end: null });
-  const [tradingAccounts,   setTradingAccounts]   = useState<TradingAccount[]>([]);
-  const [eaCleanupNotice,   setEaCleanupNotice]   = useState(false);
-  const [editingAccountId,  setEditingAccountId]  = useState<string | null>(null);
-  const [editLabel,         setEditLabel]         = useState("");
+  const [loading,          setLoading]          = useState(true);
+  const [sub,              setSub]              = useState<SubState>({ status: "free", end: null });
+  const [tradingAccounts,  setTradingAccounts]  = useState<TradingAccount[]>([]);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editLabel,        setEditLabel]        = useState("");
+
+  // EA token state
+  const [eaToken,       setEaToken]       = useState<EaTokenRow | null>(null);
+  const [eaAccountNum,  setEaAccountNum]  = useState("");
+  const [eaBrokerSrv,   setEaBrokerSrv]   = useState("");
+  const [generating,    setGenerating]    = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Delete modal state
-  const [deleteTarget,  setDeleteTarget]  = useState<TradingAccount | null>(null);
-  const [deleting,      setDeleting]      = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<TradingAccount | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<string | null>(null);
@@ -232,25 +237,12 @@ export default function SettingsPage() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  // Quick Connect state
-  const [qcForm, setQcForm] = useState<QuickConnectForm>({
-    server: "", login: "", password: "", platform: "MT5", label: "",
-  });
-  const [connecting,     setConnecting]     = useState(false);
-  const [connectError,   setConnectError]   = useState<string | null>(null);
-  const [connectSuccess, setConnectSuccess] = useState<{ account_signature: string; ea_warning: string | null } | null>(null);
-
   // CSV import state
   const [importAccountSig, setImportAccountSig] = useState("");
-  const [importFile,        setImportFile]       = useState<File | null>(null);
-  const [importing,         setImporting]        = useState(false);
-  const [importResult,      setImportResult]     = useState<{ imported: number; skipped: number } | null>(null);
-  const [importError,       setImportError]      = useState<string | null>(null);
-
-  // Sync Now state — tracks which account is currently being triggered
-  const [syncingAccount, setSyncingAccount] = useState<string | null>(null);
-  // Whether we're actively polling for status updates after a Sync Now
-  const [pollingSync, setPollingSync] = useState(false);
+  const [importFile,       setImportFile]       = useState<File | null>(null);
+  const [importing,        setImporting]        = useState(false);
+  const [importResult,     setImportResult]     = useState<{ imported: number; skipped: number } | null>(null);
+  const [importError,      setImportError]      = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -259,25 +251,29 @@ export default function SettingsPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
-      const { data: subRaw } = await supabase
-        .from("user_profiles")
-        .select("subscription_status, subscription_end")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const subData = subRaw as { subscription_status: string | null; subscription_end: string | null } | null;
+      const [subRes, accountsRes, tokenRes] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select("subscription_status, subscription_end")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("trading_accounts")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("ea_tokens")
+          .select("token, account_number, broker_server, last_used_at")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
+
+      const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
       setSub({ status: subData?.subscription_status ?? "free", end: subData?.subscription_end ?? null });
 
-      const { data: accounts } = await supabase
-        .from("trading_accounts")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      if (accounts) {
-        const all = accounts as TradingAccount[];
-        const hasEa = all.some((a) => a.sync_method === "ea");
-        if (hasEa) setEaCleanupNotice(true);
-        setTradingAccounts(all.filter((a) => a.sync_method !== "ea"));
-      }
+      if (accountsRes.data) setTradingAccounts(accountsRes.data as TradingAccount[]);
+      if (tokenRes.data)    setEaToken(tokenRes.data as EaTokenRow);
 
       setLoading(false);
     }
@@ -292,27 +288,8 @@ export default function SettingsPage() {
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    if (data) {
-      setTradingAccounts((data as TradingAccount[]).filter((a) => a.sync_method !== "ea"));
-    }
+    if (data) setTradingAccounts(data as TradingAccount[]);
   }
-
-  // Auto-poll account status while any QC account is pending/syncing,
-  // or for 60s after a manual Sync Now so the user sees the result live.
-  useEffect(() => {
-    if (!user) return;
-    const hasPending = tradingAccounts.some(
-      (a) => a.sync_method === "investor" &&
-             (a.sync_status === "pending" || a.sync_status === "syncing")
-    );
-    if (!hasPending && !pollingSync) return;
-
-    const id = setInterval(() => { refreshAccounts(); }, 10_000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, pollingSync,
-      // re-register when pending/syncing state changes
-      tradingAccounts.map(a => a.sync_status).join(",")]);
 
   async function saveLabel(accountId: string) {
     if (!user) return;
@@ -342,6 +319,8 @@ export default function SettingsPage() {
         showToast(data.error ?? "Failed to delete account");
       } else {
         setTradingAccounts((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+        // If the deleted account was the EA account, clear the token display
+        if (deleteTarget.sync_method === "ea") setEaToken(null);
         showToast("Account deleted successfully");
       }
     } catch {
@@ -352,9 +331,47 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleGenerateEa(e: React.FormEvent) {
+    e.preventDefault();
+    if (!eaAccountNum.trim()) { setGenerateError("Enter your MT5 account number."); return; }
+    if (!eaBrokerSrv.trim())  { setGenerateError("Enter your broker server name."); return; }
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      const res = await fetch("/api/mt5/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account_number: eaAccountNum.trim(),
+          broker_server:  eaBrokerSrv.trim(),
+        }),
+      });
+      const json = await res.json() as {
+        success?: boolean; token?: string; account_number?: string;
+        broker_server?: string; error?: string;
+      };
+      if (!res.ok) {
+        setGenerateError(json.error ?? "Failed to generate token.");
+      } else {
+        setEaToken({
+          token:          json.token!,
+          account_number: json.account_number!,
+          broker_server:  json.broker_server!,
+          last_used_at:   null,
+        });
+        await refreshAccounts();
+        showToast("EA token generated — download your files below.");
+      }
+    } catch {
+      setGenerateError("Network error — check your connection.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   async function handleCsvImport(e: React.FormEvent) {
     e.preventDefault();
-    if (!importFile) { setImportError("Select a CSV file first."); return; }
+    if (!importFile)       { setImportError("Select a CSV file first."); return; }
     if (!importAccountSig) { setImportError("Select an account to import into."); return; }
     setImporting(true);
     setImportError(null);
@@ -371,84 +388,6 @@ export default function SettingsPage() {
     finally { setImporting(false); }
   }
 
-  async function handleSyncNow(accountSignature: string) {
-    setSyncingAccount(accountSignature);
-    try {
-      const res = await fetch("/api/accounts/trigger-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account_signature: accountSignature }),
-      });
-      if (res.ok) {
-        setTradingAccounts((prev) =>
-          prev.map((a) => a.account_signature === accountSignature
-            ? { ...a, sync_status: "pending" }
-            : a
-          )
-        );
-        showToast("Sync requested — status will update below within 30 seconds.");
-        // Start polling so the user sees the result without a page reload
-        setPollingSync(true);
-        setTimeout(() => setPollingSync(false), 90_000); // stop after 90s
-      } else {
-        showToast("Sync request failed. Try again.");
-      }
-    } catch {
-      showToast("Network error — check your connection.");
-    } finally {
-      setSyncingAccount(null);
-    }
-  }
-
-  async function handleQuickConnect(e: React.FormEvent) {
-    e.preventDefault();
-    setConnecting(true);
-    setConnectError(null);
-    setConnectSuccess(null);
-
-    if (!qcForm.server.trim() || !qcForm.login.trim() || !qcForm.password.trim()) {
-      setConnectError("Please fill in all required fields.");
-      setConnecting(false);
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/accounts/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          account_login:      qcForm.login.trim(),
-          account_server:     qcForm.server.trim(),
-          investor_password:  qcForm.password,
-          platform:           qcForm.platform,
-          account_label:      qcForm.label.trim() || undefined,
-        }),
-      });
-      const data = (await res.json()) as { success?: boolean; error?: string; account_signature?: string; ea_warning?: string | null };
-
-      if (!res.ok) {
-        setConnectError(data.error ?? "Connection failed");
-      } else {
-        setConnectSuccess({ account_signature: data.account_signature!, ea_warning: data.ea_warning ?? null });
-        setQcForm({ server: "", login: "", password: "", platform: "MT5", label: "" });
-        // Refresh accounts list
-        const supabase = createClient();
-        const { data: accounts } = await supabase
-          .from("trading_accounts")
-          .select("*")
-          .eq("user_id", user!.id)
-          .order("created_at", { ascending: false });
-        if (accounts) setTradingAccounts(accounts as TradingAccount[]);
-        // Auto-select new account for CSV import
-        if (data.account_signature) setImportAccountSig(data.account_signature);
-      }
-    } catch {
-      setConnectError("Network error — check your connection.");
-    } finally {
-      setConnecting(false);
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center">
@@ -461,7 +400,6 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
       <Sidebar user={user} onSignOut={handleLogout} />
 
-      {/* Delete Confirmation Modal */}
       {deleteTarget && (
         <DeleteModal
           account={deleteTarget}
@@ -471,7 +409,6 @@ export default function SettingsPage() {
         />
       )}
 
-      {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl
                         text-sm font-semibold shadow-xl"
@@ -483,237 +420,176 @@ export default function SettingsPage() {
       <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[680px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
-        {/* ── CONNECT ACCOUNT ───────────────────────────────────────────────── */}
+        {/* ── MT5 EA SYNC ───────────────────────────────────────────────────── */}
         <div className="mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Connect Account</p>
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">MT5 Sync</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-
-            {/* ── CARD 1: EA Sync ──────────────────────────────────────────── */}
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex flex-col opacity-70">
-              <div className="flex items-center gap-2 mb-3">
+          {!eaToken ? (
+            /* ── Generate token form ─────────────────────────────────────── */
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-sm font-semibold text-zinc-100">Connect MT5 via EA Sync</p>
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                                  bg-zinc-700/50 border border-zinc-700 text-zinc-500">
-                  Coming Soon
-                </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 px-2 py-0.5
-                                  rounded-full bg-zinc-800 border border-zinc-700">
+                                 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
                   Real-time
                 </span>
               </div>
-              <p className="text-sm font-semibold text-zinc-400 mb-1.5">EA Sync</p>
-              <p className="text-xs text-zinc-600 leading-relaxed mb-4 flex-1">
-                Install our Expert Advisor in MT5 for instant trade sync. Most accurate — trades appear the second you close them.
+              <p className="text-xs text-zinc-500 leading-relaxed mb-5">
+                Install our Expert Advisor in MetaTrader 5. Trades sync automatically within seconds of closing.
+                No investor password needed — the EA runs inside your MT5.
               </p>
-              <div className="rounded-xl p-3 bg-zinc-800/60 border border-zinc-700 text-center">
-                <p className="text-xs text-zinc-500 mb-1 font-semibold">EA auto-sync is temporarily unavailable</p>
-                <p className="text-[11px] text-zinc-600">Use Quick Connect to sync your MT5 account.</p>
-              </div>
+
+              <form onSubmit={handleGenerateEa} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                      MT5 Account Number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={eaAccountNum}
+                      onChange={(e) => setEaAccountNum(e.target.value)}
+                      placeholder="e.g. 12345678"
+                      className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
+                                 text-sm text-zinc-100 placeholder-zinc-600
+                                 focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors
+                                 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
+                                 [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <p className="mt-1.5 text-[11px] text-zinc-600">Find in MT5 → top-left account number</p>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                      Broker Server <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={eaBrokerSrv}
+                      onChange={(e) => setEaBrokerSrv(e.target.value)}
+                      placeholder="e.g. ICMarkets-MT5"
+                      className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
+                                 text-sm text-zinc-100 placeholder-zinc-600
+                                 focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
+                    />
+                    <p className="mt-1.5 text-[11px] text-zinc-600">MT5 → File → Open an Account</p>
+                  </div>
+                </div>
+
+                {generateError && (
+                  <div className="rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                    <p className="text-xs text-rose-400">{generateError}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={generating}
+                  className="w-full py-3 rounded-xl font-semibold text-sm transition-all
+                             disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                  {generating ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-[#0A0A0F] border-t-transparent rounded-full animate-spin" />
+                      Generating…
+                    </span>
+                  ) : "Generate EA Token →"}
+                </button>
+              </form>
             </div>
-
-            {/* ── CARD 2: Quick Connect overview ───────────────────────────── */}
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex flex-col">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                                  bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                  All plans
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                                  bg-blue-500/10 border border-blue-500/30 text-blue-400">
-                  Easy Setup
-                </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 px-2 py-0.5
-                                  rounded-full bg-zinc-800 border border-zinc-700">
-                  30s sync
-                </span>
-              </div>
-              <p className="text-sm font-semibold text-zinc-100 mb-1.5">Quick Connect</p>
-              <p className="text-xs text-zinc-500 leading-relaxed flex-1">
-                Connect using your investor (read-only) password. No installation needed. Syncs every 30 seconds.
-                Investor passwords can only read — they cannot place trades.
-              </p>
-            </div>
-          </div>
-
-          {/* ── QUICK CONNECT FORM ─────────────────────────────────────────── */}
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
-              Quick Connect — New Account
-            </p>
-
-            {connectSuccess && (
-              <div className="mb-4 rounded-xl p-4 bg-emerald-500/8 border border-emerald-500/20">
-                <p className="text-sm text-emerald-400 font-semibold mb-1">Account connected!</p>
-                <p className="text-xs text-zinc-400">
-                  Signature: <span className="font-mono text-zinc-200">{connectSuccess.account_signature}</span>
-                  <br />The sync service will begin fetching your trades within 30 seconds.
-                </p>
-                {connectSuccess.ea_warning && (
-                  <p className="mt-2 text-xs text-amber-400">
-                    ⚠ {connectSuccess.ea_warning}
+          ) : (
+            /* ── Token exists — connected status + downloads ─────────────── */
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider
+                                   px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    EA Registered
+                  </span>
+                  <p className="text-sm font-semibold text-zinc-100">
+                    Account #{eaToken.account_number}
                   </p>
+                </div>
+                {eaToken.last_used_at && (
+                  <span className="text-[11px] text-zinc-500">
+                    Last sync: {timeAgo(eaToken.last_used_at)}
+                  </span>
                 )}
               </div>
-            )}
 
-            <form onSubmit={handleQuickConnect} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                    Broker Server Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={qcForm.server}
-                    onChange={(e) => setQcForm((f) => ({ ...f, server: e.target.value }))}
-                    placeholder="Your broker's MT5 server name"
-                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                               text-sm text-zinc-100 placeholder-zinc-600
-                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
-                  />
-                  <p className="mt-1.5 text-[11px] text-zinc-600">
-                    e.g. ICMarkets-MT5, Deriv-Server, HFM-Live · Find in MT5 → File → Open an Account
-                  </p>
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                    Account Login <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={qcForm.login}
-                    onChange={(e) => setQcForm((f) => ({ ...f, login: e.target.value }))}
-                    placeholder="12345678"
-                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                               text-sm text-zinc-100 placeholder-zinc-600
-                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors
-                               [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
-                               [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                </div>
+              <p className="text-xs text-zinc-500 leading-relaxed mb-5">
+                Your EA is locked to account <span className="font-mono text-zinc-300">#{eaToken.account_number}</span> on{" "}
+                <span className="text-zinc-300">{eaToken.broker_server}</span>.
+                Download the files below and install the EA in MetaTrader 5.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                <a
+                  href="/NIRI_EA.mq5"
+                  download="NIRI_EA.mq5"
+                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
+                             border transition-all"
+                  style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F", border: "none" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Download NIRI_EA.mq5
+                </a>
+                <a
+                  href="/api/mt5/download/settings"
+                  download="NIRI_settings.set"
+                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
+                             border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-all">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Download Settings File
+                </a>
               </div>
 
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                  Investor Password <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={qcForm.password}
-                  onChange={(e) => setQcForm((f) => ({ ...f, password: e.target.value }))}
-                  placeholder="Your read-only investor password"
-                  autoComplete="new-password"
-                  className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                             text-sm text-zinc-100 placeholder-zinc-600
-                             focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
-                />
-                <p className="mt-1.5 text-[11px] text-zinc-600">
-                  Encrypted before storage. Investor passwords are read-only — we cannot place trades.
+              {/* Installation steps */}
+              <div className="space-y-2">
+                {[
+                  "Open MetaEditor (MT5 → Tools → MetaQuotes Language Editor)",
+                  "Open NIRI_EA.mq5, press F7 to compile — this creates NIRI_EA.ex5",
+                  "Copy NIRI_EA.ex5 to MT5 → File → Open Data Folder → MQL5 → Experts",
+                  "MT5 → Tools → Options → Expert Advisors → Allow WebRequest → add https://niri.live",
+                  "Drag NIRI_EA onto any chart → Properties → Load → select NIRI_settings.set",
+                  "Click OK — the EA starts scanning and your trades will sync within 60 seconds",
+                ].map((text, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
+                          style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
+                      {i + 1}
+                    </span>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{text}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 px-4 py-3 rounded-xl"
+                   style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                <p className="text-xs text-emerald-400 font-semibold">
+                  Trades sync automatically — no manual action needed after setup.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Platform toggle */}
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                    Platform
-                  </label>
-                  <div className="flex gap-1.5">
-                    {(["MT5", "MT4"] as const).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setQcForm((f) => ({ ...f, platform: p }))}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border
-                          ${qcForm.platform === p
-                            ? "text-[#0A0A0F] border-transparent"
-                            : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:text-zinc-200"
-                          }`}
-                        style={qcForm.platform === p
-                          ? { background: "linear-gradient(135deg,#F5C518,#C9A227)" }
-                          : undefined}>
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                  {qcForm.platform === "MT4" && (
-                    <p className="mt-1.5 text-[11px] text-amber-500">
-                      ⚠ MT4 support is limited. Quick Connect is available but may have reduced compatibility.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                    Account Label
-                  </label>
-                  <input
-                    type="text"
-                    value={qcForm.label}
-                    onChange={(e) => setQcForm((f) => ({ ...f, label: e.target.value }))}
-                    placeholder="e.g. My Live Account, Demo Practice"
-                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                               text-sm text-zinc-100 placeholder-zinc-600
-                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
-                  />
-                </div>
-              </div>
-
-              {connectError && (
-                <div className="rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                  <p className="text-xs text-rose-400">{connectError}</p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={connecting}
-                className="w-full py-3 rounded-xl font-semibold text-sm transition-all
-                           disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{
-                  background: "linear-gradient(135deg,#F5C518,#C9A227)",
-                  color: "#0A0A0F",
-                }}>
-                {connecting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-[#0A0A0F] border-t-transparent rounded-full animate-spin" />
-                    Connecting to broker server…
-                  </span>
-                ) : "Connect Account"}
-              </button>
-            </form>
-          </div>
+              <p className="mt-4 text-[11px] text-zinc-600">
+                To switch accounts, delete the connected account below — this will allow you to register a new account number.
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* ── IMPORT TRADE HISTORY (prominent, always visible when accounts exist or after QC) */}
-        {(tradingAccounts.length > 0 || connectSuccess) && (
-          <div className="bg-[var(--cj-surface)] border rounded-2xl p-6 mb-5"
-               style={{ borderColor: connectSuccess ? "rgba(245,197,24,0.35)" : "var(--cj-border)",
-                        boxShadow: connectSuccess ? "0 0 40px -10px rgba(245,197,24,0.12)" : "none" }}>
-            <div className="flex items-center gap-2 mb-4">
-              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Import Trade History</p>
-              {connectSuccess && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                                 bg-[var(--cj-gold-glow)] border border-[var(--cj-gold)]/25 text-[var(--cj-gold)]">
-                  Recommended
-                </span>
-              )}
-            </div>
+        {/* ── IMPORT TRADE HISTORY ──────────────────────────────────────────── */}
+        {tradingAccounts.length > 0 && (
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-5">Import Trade History</p>
 
-            {connectSuccess && (
-              <div className="mb-5 p-4 rounded-xl"
-                   style={{ background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.15)" }}>
-                <p className="text-sm font-semibold mb-1" style={{ color: "var(--cj-gold)" }}>
-                  Import your full MT5 trade history
-                </p>
-                <p className="text-xs text-zinc-500 leading-relaxed">
-                  To see your full performance analysis, import your MT5 trade history.
-                  Follow the steps below to export and upload your file.
-                </p>
-              </div>
-            )}
-
-            {/* Step-by-step instructions */}
             <div className="mb-5 space-y-2">
               {[
                 { step: 1, text: "Open MetaTrader 5" },
@@ -830,13 +706,6 @@ export default function SettingsPage() {
         )}
 
         {/* ── CONNECTED ACCOUNTS ────────────────────────────────────────────── */}
-        {eaCleanupNotice && (
-          <div className="mb-5 px-4 py-3 rounded-xl border text-xs"
-               style={{ background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.2)", color: "#C4B89A" }}>
-            <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>EA-connected accounts have been removed.</span>
-            {" "}Please reconnect using Quick Connect above.
-          </div>
-        )}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
           <div className="flex items-center justify-between mb-5">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
@@ -860,206 +729,142 @@ export default function SettingsPage() {
               </div>
               <p className="text-sm text-zinc-500 mb-1">No accounts connected yet</p>
               <p className="text-xs text-zinc-600">
-                Use Quick Connect above to connect your MT5 account.
+                Generate an EA token above to connect your MT5 account.
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {tradingAccounts.map((acct) => {
-                const isQC = acct.sync_method === "investor";
-                return (
-                  <div key={acct.id} className="bg-[var(--cj-raised)] border border-zinc-800 rounded-xl p-4">
+              {tradingAccounts.map((acct) => (
+                <div key={acct.id} className="bg-[var(--cj-raised)] border border-zinc-800 rounded-xl p-4">
 
-                    {/* Header row */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex-1 min-w-0">
-                        {editingAccountId === acct.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              value={editLabel}
-                              onChange={(e) => setEditLabel(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") saveLabel(acct.id);
-                                if (e.key === "Escape") setEditingAccountId(null);
-                              }}
-                              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5
-                                         text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
-                              placeholder="Account label"
-                              autoFocus
-                            />
-                            <button onClick={() => saveLabel(acct.id)}
-                              className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500
-                                         text-white font-semibold transition-all">
-                              Save
-                            </button>
-                            <button onClick={() => setEditingAccountId(null)}
-                              className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700
-                                         text-zinc-400 hover:text-zinc-200 transition-all">
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-semibold text-zinc-100 truncate">
-                              {acct.account_label || acct.broker_name || acct.account_login || "Unknown Account"}
-                            </p>
-                            <button
-                              onClick={() => { setEditingAccountId(acct.id); setEditLabel(acct.account_label || ""); }}
-                              className="text-[10px] text-zinc-600 hover:text-blue-400 transition-colors">
-                              Rename
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                        {/* Sync method badge */}
-                        <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
-                          ${isQC
-                            ? "bg-blue-500/15 border border-blue-500/30 text-blue-400"
-                            : "bg-zinc-800 border border-zinc-700 text-zinc-500"
-                          }`}>
-                          {isQC ? "Quick Connect" : "EA Sync"}
-                        </span>
-                        {/* Account type badge */}
-                        <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
-                          ${acct.account_type === "demo"
-                            ? "bg-yellow-500/15 border border-yellow-500/30 text-yellow-400"
-                            : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-                          }`}>
-                          {acct.account_type}
-                        </span>
-                        {acct.is_cent && (
-                          <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
-                            bg-orange-500/15 border border-orange-500/30 text-orange-400">
-                            Cent
-                          </span>
-                        )}
-                        {acct.account_type !== "demo" && acct.verification_status !== "verified_ea" && (
-                          <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
-                            bg-zinc-700/50 border border-zinc-700 text-zinc-500">
-                            Unverified
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Status row (Quick Connect only) */}
-                    {isQC && (
-                      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-zinc-800">
-                        <SyncStatusDot status={acct.sync_status} />
-                        <span className="text-[11px] text-zinc-600">
-                          Last sync: {timeAgo(acct.last_synced_at)}
-                        </span>
-                        {acct.platform && (
-                          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded
-                                           bg-zinc-800 text-zinc-500">
-                            {acct.platform}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Error message */}
-                    {isQC && acct.sync_status === "failed" && acct.sync_error && (
-                      <div className="mb-3 rounded-lg px-3 py-2 bg-rose-500/8 border border-rose-500/20">
-                        <p className="text-[11px] text-rose-400">{acct.sync_error}</p>
-                      </div>
-                    )}
-
-                    {/* Never-synced warning — sync service may not be running */}
-                    {isQC && !acct.last_synced_at && acct.sync_status === "pending" && (
-                      <div className="mb-3 rounded-lg px-3 py-2 bg-amber-500/8 border border-amber-500/20">
-                        <p className="text-[11px] text-amber-400 font-semibold mb-0.5">
-                          Waiting for sync service…
-                        </p>
-                        <p className="text-[11px] text-amber-400/70">
-                          Trades sync via a background service that runs on our servers. If this stays pending for more than 2 minutes, the service may be temporarily offline — try again later or import your history manually below.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Detail grid */}
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs mb-3">
-                      {acct.broker_name && (
-                        <>
-                          <span className="text-zinc-600">Broker</span>
-                          <span className="text-zinc-300 truncate">{acct.broker_name}</span>
-                        </>
-                      )}
-                      {acct.account_login && (
-                        <>
-                          <span className="text-zinc-600">Login</span>
-                          <span className="font-mono text-zinc-300">{acct.account_login}</span>
-                        </>
-                      )}
-                      {acct.account_server && (
-                        <>
-                          <span className="text-zinc-600">Server</span>
-                          <span className="text-zinc-300 truncate">{acct.account_server}</span>
-                        </>
-                      )}
-                      <span className="text-zinc-600">Currency</span>
-                      <span className="text-zinc-300">{acct.account_currency}</span>
-                      {acct.current_balance != null && (
-                        <>
-                          <span className="text-zinc-600">Balance</span>
-                          <span className="text-zinc-300 font-mono">
-                            {acct.current_balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-                            {acct.account_currency}
-                          </span>
-                        </>
-                      )}
-                      {!isQC && acct.last_synced_at && (
-                        <>
-                          <span className="text-zinc-600">Last sync</span>
-                          <span className="text-zinc-400">{timeAgo(acct.last_synced_at)}</span>
-                        </>
+                  {/* Header row */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      {editingAccountId === acct.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={editLabel}
+                            onChange={(e) => setEditLabel(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveLabel(acct.id);
+                              if (e.key === "Escape") setEditingAccountId(null);
+                            }}
+                            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5
+                                       text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
+                            placeholder="Account label"
+                            autoFocus
+                          />
+                          <button onClick={() => saveLabel(acct.id)}
+                            className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500
+                                       text-white font-semibold transition-all">
+                            Save
+                          </button>
+                          <button onClick={() => setEditingAccountId(null)}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700
+                                       text-zinc-400 hover:text-zinc-200 transition-all">
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-zinc-100 truncate">
+                            {acct.account_label || acct.broker_name || acct.account_login || "Unknown Account"}
+                          </p>
+                          <button
+                            onClick={() => { setEditingAccountId(acct.id); setEditLabel(acct.account_label || ""); }}
+                            className="text-[10px] text-zinc-600 hover:text-blue-400 transition-colors">
+                            Rename
+                          </button>
+                        </div>
                       )}
                     </div>
 
-                    {/* Actions */}
-                    <div className="border-t border-zinc-800 pt-3 flex items-center gap-3 flex-wrap">
-                      {isQC && (
-                        <button
-                          onClick={() => handleSyncNow(acct.account_signature)}
-                          disabled={syncingAccount === acct.account_signature}
-                          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
-                                     border border-[var(--cj-gold)]/25 text-[var(--cj-gold)]
-                                     hover:bg-[var(--cj-gold-glow)] hover:border-[var(--cj-gold)]/50
-                                     disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                          {syncingAccount === acct.account_signature ? (
-                            <>
-                              <span className="w-3 h-3 border border-[var(--cj-gold)] border-t-transparent rounded-full animate-spin" />
-                              Syncing…
-                            </>
-                          ) : (
-                            <>
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="23 4 23 10 17 10"/>
-                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                              </svg>
-                              Sync Now
-                            </>
-                          )}
-                        </button>
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
+                                       bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                        EA Sync
+                      </span>
+                      <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
+                        ${acct.account_type === "demo"
+                          ? "bg-yellow-500/15 border border-yellow-500/30 text-yellow-400"
+                          : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                        }`}>
+                        {acct.account_type}
+                      </span>
+                      {acct.is_cent && (
+                        <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
+                          bg-orange-500/15 border border-orange-500/30 text-orange-400">
+                          Cent
+                        </span>
                       )}
-                      <button
-                        onClick={() => setDeleteTarget(acct)}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
-                                   border border-rose-500/20 text-rose-500 hover:bg-rose-500/10
-                                   hover:border-rose-500/40 transition-all">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"/>
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                          <path d="M10 11v6M14 11v6"/>
-                        </svg>
-                        Delete Account
-                      </button>
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* Status row */}
+                  <div className="flex items-center gap-3 mb-3 pb-3 border-b border-zinc-800">
+                    <SyncStatusDot status={acct.sync_status} />
+                    <span className="text-[11px] text-zinc-600">
+                      Last sync: {timeAgo(acct.last_synced_at)}
+                    </span>
+                  </div>
+
+                  {/* Error message */}
+                  {acct.sync_status === "failed" && acct.sync_error && (
+                    <div className="mb-3 rounded-lg px-3 py-2 bg-rose-500/8 border border-rose-500/20">
+                      <p className="text-[11px] text-rose-400">{acct.sync_error}</p>
+                    </div>
+                  )}
+
+                  {/* Detail grid */}
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs mb-3">
+                    {acct.broker_name && (
+                      <>
+                        <span className="text-zinc-600">Broker</span>
+                        <span className="text-zinc-300 truncate">{acct.broker_name}</span>
+                      </>
+                    )}
+                    {acct.account_login && (
+                      <>
+                        <span className="text-zinc-600">Login</span>
+                        <span className="font-mono text-zinc-300">{acct.account_login}</span>
+                      </>
+                    )}
+                    {acct.account_server && (
+                      <>
+                        <span className="text-zinc-600">Server</span>
+                        <span className="text-zinc-300 truncate">{acct.account_server}</span>
+                      </>
+                    )}
+                    <span className="text-zinc-600">Currency</span>
+                    <span className="text-zinc-300">{acct.account_currency}</span>
+                    {acct.current_balance != null && (
+                      <>
+                        <span className="text-zinc-600">Balance</span>
+                        <span className="text-zinc-300 font-mono">
+                          {acct.current_balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                          {acct.account_currency}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="border-t border-zinc-800 pt-3 flex items-center gap-3">
+                    <button
+                      onClick={() => setDeleteTarget(acct)}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
+                                 border border-rose-500/20 text-rose-500 hover:bg-rose-500/10
+                                 hover:border-rose-500/40 transition-all">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                      </svg>
+                      Delete Account
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -1081,7 +886,7 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <p className="text-xs text-zinc-600">
-                    {tradingAccounts.length}/{limit} accounts · use Quick Connect above to add more.
+                    {tradingAccounts.length}/{limit} accounts connected via EA Sync.
                   </p>
                 )}
               </div>
@@ -1091,19 +896,6 @@ export default function SettingsPage() {
 
         {/* ── REFERRALS QUICK-VIEW ──────────────────────────────────────────── */}
         <ReferralQuickView />
-
-        {/* ── EA SYNC — COMING SOON ─────────────────────────────────────────── */}
-        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 opacity-60 select-none pointer-events-none">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                             bg-zinc-700/50 border border-zinc-700 text-zinc-500">Coming Soon</span>
-          </div>
-          <p className="text-sm font-semibold text-zinc-500 mb-2">MT5 EA Sync — Coming Soon</p>
-          <p className="text-xs text-zinc-600 leading-relaxed">
-            EA auto-sync is temporarily unavailable.
-            Use Quick Connect to connect your MT5 account instead.
-          </p>
-        </div>
 
       </main>
       </div>

@@ -16,11 +16,10 @@ interface OnboardingData {
   monthly_target: string;
 }
 
-interface QcForm {
-  server: string;
-  login: string;
-  password: string;
-  platform: "MT4" | "MT5";
+interface EaForm {
+  accountNumber: string;
+  brokerServer:  string;
+  label:         string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -39,7 +38,7 @@ const EMPTY: OnboardingData = {
   name: "", broker: "", account_size: "", preferred_pairs: [],
   experience_level: "", trading_style: "", preferred_sessions: [], monthly_target: "",
 };
-const EMPTY_QC: QcForm = { server: "", login: "", password: "", platform: "MT5" };
+const EMPTY_EA: EaForm = { accountNumber: "", brokerServer: "", label: "" };
 
 interface ProfileRow {
   onboarding_completed: boolean;
@@ -67,49 +66,6 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-function EyeIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-function EyeOffIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  );
-}
-
-function PwInput({ value, onChange, placeholder }: {
-  value: string; onChange: (v: string) => void; placeholder?: string;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <input
-        type={show ? "text" : "password"}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder ?? "••••••••"}
-        autoComplete="new-password"
-        className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5 pr-10
-                   text-sm text-zinc-100 placeholder-zinc-600
-                   focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
-      />
-      <button type="button" onClick={() => setShow((s) => !s)} tabIndex={-1}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
-        {show ? <EyeOffIcon /> : <EyeIcon />}
-      </button>
-    </div>
-  );
-}
-
 // ─── Field input style shared ─────────────────────────────────────────────────
 const fieldCls =
   "w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5 " +
@@ -124,14 +80,13 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
 
-  // Step 3 — Quick Connect
-  const [qcForm,        setQcForm]        = useState<QcForm>(EMPTY_QC);
-  const [connecting,    setConnecting]    = useState(false);
-  const [connectError,  setConnectError]  = useState<string | null>(null);
-  const [connectedSig,  setConnectedSig]  = useState<string | null>(null);
-  const [connectDone,   setConnectDone]   = useState(false); // success banner shown
-  // "connect" → show form; "import" → show csv sub-step
-  const [s3Phase, setS3Phase] = useState<"connect" | "import">("connect");
+  // Step 3 — EA setup
+  const [eaForm,        setEaForm]        = useState<EaForm>(EMPTY_EA);
+  const [generating,    setGenerating]    = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [eaToken,       setEaToken]       = useState<{ token: string; account_number: string; broker_server: string } | null>(null);
+  // "setup" → show form; "download" → show download + instructions; "import" → csv sub-step
+  const [s3Phase, setS3Phase] = useState<"setup" | "download" | "import">("setup");
 
   // Step 3 import sub-step
   const [importFile,   setImportFile]   = useState<File | null>(null);
@@ -139,13 +94,7 @@ export default function OnboardingPage() {
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
   const [importError,  setImportError]  = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-advance from success banner → import sub-step after 2 s
-  useEffect(() => {
-    if (!connectDone) return;
-    const t = setTimeout(() => setS3Phase("import"), 2000);
-    return () => clearTimeout(t);
-  }, [connectDone]);
+  const [connectedSig, setConnectedSig] = useState<string | null>(null);
 
   // ── Auth check + redirect existing users ──────────────────────────────────
   useEffect(() => {
@@ -245,38 +194,40 @@ export default function OnboardingPage() {
     }
   }
 
-  // ── Quick Connect ─────────────────────────────────────────────────────────
-  async function handleConnect(e: React.FormEvent) {
+  // ── EA Token Generation ──────────────────────────────────────────────────
+  async function handleGenerateEa(e: React.FormEvent) {
     e.preventDefault();
-    setConnectError(null);
-    if (!qcForm.server.trim() || !qcForm.login.trim() || !qcForm.password.trim()) {
-      setConnectError("Please fill in all required fields.");
+    setGenerateError(null);
+    if (!eaForm.accountNumber.trim() || !eaForm.brokerServer.trim()) {
+      setGenerateError("Please enter your MT5 account number and broker server.");
       return;
     }
-    setConnecting(true);
+    setGenerating(true);
     try {
-      const res = await fetch("/api/accounts/connect", {
+      const res = await fetch("/api/mt5/token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          account_login:     qcForm.login.trim(),
-          account_server:    qcForm.server.trim(),
-          investor_password: qcForm.password,
-          platform:          qcForm.platform,
+          account_number: eaForm.accountNumber.trim(),
+          broker_server:  eaForm.brokerServer.trim(),
+          label:          eaForm.label.trim() || undefined,
         }),
       });
-      const json = await res.json() as { success?: boolean; error?: string; account_signature?: string };
+      const json = await res.json() as {
+        success?: boolean; error?: string;
+        token?: string; account_number?: string; broker_server?: string; account_signature?: string;
+      };
       if (!res.ok) {
-        setConnectError(json.error ?? "Connection failed. Check your credentials and try again.");
+        setGenerateError(json.error ?? "Failed to generate EA. Please try again.");
       } else {
+        setEaToken({ token: json.token!, account_number: json.account_number!, broker_server: json.broker_server! });
         setConnectedSig(json.account_signature ?? null);
-        setConnectDone(true); // triggers 2s auto-advance
-        setQcForm(EMPTY_QC);
+        setS3Phase("download");
       }
     } catch {
-      setConnectError("Network error — check your connection.");
+      setGenerateError("Network error — check your connection.");
     } finally {
-      setConnecting(false);
+      setGenerating(false);
     }
   }
 
@@ -457,185 +408,188 @@ export default function OnboardingPage() {
         {/* ════════════════════════════════ STEP 3 ═══════════════════════════════ */}
         {step === 3 && (
           <>
-            {/* ── 3a: Quick Connect form ── */}
-            {s3Phase === "connect" && !connectDone && (
+            {/* ── 3a: EA Setup form ── */}
+            {s3Phase === "setup" && (
               <>
                 <p className="text-[11px] uppercase tracking-widest text-[var(--cj-gold-muted)] font-medium mb-2">
                   Step 3 of 4 · Connect MT5
                 </p>
-                <h2 className="text-xl font-bold mb-1">Connect Your MT5 Account</h2>
+                <h2 className="text-xl font-bold mb-1">Connect Your MT5</h2>
                 <p className="text-sm text-zinc-500 mb-6">
-                  Connect your trading account so NIRI can track your performance automatically.
+                  We&apos;ll generate a personalised EA file — install it in MT5 and trades sync automatically.
                 </p>
 
-                <form onSubmit={handleConnect} className="space-y-4">
-                  {/* Account Login */}
+                <form onSubmit={handleGenerateEa} className="space-y-4">
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
-                      Account Login
-                    </label>
-                    <input
-                      type="number"
-                      value={qcForm.login}
-                      onChange={(e) => setQcForm((f) => ({ ...f, login: e.target.value }))}
-                      placeholder="Your MT5 account number"
-                      className={fieldCls + " [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"}
-                    />
-                  </div>
-
-                  {/* Investor Password */}
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
-                      Investor Password
-                    </label>
-                    <PwInput
-                      value={qcForm.password}
-                      onChange={(v) => setQcForm((f) => ({ ...f, password: v }))}
-                      placeholder="Your read-only investor password"
-                    />
-                    <p className="mt-1 text-[11px] text-zinc-600">
-                      Investor passwords are read-only — we can never place trades on your behalf.
-                    </p>
-                  </div>
-
-                  {/* Server */}
-                  <div>
-                    <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
-                      Server
+                      MT5 Account Number
                     </label>
                     <input
                       type="text"
-                      value={qcForm.server}
-                      onChange={(e) => setQcForm((f) => ({ ...f, server: e.target.value }))}
-                      placeholder="e.g. Exness-MT5Real9, ICMarkets-Live"
+                      inputMode="numeric"
+                      value={eaForm.accountNumber}
+                      onChange={(e) => setEaForm((f) => ({ ...f, accountNumber: e.target.value }))}
+                      placeholder="e.g. 12345678"
                       className={fieldCls}
+                      autoFocus
                     />
                     <p className="mt-1 text-[11px] text-zinc-600">
-                      Find this in MT5 → File → Open an Account
+                      Shown in MT5 top-left corner next to your broker name
                     </p>
                   </div>
 
-                  {/* Platform toggle */}
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
-                      Platform
+                      Broker Server
                     </label>
-                    <div className="flex gap-2">
-                      {(["MT5", "MT4"] as const).map((p) => (
-                        <button key={p} type="button"
-                          onClick={() => setQcForm((f) => ({ ...f, platform: p }))}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border
-                            ${qcForm.platform === p
-                              ? "bg-[var(--cj-gold)]/10 border-[var(--cj-gold-muted)] text-[var(--cj-gold)]"
-                              : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:border-zinc-600"
-                            }`}>
-                          {p}
-                        </button>
-                      ))}
-                    </div>
+                    <input
+                      type="text"
+                      value={eaForm.brokerServer}
+                      onChange={(e) => setEaForm((f) => ({ ...f, brokerServer: e.target.value }))}
+                      placeholder="e.g. ICMarkets-Live, Exness-MT5Real9"
+                      className={fieldCls}
+                    />
+                    <p className="mt-1 text-[11px] text-zinc-600">
+                      Find in MT5 → File → Open an Account → your broker&apos;s server list
+                    </p>
                   </div>
 
-                  {connectError && (
+                  {generateError && (
                     <div className="px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
-                      {connectError}
+                      {generateError}
                     </div>
                   )}
 
-                  <button type="submit" disabled={connecting}
+                  <button type="submit" disabled={generating}
                     className="btn-gold w-full py-3 rounded-xl text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
-                    {connecting ? "Connecting to your broker…" : "Connect Account →"}
+                    {generating ? "Generating your EA…" : "Generate My EA →"}
                   </button>
                 </form>
               </>
             )}
 
-            {/* ── 3b: Success banner (auto-advances to import after 2s) ── */}
-            {s3Phase === "connect" && connectDone && (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30
-                                flex items-center justify-center text-3xl mb-5">
-                  ✓
-                </div>
-                <h2 className="text-xl font-bold text-emerald-400 mb-2">Account connected!</h2>
-                <p className="text-sm text-zinc-400">
-                  Your trades will appear in your dashboard.
+            {/* ── 3b: Download + instructions ── */}
+            {s3Phase === "download" && eaToken && (
+              <>
+                <p className="text-[11px] uppercase tracking-widest text-[var(--cj-gold-muted)] font-medium mb-2">
+                  Step 3 of 4 · Install EA
                 </p>
-                <p className="text-xs text-zinc-600 mt-4">Setting up your history import…</p>
-              </div>
+                <h2 className="text-xl font-bold mb-1">Your EA is ready</h2>
+                <p className="text-sm text-zinc-500 mb-5">
+                  Download both files and follow the steps below to start syncing.
+                </p>
+
+                {/* Download buttons */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <a href="/NIRI_EA.mq5" download="NIRI_EA.mq5"
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-[var(--cj-gold-muted)]/40
+                               bg-[var(--cj-gold-glow)] hover:bg-[var(--cj-gold)]/10 transition-all text-center">
+                    <span className="text-2xl">📦</span>
+                    <span className="text-xs font-bold text-[var(--cj-gold)]">NIRI_EA.mq5</span>
+                    <span className="text-[10px] text-zinc-500">EA source file</span>
+                  </a>
+                  <a href="/api/mt5/download/settings" download="NIRI_settings.set"
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-zinc-700
+                               bg-[var(--cj-raised)] hover:border-zinc-500 transition-all text-center">
+                    <span className="text-2xl">⚙️</span>
+                    <span className="text-xs font-bold text-zinc-200">NIRI_settings.set</span>
+                    <span className="text-[10px] text-zinc-500">Your personal settings</span>
+                  </a>
+                </div>
+
+                {/* Installation steps */}
+                <div className="space-y-3 mb-6">
+                  {[
+                    { n: 1, text: "Open MetaEditor: MT5 → Tools → MetaQuotes Language Editor" },
+                    { n: 2, text: "In MetaEditor, open NIRI_EA.mq5 and press F7 to compile it" },
+                    { n: 3, text: "In MT5: File → Open Data Folder → MQL5 → Experts — copy NIRI_EA.ex5 here" },
+                    { n: 4, text: "Restart MT5 or press F5 in the Navigator panel" },
+                    { n: 5, text: "Tools → Options → Expert Advisors → Allow WebRequest → add https://niri.live" },
+                    { n: 6, text: "Drag NIRI EA from Navigator onto any chart → Properties → Load → select NIRI_settings.set → Make sure \"Allow live trading\" is checked → OK" },
+                  ].map(({ n, text }) => (
+                    <div key={n} className="flex items-start gap-3">
+                      <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
+                            style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
+                        {n}
+                      </span>
+                      <p className="text-xs text-zinc-400 leading-relaxed">{text}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="px-4 py-3 rounded-xl border mb-5"
+                     style={{ background: "rgba(16,185,129,0.07)", borderColor: "rgba(16,185,129,0.2)" }}>
+                  <p className="text-xs text-emerald-400 font-semibold mb-0.5">
+                    Your trades will sync automatically within 60 seconds of closing
+                  </p>
+                  <p className="text-[11px] text-emerald-400/60">
+                    The EA checks for closed trades every 5 seconds and pushes them to your journal instantly.
+                  </p>
+                </div>
+
+                <button type="button" onClick={() => setS3Phase("import")}
+                  className="btn-gold w-full py-3 rounded-xl text-sm font-bold mb-2">
+                  Continue →
+                </button>
+                <button type="button" onClick={() => setStep(4)}
+                  className="w-full py-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+                  Skip history import
+                </button>
+              </>
             )}
 
-            {/* ── 3c: Import sub-step ── */}
+            {/* ── 3c: Import sub-step (optional) ── */}
             {s3Phase === "import" && !importResult && (
               <>
-                {/* Success banner shown at top if they connected */}
-                {connectedSig && (
-                  <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-xl
-                                  bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="text-emerald-400 text-lg shrink-0">✓</span>
-                    <div>
-                      <p className="text-sm font-semibold text-emerald-400">Account connected!</p>
-                      <p className="text-xs text-zinc-500">Your trades will appear in your dashboard.</p>
-                    </div>
-                  </div>
-                )}
-
                 <p className="text-[11px] uppercase tracking-widest text-[var(--cj-gold-muted)] font-medium mb-2">
                   Optional · Import History
                 </p>
-                <h2 className="text-lg font-bold mb-1">Want to import your full trade history?</h2>
+                <h2 className="text-lg font-bold mb-1">Import your full trade history</h2>
                 <p className="text-sm text-zinc-500 mb-5">
-                  Export your history from MT5 and upload it here to see all your past performance data.
+                  Upload your MT5 history export to populate your stats from day one.
                 </p>
 
-                {connectedSig ? (
-                  <>
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors mb-4
-                        ${importFile
-                          ? "border-[var(--cj-gold-muted)] bg-[var(--cj-gold-glow)]"
-                          : "border-zinc-700 hover:border-zinc-500 bg-[var(--cj-raised)]"
-                        }`}
-                    >
-                      <input ref={fileInputRef} type="file"
-                        accept=".xlsx,.xls,.xml,.htm,.html,.csv,.txt"
-                        className="hidden"
-                        onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); }}
-                      />
-                      {importFile ? (
-                        <p className="text-sm text-[var(--cj-gold)] font-medium">{importFile.name}</p>
-                      ) : (
-                        <>
-                          <p className="text-sm text-zinc-400 font-medium">Click to select your MT5 export file</p>
-                          <p className="text-xs text-zinc-600 mt-1">
-                            MT5 → History tab → right-click → Report → Open XML (MS Office Excel 2007)
-                          </p>
-                        </>
-                      )}
-                    </div>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors mb-4
+                    ${importFile
+                      ? "border-[var(--cj-gold-muted)] bg-[var(--cj-gold-glow)]"
+                      : "border-zinc-700 hover:border-zinc-500 bg-[var(--cj-raised)]"
+                    }`}
+                >
+                  <input ref={fileInputRef} type="file"
+                    accept=".xlsx,.xls,.xml,.htm,.html,.csv,.txt"
+                    className="hidden"
+                    onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); }}
+                  />
+                  {importFile ? (
+                    <p className="text-sm text-[var(--cj-gold)] font-medium">{importFile.name}</p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-zinc-400 font-medium">Click to select your MT5 history export</p>
+                      <p className="text-xs text-zinc-600 mt-1">
+                        MT5 → History tab → right-click → Report → Open XML (MS Office Excel 2007)
+                      </p>
+                    </>
+                  )}
+                </div>
 
-                    {importError && (
-                      <div className="mb-4 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
-                        {importError}
-                      </div>
-                    )}
-
-                    {importFile && (
-                      <button type="button" onClick={handleImport} disabled={importing}
-                        className="btn-gold w-full py-3 rounded-xl text-sm font-bold mb-3 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {importing ? "Importing…" : "Import Trade History →"}
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <div className="mb-4 px-4 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700 text-zinc-500 text-sm text-center">
-                    Connect your MT5 account to unlock history import.
+                {importError && (
+                  <div className="mb-4 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
+                    {importError}
                   </div>
+                )}
+
+                {connectedSig && importFile && (
+                  <button type="button" onClick={handleImport} disabled={importing}
+                    className="btn-gold w-full py-3 rounded-xl text-sm font-bold mb-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {importing ? "Importing…" : "Import Trade History →"}
+                  </button>
                 )}
 
                 <button type="button" onClick={() => setStep(4)}
                   className="w-full py-2.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
-                  Skip this step
+                  Skip — I&apos;ll import later
                 </button>
               </>
             )}
@@ -738,8 +692,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Back button on step 3 connect phase ── */}
-        {step === 3 && s3Phase === "connect" && !connectDone && (
+        {/* ── Back button on step 3 setup phase ── */}
+        {step === 3 && s3Phase === "setup" && (
           <div className="mt-5">
             <button type="button" onClick={() => setStep(2)}
               className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 text-sm
@@ -759,13 +713,6 @@ export default function OnboardingPage() {
         </button>
       )}
 
-      {/* Step 3 connect phase: skip MT5 connection → go to import sub-step */}
-      {step === 3 && s3Phase === "connect" && !connectDone && (
-        <button type="button" onClick={() => setS3Phase("import")}
-          className="mt-5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
-          Skip for now — I&apos;ll connect later
-        </button>
-      )}
     </div>
   );
 }

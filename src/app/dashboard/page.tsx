@@ -401,7 +401,6 @@ export default function TradingJournal() {
   const [aiCreditsLimit,   setAiCreditsLimit]   = useState<number>(3);
   const [trialDaysLeft,    setTrialDaysLeft]    = useState<number | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [syncOffline,      setSyncOffline]      = useState<boolean | null>(null); // null = not checked yet
 
   function showToast(msg: string, type: "ok" | "err") { setToast({ msg, type }); }
 
@@ -429,7 +428,6 @@ export default function TradingJournal() {
           .from("trading_accounts")
           .select("*")
           .eq("user_id", user.id)
-          .neq("sync_method", "ea")
           .order("created_at", { ascending: true }),
       ]);
 
@@ -534,20 +532,6 @@ export default function TradingJournal() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Check sync service health once after accounts load
-  useEffect(() => {
-    const hasInvestor = tradingAccounts.some(
-      (a) => (a as unknown as { sync_method?: string }).sync_method === "investor"
-    );
-    if (!hasInvestor || loading) return;
-    fetch("/api/sync/health")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d: { online?: boolean | null } | null) => {
-        if (d && d.online === false) setSyncOffline(true);
-        else if (d && d.online === true) setSyncOffline(false);
-      })
-      .catch(() => { /* non-fatal */ });
-  }, [tradingAccounts, loading]);
 
   // ── Account-filtered trade set (used for all stats and charts) ─────────────
   const accountTrades = useMemo(() => {
@@ -876,7 +860,7 @@ export default function TradingJournal() {
                   {[
                     "90 AI analyses/month",
                     "Market Intelligence setups",
-                    "MT5 Quick Connect",
+                    "MT5 EA Sync",
                     "Full psychology reports",
                     "Unlimited trade journal",
                     "Priority support",
@@ -1032,25 +1016,6 @@ export default function TradingJournal() {
           );
         })()}
 
-        {/* SYNC SERVICE OFFLINE WARNING */}
-        {syncOffline === true && (
-          <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border"
-               style={{ background: "rgba(245,158,11,0.07)", borderColor: "rgba(245,158,11,0.25)" }}>
-            <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0 mt-1.5 animate-pulse" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-amber-300 mb-0.5">
-                MT5 sync service is temporarily offline
-              </p>
-              <p className="text-[11px] text-amber-400/70 leading-relaxed">
-                Your trades will sync automatically when the service is restored.
-                In the meantime you can import trades manually in{" "}
-                <a href="/settings" className="underline underline-offset-2 hover:text-amber-300 transition-colors">
-                  Settings → Import Trade History
-                </a>.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* DEMO disclaimer */}
         {isViewingDemo && tradingAccounts.length > 0 && (

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { UpgradeModal } from "./UpgradeModal";
+import { NotificationBell } from "./NotificationBell";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -243,6 +244,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             <>
               <Logo size="md" />
               <span className="font-semibold text-sm tracking-tight text-zinc-100 flex-1 whitespace-nowrap">NIRI</span>
+              <NotificationBell />
               {/* Collapse toggle */}
               <button
                 onClick={toggleCollapse}
@@ -276,14 +278,17 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           <Logo size="sm" />
           <span className="font-semibold text-sm tracking-tight text-zinc-100">NIRI</span>
         </div>
-        <button
-          onClick={() => setOpen((o) => !o)}
-          className="w-9 h-9 flex items-center justify-center rounded-lg transition-all"
-          style={{ border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}
-          aria-label={open ? "Close menu" : "Open menu"}
-        >
-          {open ? "✕" : "☰"}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg transition-all"
+            style={{ border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}
+            aria-label={open ? "Close menu" : "Open menu"}
+          >
+            {open ? "✕" : "☰"}
+          </button>
+        </div>
       </div>
 
       {/* ── Upgrade modal ────────────────────────────────────────────── */}

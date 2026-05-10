@@ -34,6 +34,7 @@ export async function POST(request: Request) {
 
   const {
     account_number,
+    account_type: acctType,
     ticket, symbol, type: tradeType, volume,
     open_price, close_price, open_time, close_time,
     profit, commission, swap, comment,
@@ -42,6 +43,13 @@ export async function POST(request: Request) {
   if (!account_number || !ticket || !symbol || !tradeType ||
       volume == null || close_time == null || profit == null)
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+
+  // Block demo accounts
+  if (String(acctType ?? "").toLowerCase() === "demo") {
+    return NextResponse.json({
+      error: "NIRI only supports live MT5 accounts. Demo accounts are not supported.",
+    }, { status: 403 });
+  }
 
   let svc: ReturnType<typeof serviceDb>;
   try { svc = serviceDb(); }

@@ -908,6 +908,25 @@ export default function TradingJournal() {
           </div>
         )}
 
+        {/* MT5 connection reminder — shown until the user connects an account */}
+        {!loading && tradingAccounts.length === 0 && (
+          <div className="mb-5 flex items-center justify-between gap-4 px-4 py-3 rounded-xl"
+               style={{ background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.2)" }}>
+            <div className="flex items-center gap-3">
+              <span className="text-lg shrink-0">📡</span>
+              <p className="text-xs leading-relaxed" style={{ color: "#C4B89A" }}>
+                <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>Connect your MT5</span>
+                {" "}to start syncing trades automatically — no manual entry needed.
+              </p>
+            </div>
+            <a href="/settings"
+               className="text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0"
+               style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+              Connect →
+            </a>
+          </div>
+        )}
+
         {/* ACCOUNT SWITCHER ── only shown when MT5 accounts are connected */}
         {tradingAccounts.length > 0 && (() => {
           const realAccts = tradingAccounts.filter((a) => a.account_type !== "demo");

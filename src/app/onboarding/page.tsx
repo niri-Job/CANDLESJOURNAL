@@ -415,9 +415,22 @@ export default function OnboardingPage() {
                   Step 3 of 4 · Connect MT5
                 </p>
                 <h2 className="text-xl font-bold mb-1">Connect Your MT5</h2>
-                <p className="text-sm text-zinc-500 mb-6">
+                <p className="text-sm text-zinc-500 mb-4">
                   We&apos;ll generate a personalised EA file — install it in MT5 and trades sync automatically.
                 </p>
+
+                {/* Live accounts only notice */}
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl mb-5"
+                     style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  <p className="text-[11px] text-amber-400 leading-relaxed">
+                    <span className="font-semibold">Live MT5 accounts only.</span>{" "}
+                    Demo accounts are not supported.
+                  </p>
+                </div>
 
                 <form onSubmit={handleGenerateEa} className="space-y-4">
                   <div>
@@ -465,6 +478,11 @@ export default function OnboardingPage() {
                     {generating ? "Generating your EA…" : "Generate My EA →"}
                   </button>
                 </form>
+
+                <button type="button" onClick={() => setStep(4)}
+                  className="w-full mt-3 py-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+                  I&apos;ll do this later
+                </button>
               </>
             )}
 
@@ -497,22 +515,24 @@ export default function OnboardingPage() {
                   </a>
                 </div>
 
-                {/* Installation steps */}
+                {/* Installation steps 3–8 */}
                 <div className="space-y-3 mb-6">
                   {[
-                    { n: 1, text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
-                    { n: 2, text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
-                    { n: 3, text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live" },
-                    { n: 4, text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
-                    { n: 5, text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
-                    { n: 6, text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
-                  ].map(({ n, text }) => (
+                    { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
+                    { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
+                    { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live" },
+                    { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
+                    { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
+                    { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
+                  ].map(({ n, icon, text }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
                             style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
                         {n}
                       </span>
-                      <p className="text-xs text-zinc-400 leading-relaxed">{text}</p>
+                      <p className="text-xs text-zinc-400 leading-relaxed">
+                        <span className="mr-1">{icon}</span>{text}
+                      </p>
                     </div>
                   ))}
                 </div>

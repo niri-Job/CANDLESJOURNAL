@@ -434,10 +434,54 @@ export default function SettingsPage() {
                   Real-time
                 </span>
               </div>
-              <p className="text-xs text-zinc-500 leading-relaxed mb-5">
+              <p className="text-xs text-zinc-500 leading-relaxed mb-4">
                 Install our Expert Advisor in MetaTrader 5. Trades sync automatically within seconds of closing.
                 No investor password needed — the EA runs inside your MT5.
               </p>
+
+              {/* Live accounts only notice */}
+              <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
+                   style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.25)" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <p className="text-xs text-amber-400 leading-relaxed">
+                  <span className="font-semibold">NIRI connects to live MT5 accounts only.</span>{" "}
+                  Demo accounts are not supported.
+                </p>
+              </div>
+
+              {/* 8-step installation overview */}
+              <div className="mb-5 space-y-2">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
+                  How it works — 8 steps
+                </p>
+                {[
+                  { n: 1, icon: "🔢", text: "Enter your live MT5 account number and broker server below", active: true },
+                  { n: 2, icon: "⚡", text: "Click \"Generate My EA Files\"", active: true },
+                  { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file" },
+                  { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5" },
+                  { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest\" → add https://niri.live" },
+                  { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
+                  { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your settings file → OK" },
+                  { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
+                ].map(({ n, icon, text, active }) => (
+                  <div key={n} className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
+                          style={{
+                            background: active ? "rgba(245,197,24,0.15)" : "rgba(245,197,24,0.05)",
+                            color: active ? "var(--cj-gold)" : "#52525b",
+                            border: active ? "1px solid rgba(245,197,24,0.3)" : "1px solid #2a2415",
+                          }}>
+                      {n}
+                    </span>
+                    <p className={`text-xs leading-relaxed pt-0.5 ${active ? "text-zinc-300" : "text-zinc-600"}`}>
+                      <span className="mr-1">{icon}</span>{text}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
               <form onSubmit={handleGenerateEa} className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -551,22 +595,24 @@ export default function SettingsPage() {
                 </a>
               </div>
 
-              {/* Installation steps */}
+              {/* Installation steps 3–8 */}
               <div className="space-y-2">
                 {[
-                  "Download NIRI_EA.ex5 and your Settings file using the buttons above",
-                  "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there",
-                  "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live",
-                  "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)",
-                  "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK",
-                  "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds.",
-                ].map((text, i) => (
-                  <div key={i} className="flex items-start gap-3">
+                  { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
+                  { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
+                  { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live" },
+                  { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
+                  { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
+                  { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
+                ].map(({ n, icon, text }) => (
+                  <div key={n} className="flex items-start gap-3">
                     <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
                           style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
-                      {i + 1}
+                      {n}
                     </span>
-                    <p className="text-xs text-zinc-400 leading-relaxed">{text}</p>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      <span className="mr-1">{icon}</span>{text}
+                    </p>
                   </div>
                 ))}
               </div>

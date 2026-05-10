@@ -57,6 +57,14 @@ interface Payout {
   in_payout_window: boolean;
 }
 
+interface AdminNotification {
+  id: string;
+  title: string;
+  message: string;
+  created_at: string;
+  is_active: boolean;
+}
+
 function fmt(date: string | null) {
   if (!date) return "—";
   return new Date(date).toLocaleDateString("en-GB", {
@@ -80,6 +88,11 @@ export default function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [inPayoutWindow, setInPayoutWindow] = useState(false);
+  const [notifications,      setNotifications]      = useState<AdminNotification[]>([]);
+  const [newNotiTitle,       setNewNotiTitle]       = useState("");
+  const [newNotiMessage,     setNewNotiMessage]     = useState("");
+  const [notiSubmitting,     setNotiSubmitting]     = useState(false);
+  const [notiError,          setNotiError]          = useState("");
 
   // Restore theme from cookie on mount
   useEffect(() => {
@@ -114,6 +127,13 @@ export default function AdminPage() {
       setInPayoutWindow(d.in_payout_window ?? false);
     }
     setView("dashboard");
+
+    // Load notifications separately (non-blocking)
+    const notiRes = await fetch("/api/admin/notifications");
+    if (notiRes.ok) {
+      const d = (await notiRes.json()) as { notifications: AdminNotification[] };
+      setNotifications(d.notifications ?? []);
+    }
   }, []);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
@@ -183,6 +203,36 @@ export default function AdminPage() {
         setInPayoutWindow(d.in_payout_window ?? false);
       }
     }
+  }
+
+  async function handleCreateNotification(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newNotiTitle.trim() || !newNotiMessage.trim()) return;
+    setNotiSubmitting(true);
+    setNotiError("");
+    const res = await fetch("/api/admin/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newNotiTitle.trim(), message: newNotiMessage.trim() }),
+    });
+    setNotiSubmitting(false);
+    if (!res.ok) {
+      const d = (await res.json()) as { error?: string };
+      setNotiError(d.error ?? "Failed to create notification");
+      return;
+    }
+    setNewNotiTitle("");
+    setNewNotiMessage("");
+    const r = await fetch("/api/admin/notifications");
+    if (r.ok) {
+      const d = (await r.json()) as { notifications: AdminNotification[] };
+      setNotifications(d.notifications ?? []);
+    }
+  }
+
+  async function deleteNotification(id: string) {
+    await fetch(`/api/admin/notifications?id=${id}`, { method: "DELETE" });
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   }
 
   const ThemePicker = () => (
@@ -466,6 +516,66 @@ export default function AdminPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </section>
+        {/* Notifications */}
+        <section>
+          <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">
+            Notifications
+          </h2>
+
+          {/* Create form */}
+          <form onSubmit={handleCreateNotification}
+                className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-5 mb-4 space-y-3">
+            <p className="text-xs font-medium text-[var(--cj-text-muted)]">Send to all users</p>
+            <input
+              value={newNotiTitle}
+              onChange={(e) => setNewNotiTitle(e.target.value)}
+              placeholder="Title"
+              className="w-full bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-2
+                         text-sm text-[var(--cj-text)] placeholder:text-[var(--cj-text-muted)] outline-none
+                         focus:border-[var(--cj-gold)] transition-[border-color]"
+            />
+            <textarea
+              value={newNotiMessage}
+              onChange={(e) => setNewNotiMessage(e.target.value)}
+              placeholder="Message (supports line breaks)"
+              rows={3}
+              className="w-full bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-2
+                         text-sm text-[var(--cj-text)] placeholder:text-[var(--cj-text-muted)] outline-none
+                         focus:border-[var(--cj-gold)] transition-[border-color] resize-none"
+            />
+            {notiError && <p className="text-xs text-red-400">{notiError}</p>}
+            <button
+              type="submit"
+              disabled={notiSubmitting || !newNotiTitle.trim() || !newNotiMessage.trim()}
+              className="btn-gold px-4 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+            >
+              {notiSubmitting ? "Sending…" : "Send Notification"}
+            </button>
+          </form>
+
+          {/* Existing notifications */}
+          <div className="space-y-2">
+            {notifications.filter((n) => n.is_active).map((n) => (
+              <div key={n.id}
+                   className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-4 flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--cj-text)] mb-1">{n.title}</p>
+                  <p className="text-xs text-[var(--cj-text-muted)] whitespace-pre-wrap line-clamp-2">{n.message}</p>
+                  <p className="text-[10px] text-[var(--cj-text-muted)] mt-1 opacity-60">{fmt(n.created_at)}</p>
+                </div>
+                <button
+                  onClick={() => deleteNotification(n.id)}
+                  className="text-xs px-2 py-1 bg-red-600/10 hover:bg-red-600/30 text-red-400 rounded shrink-0 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+            {notifications.filter((n) => n.is_active).length === 0 && (
+              <p className="text-xs text-[var(--cj-text-muted)] py-4 text-center">No active notifications</p>
+            )}
           </div>
         </section>
       </div>

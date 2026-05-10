@@ -100,7 +100,28 @@ export async function sendWelcomeEmail(email: string, name: string) {
   }
 }
 
-// ─── 2. Payment receipt ───────────────────────────────────────────────────────
+// ─── 2. Demo account removed ──────────────────────────────────────────────────
+export async function sendDemoAccountRemovedEmail(email: string) {
+  const content = `
+    ${h1("Important: Demo Account Support Removed")}
+    ${p("We've updated NIRI to support live MT5 accounts only.")}
+    ${p("Your demo account connection has been removed. Please reconnect using your live MT5 account in Settings.")}
+    ${goldButton("Go to Settings →", "https://niri.live/settings")}
+    ${p("We apologize for any inconvenience.", "font-size:0.8125rem;color:#5a4a2a;")}`;
+
+  const { error } = await resend.emails.send({
+    from:    FROM,
+    to:      email,
+    subject: "Important: Demo Account Support Removed",
+    html:    wrapper(content),
+  });
+
+  if (error) {
+    console.error("[email] sendDemoAccountRemovedEmail failed:", error);
+  }
+}
+
+// ─── 3. Payment receipt ───────────────────────────────────────────────────────
 interface ReceiptData {
   name:            string;
   billingType:     "monthly" | "yearly";

@@ -525,8 +525,8 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                 <a
-                  href="/NIRI_EA.mq5"
-                  download="NIRI_EA.mq5"
+                  href="/NIRI_EA.ex5"
+                  download="NIRI_EA.ex5"
                   className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
                              border transition-all"
                   style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F", border: "none" }}>
@@ -535,7 +535,7 @@ export default function SettingsPage() {
                     <polyline points="7 10 12 15 17 10"/>
                     <line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
-                  Download NIRI_EA.mq5
+                  Download NIRI_EA.ex5
                 </a>
                 <a
                   href="/api/mt5/download/settings"
@@ -554,12 +554,12 @@ export default function SettingsPage() {
               {/* Installation steps */}
               <div className="space-y-2">
                 {[
-                  "Open MetaEditor (MT5 → Tools → MetaQuotes Language Editor)",
-                  "Open NIRI_EA.mq5, press F7 to compile — this creates NIRI_EA.ex5",
-                  "Copy NIRI_EA.ex5 to MT5 → File → Open Data Folder → MQL5 → Experts",
-                  "MT5 → Tools → Options → Expert Advisors → Allow WebRequest → add https://niri.live",
-                  "Drag NIRI_EA onto any chart → Properties → Load → select NIRI_settings.set",
-                  "Click OK — the EA starts scanning and your trades will sync within 60 seconds",
+                  "Download NIRI_EA.ex5 and your Settings file using the buttons above",
+                  "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there",
+                  "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live",
+                  "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)",
+                  "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK",
+                  "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds.",
                 ].map((text, i) => (
                   <div key={i} className="flex items-start gap-3">
                     <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"

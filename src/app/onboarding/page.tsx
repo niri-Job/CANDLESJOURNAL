@@ -481,12 +481,12 @@ export default function OnboardingPage() {
 
                 {/* Download buttons */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                  <a href="/NIRI_EA.mq5" download="NIRI_EA.mq5"
+                  <a href="/NIRI_EA.ex5" download="NIRI_EA.ex5"
                     className="flex flex-col items-center gap-2 p-4 rounded-xl border border-[var(--cj-gold-muted)]/40
                                bg-[var(--cj-gold-glow)] hover:bg-[var(--cj-gold)]/10 transition-all text-center">
                     <span className="text-2xl">📦</span>
-                    <span className="text-xs font-bold text-[var(--cj-gold)]">NIRI_EA.mq5</span>
-                    <span className="text-[10px] text-zinc-500">EA source file</span>
+                    <span className="text-xs font-bold text-[var(--cj-gold)]">NIRI_EA.ex5</span>
+                    <span className="text-[10px] text-zinc-500">Compiled EA — ready to use</span>
                   </a>
                   <a href="/api/mt5/download/settings" download="NIRI_settings.set"
                     className="flex flex-col items-center gap-2 p-4 rounded-xl border border-zinc-700
@@ -500,12 +500,12 @@ export default function OnboardingPage() {
                 {/* Installation steps */}
                 <div className="space-y-3 mb-6">
                   {[
-                    { n: 1, text: "Open MetaEditor: MT5 → Tools → MetaQuotes Language Editor" },
-                    { n: 2, text: "In MetaEditor, open NIRI_EA.mq5 and press F7 to compile it" },
-                    { n: 3, text: "In MT5: File → Open Data Folder → MQL5 → Experts — copy NIRI_EA.ex5 here" },
-                    { n: 4, text: "Restart MT5 or press F5 in the Navigator panel" },
-                    { n: 5, text: "Tools → Options → Expert Advisors → Allow WebRequest → add https://niri.live" },
-                    { n: 6, text: "Drag NIRI EA from Navigator onto any chart → Properties → Load → select NIRI_settings.set → Make sure \"Allow live trading\" is checked → OK" },
+                    { n: 1, text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
+                    { n: 2, text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
+                    { n: 3, text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live" },
+                    { n: 4, text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
+                    { n: 5, text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
+                    { n: 6, text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
                   ].map(({ n, text }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"

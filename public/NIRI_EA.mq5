@@ -10,7 +10,7 @@
 //|     MQL5 → Experts                                               |
 //|  4. Restart MT5 or press F5 in Navigator                         |
 //|  5. Tools → Options → Expert Advisors → Allow WebRequest →       |
-//|     add https://niri.live                                        |
+//|     add https://www.niri.live                                    |
 //|  6. Drag EA onto any chart, click Load → select NIRI_settings.set|
 //+------------------------------------------------------------------+
 #property copyright "NIRI Trading Journal"
@@ -18,11 +18,12 @@
 #property version   "1.00"
 
 //--- Inputs — loaded automatically via NIRI_settings.set
-input string InpToken   = "";   // NIRI sync token (from niri.live/settings)
-input string InpAccount = "";   // Your registered MT5 account number
+input string InpToken    = "";   // NIRI sync token (from niri.live/settings)
+input string InpAccount  = "";   // Your registered MT5 account number
+input int    InpDaysBack = 365;  // Days of history to scan on first connect
 
 //--- Internal
-#define WEBHOOK_URL     "https://niri.live/api/mt5/ea-sync"
+#define WEBHOOK_URL     "https://www.niri.live/api/mt5/ea-sync"
 #define CHECK_INTERVAL  5       // seconds between history scans
 #define REQUEST_TIMEOUT 8000    // ms per WebRequest call
 #define MAX_RETRIES     3
@@ -65,14 +66,14 @@ int OnInit()
 
    ArrayResize(g_sent, MAX_SENT);
    g_sentCount  = 0;
-   // Look back 24 h on first start to catch any trades we missed
-   g_syncWindow = TimeCurrent() - 86400;
+   g_syncWindow = TimeCurrent() - (datetime)InpDaysBack * 86400;
    g_lastCheck  = TimeCurrent();
    g_ready      = true;
 
    Print("NIRI EA v1.0 — Active on account #", currentLogin,
          " (", AccountInfoString(ACCOUNT_SERVER), ")");
-   Print("NIRI EA — Scanning history from ", TimeToString(g_syncWindow));
+   Print("NIRI EA — Scanning history from ", TimeToString(g_syncWindow),
+         " (", InpDaysBack, " days back)");
    return INIT_SUCCEEDED;
   }
 
@@ -110,7 +111,9 @@ void ScanDeals()
 
    if(!HistorySelect(from, to)) return;
 
-   int total = HistoryDealsTotal();
+   int  total            = HistoryDealsTotal();
+   bool anyTransientFail = false;
+
    for(int i = 0; i < total; i++)
      {
       ulong ticket = HistoryDealGetTicket(i);
@@ -125,17 +128,25 @@ void ScanDeals()
          dealEntry != DEAL_ENTRY_INOUT &&
          dealEntry != DEAL_ENTRY_OUT_BY) continue;
 
-      if(PushDeal(ticket))
-         MarkSent(ticket);
+      int result = PushDeal(ticket);
+      if(result == 1)
+         MarkSent(ticket);         // success — skip on future scans
+      else if(result == -1)
+         MarkSent(ticket);         // permanent error — skip forever, don't retry
+      else
+         anyTransientFail = true;  // network/server error — keep in window for retry
      }
 
-   // Advance sync window so we don't re-scan the distant past every tick
-   if(g_syncWindow < TimeCurrent() - 2 * CHECK_INTERVAL)
+   // Only advance sync window when every deal in this batch succeeded or got a permanent error.
+   // Transient failures (network timeouts, 5xx) keep the window in place so they're retried
+   // on the next scan 5 seconds later.
+   if(!anyTransientFail && g_syncWindow < TimeCurrent() - 2 * CHECK_INTERVAL)
       g_syncWindow = TimeCurrent() - 2 * CHECK_INTERVAL;
   }
 
 //+------------------------------------------------------------------+
-bool PushDeal(ulong closeTicket)
+// Returns: 1 = sent, 0 = transient failure (retry), -1 = permanent failure (skip)
+int PushDeal(ulong closeTicket)
   {
    string symbol     = HistoryDealGetString(closeTicket, DEAL_SYMBOL);
    long   dealType   = HistoryDealGetInteger(closeTicket, DEAL_TYPE);
@@ -210,14 +221,14 @@ bool PushDeal(ulong closeTicket)
         {
          Print(StringFormat("NIRI EA — Synced #%I64d %s %s %.2f lots | P&L: %.2f",
                              (long)closeTicket, symbol, direction, volume, profit));
-         return true;
+         return 1;
         }
 
       if(code == 403)
         {
          Alert("NIRI EA — Server rejected sync (account mismatch or revoked token).\n"
                "Generate a new EA at niri.live/settings");
-         return false;   // permanent — don't retry
+         return -1;   // permanent — don't retry
         }
 
       if(code == -1)
@@ -225,8 +236,8 @@ bool PushDeal(ulong closeTicket)
          Alert("NIRI EA — WebRequest blocked.\n\n"
                "Fix: MT5 → Tools → Options → Expert Advisors\n"
                "→ Allow WebRequest for listed URL\n"
-               "→ Add: https://niri.live");
-         return false;   // permanent — missing URL permission
+               "→ Add: https://www.niri.live");
+         return -1;   // permanent — missing URL permission
         }
 
       if(attempt < MAX_RETRIES)
@@ -241,7 +252,7 @@ bool PushDeal(ulong closeTicket)
                              (long)closeTicket, MAX_RETRIES, code));
         }
      }
-   return false;
+   return 0;   // transient failure — will be retried on next scan
   }
 
 //+------------------------------------------------------------------+

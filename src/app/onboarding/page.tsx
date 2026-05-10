@@ -520,7 +520,7 @@ export default function OnboardingPage() {
                   {[
                     { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
                     { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
-                    { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://niri.live" },
+                    { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://www.niri.live" },
                     { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
                     { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
                     { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },

@@ -50,20 +50,6 @@ export async function POST(request: Request) {
 
   const svc = serviceDb();
 
-  // One MT5 account per NIRI user
-  const { data: existing } = await svc
-    .from("ea_tokens")
-    .select("id, account_number")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (existing) {
-    return NextResponse.json({
-      error: "You already have an MT5 account connected. Remove it in Settings before adding a new one.",
-      existing_account: existing.account_number,
-    }, { status: 409 });
-  }
-
   const token = randomBytes(32).toString("hex");  // 64-char hex
 
   const { error: insertErr } = await svc.from("ea_tokens").insert({

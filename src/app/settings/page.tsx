@@ -237,12 +237,14 @@ export default function SettingsPage() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  // CSV import state
-  const [importAccountSig, setImportAccountSig] = useState("");
-  const [importFile,       setImportFile]       = useState<File | null>(null);
-  const [importing,        setImporting]        = useState(false);
-  const [importResult,     setImportResult]     = useState<{ imported: number; skipped: number } | null>(null);
-  const [importError,      setImportError]      = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  function copyToken(tok: string) {
+    navigator.clipboard.writeText(tok).then(() => {
+      setCopiedToken(tok);
+      setTimeout(() => setCopiedToken(null), 2000);
+    });
+  }
 
   useEffect(() => {
     async function init() {
@@ -372,25 +374,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleCsvImport(e: React.FormEvent) {
-    e.preventDefault();
-    if (!importFile)       { setImportError("Select a CSV file first."); return; }
-    if (!importAccountSig) { setImportError("Select an account to import into."); return; }
-    setImporting(true);
-    setImportError(null);
-    setImportResult(null);
-    const fd = new FormData();
-    fd.append("file", importFile);
-    fd.append("account_signature", importAccountSig);
-    try {
-      const res = await fetch("/api/accounts/import-history", { method: "POST", body: fd });
-      const data = await res.json() as { success?: boolean; imported?: number; skipped?: number; error?: string };
-      if (!res.ok) { setImportError(data.error ?? "Import failed"); }
-      else { setImportResult({ imported: data.imported ?? 0, skipped: data.skipped ?? 0 }); setImportFile(null); }
-    } catch { setImportError("Network error — check your connection."); }
-    finally { setImporting(false); }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center">
@@ -450,32 +433,42 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <a
-                      href="/NIRI_EA.ex5"
-                      download="NIRI_EA.ex5"
-                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
-                                 transition-all"
-                      style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>
-                      Download NIRI_EA.ex5
-                    </a>
-                    <a
-                      href={`/api/mt5/download/settings?account=${tok.account_number}`}
-                      download={`NIRI_settings_${tok.account_number}.set`}
-                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
-                                 border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-all">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>
-                      Download Settings File
-                    </a>
+                  {/* Download EA */}
+                  <a
+                    href="/NIRI_EA.ex5"
+                    download="NIRI_EA.ex5"
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
+                               transition-all mb-3"
+                    style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download NIRI_EA.ex5
+                  </a>
+
+                  {/* Copyable token */}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">
+                      Your Sync Token — paste this in MT5 Inputs tab
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={tok.token}
+                        className="flex-1 bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-3 py-2
+                                   text-xs font-mono text-zinc-400 focus:outline-none select-all"
+                      />
+                      <button
+                        onClick={() => copyToken(tok.token)}
+                        className="shrink-0 px-3 py-2 rounded-xl text-xs font-semibold border transition-all"
+                        style={copiedToken === tok.token
+                          ? { borderColor: "rgba(16,185,129,0.4)", color: "#34d399", background: "rgba(16,185,129,0.08)" }
+                          : { borderColor: "#3f3f46", color: "#a1a1aa" }}>
+                        {copiedToken === tok.token ? "Copied!" : "Copy"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -487,12 +480,12 @@ export default function SettingsPage() {
                 </p>
                 <div className="space-y-2">
                   {[
-                    { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
-                    { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
-                    { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://www.niri.live" },
-                    { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
-                    { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
-                    { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
+                    { n: 1, icon: "📦", text: "Download NIRI_EA.ex5 using the button above" },
+                    { n: 2, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
+                    { n: 3, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://www.niri.live" },
+                    { n: 4, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
+                    { n: 5, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → paste your token above → OK" },
+                    { n: 6, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Full trade history syncs automatically." },
                   ].map(({ n, icon, text }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
@@ -555,13 +548,13 @@ export default function SettingsPage() {
                 </p>
                 {[
                   { n: 1, icon: "🔢", text: "Enter your live MT5 account number and broker server below", active: true },
-                  { n: 2, icon: "⚡", text: "Click \"Generate My EA Files\"", active: true },
-                  { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file" },
+                  { n: 2, icon: "⚡", text: "Click \"Generate My EA Token\" — you'll get a token to copy", active: true },
+                  { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 (one file — that's all you need)" },
                   { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5" },
                   { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest\" → add https://www.niri.live" },
                   { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
-                  { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your settings file → OK" },
-                  { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
+                  { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → paste your token → OK" },
+                  { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Full history syncs automatically." },
                 ].map(({ n, icon, text, active }) => (
                   <div key={n} className="flex items-start gap-3">
                     <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
@@ -633,131 +626,11 @@ export default function SettingsPage() {
                     <span className="w-4 h-4 border-2 border-[#0A0A0F] border-t-transparent rounded-full animate-spin" />
                     Generating…
                   </span>
-                ) : eaTokens.length > 0 ? "Add Account →" : "Generate EA Token →"}
+                ) : eaTokens.length > 0 ? "Add Account →" : "Generate My EA Token →"}
               </button>
             </form>
           </div>
         </div>
-
-        {/* ── IMPORT TRADE HISTORY ──────────────────────────────────────────── */}
-        {tradingAccounts.length > 0 && (
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-5">Import Trade History</p>
-
-            <div className="mb-5 space-y-2">
-              {[
-                { step: 1, text: "Open MetaTrader 5" },
-                { step: 2, text: "Click the History tab at the bottom of the terminal" },
-                { step: 3, text: "Right-click anywhere in the history list" },
-                { step: 4, text: "Select Report → Open XML (MS Office Excel 2007)" },
-                { step: 5, text: "Save the .xlsx file to your computer" },
-                { step: 6, text: "Upload the .xlsx file below · XLSX, XML, HTML, and CSV are all accepted" },
-              ].map(({ step, text }) => (
-                <div key={step} className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
-                        style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
-                    {step}
-                  </span>
-                  <p className="text-xs text-zinc-400 leading-relaxed">{text}</p>
-                </div>
-              ))}
-            </div>
-
-            <form onSubmit={handleCsvImport} className="space-y-3">
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                  Account <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={importAccountSig}
-                  onChange={(e) => setImportAccountSig(e.target.value)}
-                  className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                             text-sm text-zinc-100 focus:outline-none focus:border-[var(--cj-gold-muted)]
-                             transition-colors cursor-pointer">
-                  <option value="">Select account to import into…</option>
-                  {tradingAccounts.map((a) => (
-                    <option key={a.id} value={a.account_signature}>
-                      {a.account_label || a.broker_name || a.account_login || a.account_signature.slice(0, 12)}
-                      {a.account_type === "demo" ? " (Demo)" : " (Live)"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                  MT5 History Export <span className="text-rose-500">*</span>
-                </label>
-                <div className={`relative flex items-center justify-center rounded-xl border-2 border-dashed
-                                 px-4 py-8 transition-colors cursor-pointer
-                                 ${importFile
-                                   ? "border-emerald-500/40 bg-emerald-500/5"
-                                   : "hover:border-[var(--cj-gold-muted)]"}`}
-                     style={!importFile ? { borderColor: "rgba(245,197,24,0.25)", background: "rgba(245,197,24,0.03)" } : undefined}>
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls,.xml,.htm,.html,.csv,.txt"
-                    onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); setImportResult(null); }}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
-                  {importFile ? (
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-emerald-400">{importFile.name}</p>
-                      <p className="text-[11px] text-zinc-500 mt-0.5">{(importFile.size / 1024).toFixed(1)} KB</p>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <div className="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center"
-                           style={{ background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.2)" }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                          <polyline points="17 8 12 3 7 8"/>
-                          <line x1="12" y1="3" x2="12" y2="15"/>
-                        </svg>
-                      </div>
-                      <p className="text-sm font-semibold text-zinc-300">Drop your MT5 history export here</p>
-                      <p className="text-xs text-zinc-600 mt-1">XLSX, XML, HTML, or CSV · click to browse</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {importResult && (
-                <div className="rounded-xl px-4 py-3 bg-emerald-500/8 border border-emerald-500/20">
-                  <p className="text-sm text-emerald-400 font-semibold">
-                    Import complete: {importResult.imported} trade{importResult.imported !== 1 ? "s" : ""} imported!
-                  </p>
-                  {importResult.skipped > 0 && (
-                    <p className="text-xs text-zinc-500 mt-0.5">{importResult.skipped} rows skipped (deposits, withdrawals, etc.)</p>
-                  )}
-                </div>
-              )}
-
-              {importError && (
-                <div className="rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                  <p className="text-xs text-rose-400">{importError}</p>
-                </div>
-              )}
-
-              {importing && (
-                <div className="rounded-xl px-4 py-3 bg-[var(--cj-raised)] border border-zinc-800">
-                  <p className="text-xs text-zinc-400 flex items-center gap-2">
-                    <span className="w-3 h-3 border border-[var(--cj-gold)] border-t-transparent rounded-full animate-spin shrink-0" />
-                    Processing trades…
-                  </p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={importing || !importFile || !importAccountSig}
-                className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-                {importing ? "Importing…" : "Import Trade History"}
-              </button>
-            </form>
-          </div>
-        )}
 
         {/* ── CONNECTED ACCOUNTS ────────────────────────────────────────────── */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">

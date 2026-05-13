@@ -3,24 +3,21 @@
 //|  Automatically syncs closed trades to your NIRI journal          |
 //|  https://niri.live                                                |
 //|                                                                   |
-//|  INSTALLATION:                                                    |
-//|  1. Open MetaEditor (MT5 → Tools → MetaQuotes Language Editor)   |
-//|  2. Open this file, press F7 to compile                          |
-//|  3. Copy NIRI_EA.ex5 to MT5 → File → Open Data Folder →         |
-//|     MQL5 → Experts                                               |
-//|  4. Restart MT5 or press F5 in Navigator                         |
-//|  5. Tools → Options → Expert Advisors → Allow WebRequest →       |
+//|  INSTALLATION (5 steps, one file only):                          |
+//|  1. Open MT5 → File → Open Data Folder → MQL5 → Experts          |
+//|  2. Copy NIRI_EA.ex5 into that folder                            |
+//|  3. Restart MT5, then open Navigator (Ctrl+N)                    |
+//|  4. Tools → Options → Expert Advisors → Allow WebRequest →       |
 //|     add https://www.niri.live                                    |
-//|  6. Drag EA onto any chart, click Load → select NIRI_settings.set|
+//|  5. Drag NIRI_EA onto any chart → Inputs tab →                   |
+//|     paste your token from niri.live/settings → OK               |
 //+------------------------------------------------------------------+
 #property copyright "NIRI Trading Journal"
 #property link      "https://niri.live"
 #property version   "1.00"
 
-//--- Inputs — loaded automatically via NIRI_settings.set
-input string InpToken    = "";   // NIRI sync token (from niri.live/settings)
-input string InpAccount  = "";   // Your registered MT5 account number
-input int    InpDaysBack = 365;  // Days of history to scan on first connect
+//--- Single input: your NIRI sync token from niri.live/settings
+input string InpToken = "";   // NIRI sync token (from niri.live/settings)
 
 //--- Internal
 #define WEBHOOK_URL     "https://www.niri.live/api/mt5/ea-sync"
@@ -29,9 +26,10 @@ input int    InpDaysBack = 365;  // Days of history to scan on first connect
 #define MAX_RETRIES     3
 #define MAX_SENT        5000    // in-memory dedup ring buffer size
 
-datetime g_lastCheck   = 0;
-datetime g_syncWindow  = 0;     // oldest time to look for deals
-bool     g_ready       = false;
+datetime g_lastCheck  = 0;
+datetime g_syncWindow = 0;   // oldest time to look for deals
+bool     g_ready      = false;
+string   g_account    = "";  // auto-detected from MT5 on init
 
 ulong g_sent[];
 int   g_sentCount = 0;
@@ -42,38 +40,20 @@ int OnInit()
    if(InpToken == "")
      {
       Alert("NIRI EA: Token is empty.\n"
-            "Attach EA → Properties → Inputs → Load → select NIRI_settings.set\n"
-            "Get your settings file at niri.live/settings");
+            "Drag the EA onto a chart → Inputs tab → paste your token from niri.live/settings");
       return INIT_FAILED;
      }
 
-   if(InpAccount == "")
-     {
-      Alert("NIRI EA: Account number is empty. Load your NIRI_settings.set file.");
-      return INIT_FAILED;
-     }
-
-   string currentLogin = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
-   if(currentLogin != InpAccount)
-     {
-      Alert("NIRI EA — Account Mismatch\n\n"
-            "Registered account: #" + InpAccount + "\n"
-            "Current account:    #" + currentLogin + "\n\n"
-            "This EA is locked to a different account.\n"
-            "Please download a new EA from niri.live/settings");
-      return INIT_FAILED;
-     }
-
+   g_account    = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
    ArrayResize(g_sent, MAX_SENT);
    g_sentCount  = 0;
-   g_syncWindow = TimeCurrent() - (datetime)InpDaysBack * 86400;
+   g_syncWindow = D'2000.01.01 00:00';   // scan entire account history
    g_lastCheck  = TimeCurrent();
    g_ready      = true;
 
-   Print("NIRI EA v1.0 — Active on account #", currentLogin,
+   Print("NIRI EA v1.0 — Active on account #", g_account,
          " (", AccountInfoString(ACCOUNT_SERVER), ")");
-   Print("NIRI EA — Scanning history from ", TimeToString(g_syncWindow),
-         " (", InpDaysBack, " days back)");
+   Print("NIRI EA — Scanning full account history from 2000.01.01");
    return INIT_SUCCEEDED;
   }
 
@@ -88,18 +68,8 @@ void OnDeinit(const int reason)
 void OnTick()
   {
    if(!g_ready) return;
-
-   // Re-check account lock on every tick — tamper protection
-   if(IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)) != InpAccount)
-     {
-      Print("NIRI EA — Account mismatch on tick. Disabling.");
-      ExpertRemove();
-      return;
-     }
-
    if(TimeCurrent() - g_lastCheck < CHECK_INTERVAL) return;
    g_lastCheck = TimeCurrent();
-
    ScanDeals();
   }
 
@@ -138,8 +108,7 @@ void ScanDeals()
      }
 
    // Only advance sync window when every deal in this batch succeeded or got a permanent error.
-   // Transient failures (network timeouts, 5xx) keep the window in place so they're retried
-   // on the next scan 5 seconds later.
+   // Transient failures keep the window in place so they're retried on the next scan.
    if(!anyTransientFail && g_syncWindow < TimeCurrent() - 2 * CHECK_INTERVAL)
       g_syncWindow = TimeCurrent() - 2 * CHECK_INTERVAL;
   }
@@ -188,10 +157,10 @@ int PushDeal(ulong closeTicket)
    // Build JSON — manual construction avoids external library dependency
    string json =
       "{"
-      "\"account_number\":\"" + InpAccount      + "\","
+      "\"account_number\":\"" + g_account          + "\","
       "\"ticket\":"           + IntegerToString((long)closeTicket) + ","
-      "\"symbol\":\""         + symbol           + "\","
-      "\"type\":\""           + direction        + "\","
+      "\"symbol\":\""         + symbol              + "\","
+      "\"type\":\""           + direction           + "\","
       "\"volume\":"           + DoubleToString(volume,     2) + ","
       "\"open_price\":"       + DoubleToString(openPrice,  5) + ","
       "\"close_price\":"      + DoubleToString(closePrice, 5) + ","
@@ -226,8 +195,9 @@ int PushDeal(ulong closeTicket)
 
       if(code == 403)
         {
-         Alert("NIRI EA — Server rejected sync (account mismatch or revoked token).\n"
-               "Generate a new EA at niri.live/settings");
+         Alert("NIRI EA — Server rejected sync.\n"
+               "Your token may be for a different account.\n"
+               "Generate a new token at niri.live/settings");
          return -1;   // permanent — don't retry
         }
 

@@ -25,12 +25,17 @@ export async function POST(request: Request) {
   // Token-based auth — no user session required (EA has no browser cookie)
   const auth  = request.headers.get("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!token)
+  if (!token) {
+    console.log("[ea-sync] REJECTED: Missing Authorization header");
     return NextResponse.json({ error: "Missing Authorization header" }, { status: 401 });
+  }
 
   let body: unknown;
   try { body = await request.json(); }
-  catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  catch {
+    console.log("[ea-sync] REJECTED: Invalid JSON body");
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
   const {
     account_number,
@@ -40,9 +45,15 @@ export async function POST(request: Request) {
     profit, commission, swap, comment,
   } = body as Record<string, string | number | undefined>;
 
+  console.log(`[ea-sync] Received: account=${account_number} ticket=${ticket} symbol=${symbol} type=${tradeType} volume=${volume} profit=${profit} close_time=${close_time} acct_type=${acctType}`);
+
   if (!account_number || !ticket || !symbol || !tradeType ||
-      volume == null || close_time == null || profit == null)
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      volume == null || close_time == null || profit == null) {
+    const missing = ["account_number","ticket","symbol","type","volume","close_time","profit"]
+      .filter(f => (body as Record<string,unknown>)[f] == null);
+    console.log(`[ea-sync] REJECTED: Missing required fields: ${missing.join(", ")}`);
+    return NextResponse.json({ error: "Missing required fields", missing }, { status: 400 });
+  }
 
   let svc: ReturnType<typeof serviceDb>;
   try { svc = serviceDb(); }
@@ -55,27 +66,31 @@ export async function POST(request: Request) {
     .eq("token", token)
     .maybeSingle();
 
-  if (tokenErr || !tokenRow)
+  if (tokenErr || !tokenRow) {
+    console.log(`[ea-sync] REJECTED: Invalid token (${tokenErr?.message ?? "not found"})`);
     return NextResponse.json(
       { error: "Invalid token — generate a new EA at niri.live/settings" },
       { status: 401 }
     );
+  }
+
+  console.log(`[ea-sync] Token valid: user=${tokenRow.user_id} registered_account=${tokenRow.account_number}`);
 
   // Block demo accounts — developer account is exempt for testing
   const DEV_USER_ID = "b9433d15-02e3-44ed-b66f-b4f51f22fac7";
   if (String(acctType ?? "").toLowerCase() === "demo" && tokenRow.user_id !== DEV_USER_ID) {
+    console.log(`[ea-sync] REJECTED: Demo account blocked for user ${tokenRow.user_id}`);
     return NextResponse.json({
       error: "NIRI only supports live MT5 accounts. Demo accounts are not supported.",
     }, { status: 403 });
   }
 
   // ── SERVER-SIDE ACCOUNT LOCK ─────────────────────────────────────────────
-  // This is the real security check. The EA's client-side check is just UX.
   const claimedAccount    = String(account_number).trim();
   const registeredAccount = String(tokenRow.account_number).trim();
 
   if (claimedAccount !== registeredAccount) {
-    // Log the attempt — fire and forget
+    console.log(`[ea-sync] REJECTED: Account mismatch — claimed=${claimedAccount} registered=${registeredAccount}`);
     svc.from("fraud_attempts").insert({
       token,
       claimed_account:    claimedAccount,
@@ -102,6 +117,8 @@ export async function POST(request: Request) {
   const closeDate     = new Date(closeTimestamp * 1000).toISOString().slice(0, 10);
   const symbolStr     = String(symbol).toUpperCase().trim();
   const direction     = String(tradeType).toUpperCase() === "BUY" ? "BUY" : "SELL";
+
+  console.log(`[ea-sync] Saving: unique_id=${uniqueTradeId} symbol=${symbolStr} dir=${direction} pnl=${profit} date=${closeDate}`);
 
   const tradeRow = {
     user_id:             userId,
@@ -130,11 +147,15 @@ export async function POST(request: Request) {
     .from("trades")
     .upsert(tradeRow, { onConflict: "user_id,unique_trade_id", ignoreDuplicates: true });
 
-  if (upsertErr)
+  if (upsertErr) {
+    console.log(`[ea-sync] DB ERROR saving trade ${uniqueTradeId}: ${upsertErr.message}`);
     return NextResponse.json(
       { error: "Failed to save trade: " + upsertErr.message },
       { status: 500 }
     );
+  }
+
+  console.log(`[ea-sync] SUCCESS: saved trade ${uniqueTradeId}`);
 
   // Keep trading_accounts in sync with what the EA reports
   await svc.from("trading_accounts").upsert({

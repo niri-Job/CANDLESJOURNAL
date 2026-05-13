@@ -667,174 +667,175 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── DASHBOARD MOCKUP ────────────────────────────────────────────────── */}
+      {/* ── DASHBOARD PREVIEW ───────────────────────────────────────────────── */}
       <section style={{
-        padding: "6rem 1.5rem 7rem",
-        background: "radial-gradient(ellipse 110% 60% at 50% 100%, rgba(245,197,24,0.07) 0%, #07070D 55%)",
+        padding: "5rem 1.5rem 6rem",
+        background: "linear-gradient(160deg, #0E0B1C 0%, #0A0A0F 45%, #0D0C08 100%)",
+        position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+        {/* Ambient gold glow top-right */}
+        <div style={{
+          position: "absolute", top: -120, right: -100, width: 600, height: 600,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(245,197,24,0.07) 0%, transparent 65%)",
+          pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", bottom: -80, left: -80, width: 400, height: 400,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(120,80,200,0.05) 0%, transparent 65%)",
+          pointerEvents: "none",
+        }} />
 
-          {/* Header copy */}
-          <div ref={previewRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3rem" }}>
-            <p style={{ color: "#9B7E2E", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "0.875rem" }}>
-              The journal that coaches you
+        <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: "3.5rem", flexWrap: "wrap" }}>
+
+          {/* Left copy */}
+          <div ref={previewRef} className="fade-up" style={{ flex: "1 1 340px", maxWidth: 440 }}>
+            <p style={{ color: "#9B7E2E", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
+              Your dashboard, automated
             </p>
-            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem", letterSpacing: "-0.02em" }}>
-              Everything you need to improve,<br />
-              <span className="shimmer-text">in one dashboard.</span>
+            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#F0E6D3", lineHeight: 1.12, marginBottom: "1.125rem", letterSpacing: "-0.02em" }}>
+              Everything you need<br />
+              to improve,{" "}
+              <span className="shimmer-text">in one place.</span>
             </h2>
-            <p style={{ color: "#4a3a1a", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
-              Trade journal, equity curve, AI analysis and performance breakdown — all synced automatically from MT5.
+            <p style={{ color: "#8A7D65", fontSize: "1rem", lineHeight: 1.75, marginBottom: "2rem" }}>
+              Trade journal, equity curve, AI analysis and discipline score — all synced automatically from MT5 in minutes.
             </p>
+
+            {[
+              "Auto-syncs every trade from MT5 via your EA file",
+              "AI coaching panel highlights patterns and your real edge",
+              "Discipline Score tracks behavioral consistency week by week",
+            ].map(f => (
+              <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.875rem" }}>
+                <span style={{ color: "#F5C518", fontWeight: 700, fontSize: "0.875rem", marginTop: 2, flexShrink: 0 }}>→</span>
+                <p style={{ color: "#C4B89A", fontSize: "0.9375rem", lineHeight: 1.6, margin: 0 }}>{f}</p>
+              </div>
+            ))}
+
+            <div style={{ marginTop: "2.25rem" }}>
+              <Link href="/login">
+                <button className="gold-btn" style={{ padding: "0.9rem 2rem", fontSize: "0.9375rem" }}>
+                  See Your Dashboard →
+                </button>
+              </Link>
+              <p style={{ color: "#5C5040", fontSize: "0.8125rem", marginTop: "0.875rem" }}>
+                This is what your dashboard looks like after connecting MT5.
+              </p>
+            </div>
           </div>
 
-          {/* Browser chrome wrapper */}
-          <div className="fade-up" style={{
-            borderRadius: "1.25rem",
-            overflow: "hidden",
-            border: "1px solid rgba(245,197,24,0.22)",
-            boxShadow: "0 0 0 1px rgba(0,0,0,0.8), 0 60px 120px rgba(0,0,0,0.75), 0 0 80px rgba(245,197,24,0.07)",
-            transform: "perspective(1200px) rotateX(2deg)",
-            transformOrigin: "50% 0%",
-          }}>
-
-            {/* Browser top bar */}
+          {/* Right: floating app mockup */}
+          <div className="fade-up" style={{ flex: "1 1 480px", position: "relative" }}>
+            {/* Glow behind mockup */}
             <div style={{
-              background: "#111118", padding: "0.75rem 1rem",
-              display: "flex", alignItems: "center", gap: "0.75rem",
-              borderBottom: "1px solid rgba(245,197,24,0.08)",
+              position: "absolute", inset: "-2.5rem",
+              background: "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(245,197,24,0.08) 0%, transparent 70%)",
+              pointerEvents: "none",
+            }} />
+
+            <div style={{
+              borderRadius: "1rem",
+              overflow: "hidden",
+              border: "1px solid rgba(245,197,24,0.2)",
+              boxShadow: "0 40px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.5), 0 0 60px rgba(245,197,24,0.05)",
+              transform: "perspective(1100px) rotateY(-5deg) rotateX(2deg)",
+              transformOrigin: "60% 50%",
+              position: "relative",
             }}>
-              <div style={{ display: "flex", gap: "0.375rem" }}>
-                {["#ff5f57","#febc2e","#28c840"].map(c => (
-                  <div key={c} style={{ width: 11, height: 11, borderRadius: "50%", background: c, opacity: 0.85 }} />
-                ))}
-              </div>
-              <div style={{
-                flex: 1, maxWidth: 340, margin: "0 auto",
-                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
-                borderRadius: "0.375rem", padding: "0.25rem 0.75rem",
-                display: "flex", alignItems: "center", gap: "0.5rem",
-              }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(245,197,24,0.4)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.75rem", fontFamily: "monospace" }}>app.niri.live/dashboard</span>
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem", opacity: 0.25 }}>
-                {[1,2,3].map(i => <div key={i} style={{ width: 22, height: 8, borderRadius: 3, background: "#fff" }} />)}
-              </div>
-            </div>
 
-            {/* App chrome: sidebar + main */}
-            <div style={{ display: "flex", background: "#0A0A0F", minHeight: 520 }}>
-
-              {/* Sidebar */}
-              <div style={{
-                width: 52, background: "#07070D", borderRight: "1px solid rgba(245,197,24,0.06)",
-                display: "flex", flexDirection: "column", alignItems: "center", padding: "1rem 0", gap: "0.375rem",
-                flexShrink: 0,
-              }}>
-                {/* Logo mark */}
-                <div style={{ width: 28, height: 28, borderRadius: "7px", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0800", fontSize: "0.625rem", marginBottom: "0.75rem" }}>NI</div>
-                {[
-                  <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
-                  <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>,
-                  <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>,
-                  <><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></>,
-                ].map((paths, i) => (
-                  <div key={i} style={{
-                    width: 34, height: 34, borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center",
-                    background: i === 0 ? "rgba(245,197,24,0.12)" : "transparent",
-                    border: i === 0 ? "1px solid rgba(245,197,24,0.2)" : "1px solid transparent",
-                  }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={i === 0 ? "#F5C518" : "#3a2a0a"} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">{paths}</svg>
-                  </div>
-                ))}
+              {/* Browser bar */}
+              <div style={{ background: "#111119", padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.625rem", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
+                <div style={{ display: "flex", gap: 5 }}>
+                  {["#ff5f57","#febc2e","#28c840"].map(c => <div key={c} style={{ width: 10, height: 10, borderRadius: "50%", background: c }} />)}
+                </div>
+                <div style={{ flex: 1, maxWidth: 280, margin: "0 auto", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "0.3rem", padding: "0.2rem 0.625rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(245,197,24,0.4)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.6875rem", fontFamily: "monospace" }}>app.niri.live/dashboard</span>
+                </div>
               </div>
 
-              {/* Main panel */}
-              <div style={{ flex: 1, padding: "1.25rem 1.5rem", overflow: "hidden" }}>
+              {/* App body */}
+              <div style={{ background: "#0C0C14", padding: "0.875rem 1rem" }}>
 
-                {/* Top row: title + account selector */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.125rem" }}>
-                  <div>
-                    <p style={{ color: "#f0e6c8", fontWeight: 700, fontSize: "0.9375rem" }}>Trading Journal</p>
-                    <p style={{ color: "#3a2a0a", fontSize: "0.75rem" }}>May 2026 · Live Account</p>
-                  </div>
-                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    <div style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: "2rem", padding: "0.2rem 0.625rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", animation: "pulseGold 2s ease infinite" }} />
-                      <span style={{ color: "#34d399", fontSize: "0.6875rem", fontWeight: 700 }}>SYNCING</span>
+                {/* Page header */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+                  <p style={{ color: "#F0E6D3", fontWeight: 700, fontSize: "0.875rem", margin: 0 }}>Trading Journal</p>
+                  <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                    <div style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: "2rem", padding: "0.15rem 0.5rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399" }} />
+                      <span style={{ color: "#34d399", fontSize: "0.6rem", fontWeight: 700 }}>SYNCING</span>
                     </div>
-                    <div style={{ background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.12)", borderRadius: "0.5rem", padding: "0.25rem 0.75rem" }}>
-                      <span style={{ color: "#9a7a4a", fontSize: "0.75rem" }}>#12345678</span>
+                    <div style={{ background: "rgba(245,197,24,0.07)", border: "1px solid rgba(245,197,24,0.15)", borderRadius: "0.4rem", padding: "0.175rem 0.625rem" }}>
+                      <span style={{ color: "#9B7E2E", fontSize: "0.6875rem", fontFamily: "monospace" }}>#12345678</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Stat cards */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.625rem", marginBottom: "1.125rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.5rem", marginBottom: "0.75rem" }}>
                   {[
-                    { label: "Total P&L",    value: "+$2,847", color: "#34d399" },
-                    { label: "Win Rate",     value: "68%",     color: "#F5C518" },
-                    { label: "Total Trades", value: "142",     color: "#c0b080" },
-                    { label: "Avg P&L",      value: "+$20.05", color: "#34d399" },
+                    { label: "Total P&L",  value: "+$2,847", color: "#34d399" },
+                    { label: "Win Rate",   value: "68%",     color: "#F5C518" },
+                    { label: "Trades",     value: "142",     color: "#C4B89A" },
+                    { label: "Avg P&L",    value: "+$20.05", color: "#34d399" },
                   ].map(s => (
-                    <div key={s.label} style={{ background: "#12121A", border: "1px solid #2A2415", borderRadius: "0.75rem", padding: "0.75rem 0.875rem" }}>
-                      <p style={{ color: "#5a4a2a", fontSize: "0.6875rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.3rem" }}>{s.label}</p>
-                      <p className="pnl-counter" style={{ color: s.color, fontSize: "1.1875rem", fontWeight: 800, fontFamily: "monospace" }}>{s.value}</p>
+                    <div key={s.label} style={{ background: "#181820", border: "1px solid #2A2430", borderRadius: "0.625rem", padding: "0.5rem 0.625rem" }}>
+                      <p style={{ color: "#6A5A75", fontSize: "0.575rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.2rem" }}>{s.label}</p>
+                      <p style={{ color: s.color, fontSize: "0.9375rem", fontWeight: 800, fontFamily: "monospace", margin: 0 }}>{s.value}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Two-column: equity + AI panel */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "0.875rem" }}>
+                {/* Two-column: table + AI panel */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 188px", gap: "0.625rem" }}>
 
-                  {/* Left: equity curve + trade table */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+                  {/* Left: equity + trade table */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
 
-                    {/* Equity curve */}
-                    <div style={{ background: "#12121A", border: "1px solid #2A2415", borderRadius: "0.875rem", padding: "0.875rem 1rem" }}>
-                      <p style={{ color: "#5a4a2a", fontSize: "0.6875rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.625rem" }}>Equity Curve</p>
-                      <svg viewBox="0 0 460 56" fill="none" style={{ width: "100%", height: 56 }}>
+                    {/* Equity curve card */}
+                    <div style={{ background: "#181820", border: "1px solid #2A2430", borderRadius: "0.625rem", padding: "0.625rem 0.75rem" }}>
+                      <p style={{ color: "#9B7E2E", fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Equity Curve</p>
+                      <svg viewBox="0 0 320 38" fill="none" style={{ width: "100%", height: 38 }}>
                         <defs>
-                          <linearGradient id="lpEqG" x1="0" y1="0" x2="0" y2="1">
+                          <linearGradient id="lpEqG2" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#F5C518" stopOpacity="0.2"/>
                             <stop offset="100%" stopColor="#F5C518" stopOpacity="0"/>
                           </linearGradient>
                         </defs>
-                        <path d="M0 50 L50 45 L100 42 L130 46 L160 36 L200 30 L230 34 L265 24 L300 18 L340 12 L390 8 L430 4 L460 2 L460 56 L0 56Z" fill="url(#lpEqG)"/>
-                        <path className="equity-line" d="M0 50 L50 45 L100 42 L130 46 L160 36 L200 30 L230 34 L265 24 L300 18 L340 12 L390 8 L430 4 L460 2" stroke="#F5C518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M0 34 L35 30 L70 27 L95 31 L120 23 L155 18 L180 21 L210 13 L245 9 L275 5 L310 2 L320 1 L320 38 L0 38Z" fill="url(#lpEqG2)"/>
+                        <path d="M0 34 L35 30 L70 27 L95 31 L120 23 L155 18 L180 21 L210 13 L245 9 L275 5 L310 2 L320 1" stroke="#F5C518" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
 
-                    {/* Trade table */}
-                    <div style={{ background: "#12121A", border: "1px solid #2A2415", borderRadius: "0.875rem", padding: "0.875rem 1rem" }}>
-                      <p style={{ color: "#5a4a2a", fontSize: "0.6875rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.625rem" }}>Trade History</p>
+                    {/* Trade table card */}
+                    <div style={{ background: "#181820", border: "1px solid #2A2430", borderRadius: "0.625rem", padding: "0.625rem 0.75rem" }}>
+                      <p style={{ color: "#9B7E2E", fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Trade History</p>
                       <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                           <tr>
-                            {["Pair","Dir","Date","Lot","Entry","Exit","P&L"].map(h => (
-                              <th key={h} style={{ color: "#3a2a0a", fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", textAlign: h === "P&L" ? "right" : "left", paddingBottom: "0.5rem", borderBottom: "1px solid #2A2415" }}>{h}</th>
+                            {["Pair","Dir","Date","Lot","P&L"].map(h => (
+                              <th key={h} style={{ color: "#6A5A75", fontSize: "0.525rem", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", textAlign: h === "P&L" ? "right" : "left", paddingBottom: "0.35rem", borderBottom: "1px solid #2A2430" }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {[
-                            { pair:"XAUUSD", dir:"BUY",  date:"13 May", lot:"0.50", entry:"2,318.40", exit:"2,341.80", pnl:"+$184.20", win: true  },
-                            { pair:"EURUSD", dir:"SELL", date:"13 May", lot:"0.20", entry:"1.08540",  exit:"1.08203",  pnl:"+$67.40",  win: true  },
-                            { pair:"GBPUSD", dir:"BUY",  date:"12 May", lot:"0.10", entry:"1.25810",  exit:"1.25490",  pnl:"-$32.00",  win: false },
-                            { pair:"USDJPY", dir:"SELL", date:"12 May", lot:"0.30", entry:"155.820",  exit:"155.210",  pnl:"+$117.60", win: true  },
-                          ].map((t, i) => (
-                            <tr key={i} className={i < 3 ? `trade-row-${i+1}` : "trade-row-3"} style={{ borderBottom: "1px solid rgba(245,197,24,0.04)" }}>
-                              <td style={{ padding: "0.4rem 0", fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700, color: "#c0b080" }}>{t.pair}</td>
-                              <td style={{ padding: "0.4rem 0.375rem" }}>
-                                <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "0.15rem 0.35rem", borderRadius: "0.25rem", background: t.win ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)", color: t.win ? "#34d399" : "#f87171" }}>{t.dir}</span>
+                            { pair:"XAUUSD", dir:"BUY",  date:"13 May", lot:"0.50", pnl:"+$184", win:true  },
+                            { pair:"EURUSD", dir:"SELL", date:"13 May", lot:"0.20", pnl:"+$67",  win:true  },
+                            { pair:"GBPUSD", dir:"BUY",  date:"12 May", lot:"0.10", pnl:"-$32",  win:false },
+                            { pair:"USDJPY", dir:"SELL", date:"12 May", lot:"0.30", pnl:"+$118", win:true  },
+                          ].map((t,i) => (
+                            <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                              <td style={{ padding: "0.3rem 0", fontFamily: "monospace", fontSize: "0.5875rem", fontWeight: 700, color: "#C4B89A" }}>{t.pair}</td>
+                              <td style={{ padding: "0.3rem 0.25rem" }}>
+                                <span style={{ fontSize: "0.5rem", fontWeight: 700, padding: "0.1rem 0.25rem", borderRadius: "0.2rem", background: t.win ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)", color: t.win ? "#34d399" : "#f87171" }}>{t.dir}</span>
                               </td>
-                              <td style={{ padding: "0.4rem 0.375rem", color: "#3a2a0a", fontSize: "0.675rem" }}>{t.date}</td>
-                              <td style={{ padding: "0.4rem 0.375rem", fontFamily: "monospace", fontSize: "0.675rem", color: "#5a4a2a" }}>{t.lot}</td>
-                              <td style={{ padding: "0.4rem 0.375rem", fontFamily: "monospace", fontSize: "0.675rem", color: "#5a4a2a" }}>{t.entry}</td>
-                              <td style={{ padding: "0.4rem 0.375rem", fontFamily: "monospace", fontSize: "0.675rem", color: "#5a4a2a" }}>{t.exit}</td>
-                              <td style={{ padding: "0.4rem 0", fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700, color: t.win ? "#34d399" : "#f87171", textAlign: "right" }}>{t.pnl}</td>
+                              <td style={{ padding: "0.3rem 0.25rem", color: "#8A7D95", fontSize: "0.5625rem" }}>{t.date}</td>
+                              <td style={{ padding: "0.3rem 0.25rem", fontFamily: "monospace", fontSize: "0.5625rem", color: "#6A5A75" }}>{t.lot}</td>
+                              <td style={{ padding: "0.3rem 0", fontFamily: "monospace", fontSize: "0.5875rem", fontWeight: 700, color: t.win ? "#34d399" : "#f87171", textAlign: "right" }}>{t.pnl}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -843,39 +844,37 @@ export default function LandingPage() {
                   </div>
 
                   {/* Right: AI analysis panel */}
-                  <div style={{ background: "#12121A", border: "1px solid #2A2415", borderRadius: "0.875rem", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <div style={{ width: 20, height: 20, borderRadius: "6px", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0a0800" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+                  <div style={{ background: "#181820", border: "1px solid #2A2430", borderRadius: "0.625rem", padding: "0.75rem 0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                      <div style={{ width: 18, height: 18, borderRadius: "5px", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0a0800" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
                       </div>
-                      <p style={{ color: "#f0e6c8", fontWeight: 700, fontSize: "0.8125rem" }}>AI Analysis</p>
+                      <p style={{ color: "#F0E6D3", fontWeight: 700, fontSize: "0.6875rem", margin: 0 }}>AI Analysis</p>
                     </div>
 
-                    {/* Coaching items */}
                     {[
-                      { col: "#34d399", icon: "✓", title: "STRENGTH", text: "XAUUSD BUY during London: 78% win rate across 23 trades." },
-                      { col: "#f87171", icon: "✕", title: "STOP",     text: "Trading after 2 losses. Win rate drops to 14% in this state." },
-                      { col: "#F5C518", icon: "→", title: "FOCUS",    text: "XAUUSD London session only. This is your confirmed edge." },
+                      { col: "#34d399", icon: "✓", title: "STRENGTH", text: "XAUUSD London BUY: 78% win over 23 trades." },
+                      { col: "#f87171", icon: "✕", title: "STOP",     text: "After 2 losses win rate drops to 14%." },
+                      { col: "#F5C518", icon: "→", title: "FOCUS",    text: "London session only. Your confirmed edge." },
                     ].map(item => (
-                      <div key={item.title} style={{ background: `${item.col}08`, border: `1px solid ${item.col}20`, borderRadius: "0.625rem", padding: "0.625rem 0.75rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginBottom: "0.25rem" }}>
-                          <span style={{ color: item.col, fontWeight: 800, fontSize: "0.7rem" }}>{item.icon}</span>
-                          <span style={{ color: item.col, fontWeight: 700, fontSize: "0.6375rem", letterSpacing: "0.07em" }}>{item.title}</span>
+                      <div key={item.title} style={{ background: `${item.col}0C`, border: `1px solid ${item.col}28`, borderRadius: "0.5rem", padding: "0.5rem 0.5rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginBottom: "0.2rem" }}>
+                          <span style={{ color: item.col, fontWeight: 800, fontSize: "0.5625rem" }}>{item.icon}</span>
+                          <span style={{ color: item.col, fontWeight: 700, fontSize: "0.525rem", letterSpacing: "0.07em" }}>{item.title}</span>
                         </div>
-                        <p style={{ color: "#7a6a4a", fontSize: "0.7rem", lineHeight: 1.5 }}>{item.text}</p>
+                        <p style={{ color: "#8A7D95", fontSize: "0.5625rem", lineHeight: 1.5, margin: 0 }}>{item.text}</p>
                       </div>
                     ))}
 
-                    {/* Win rate mini bars */}
-                    <div style={{ marginTop: "0.25rem" }}>
-                      <p style={{ color: "#3a2a0a", fontSize: "0.6375rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.5rem" }}>Win Rate by Pair</p>
+                    <div>
+                      <p style={{ color: "#6A5A75", fontSize: "0.525rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.375rem" }}>Win Rate by Pair</p>
                       {[["XAUUSD",78,"#34d399"],["EURUSD",62,"#F5C518"],["GBPUSD",41,"#f87171"]].map(([pair,pct,col]) => (
-                        <div key={pair as string} style={{ marginBottom: "0.4rem" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.2rem" }}>
-                            <span style={{ color: "#4a3a1a", fontSize: "0.6375rem", fontFamily: "monospace" }}>{pair}</span>
-                            <span style={{ color: col as string, fontSize: "0.6375rem", fontWeight: 700 }}>{pct}%</span>
+                        <div key={pair as string} style={{ marginBottom: "0.3rem" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.15rem" }}>
+                            <span style={{ color: "#8A7D95", fontSize: "0.525rem", fontFamily: "monospace" }}>{pair as string}</span>
+                            <span style={{ color: col as string, fontSize: "0.525rem", fontWeight: 700 }}>{pct}%</span>
                           </div>
-                          <div style={{ height: 3, background: "rgba(255,255,255,0.05)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${pct}%`, background: col as string, borderRadius: 2 }} />
                           </div>
                         </div>
@@ -886,19 +885,6 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-
-          {/* Caption below mockup */}
-          <div style={{ textAlign: "center", marginTop: "2.5rem" }}>
-            <p style={{ color: "#3a2a0a", fontSize: "0.875rem", marginBottom: "1.25rem" }}>
-              This is what your dashboard looks like after connecting MT5.
-            </p>
-            <Link href="/login">
-              <button className="gold-btn" style={{ padding: "0.875rem 2.25rem", fontSize: "0.9375rem" }}>
-                Start Free — No Card Needed
-              </button>
-            </Link>
-          </div>
-
         </div>
       </section>
 

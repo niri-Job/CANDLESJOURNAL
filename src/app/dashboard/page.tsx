@@ -1107,12 +1107,15 @@ export default function TradingJournal() {
           ))}
         </div>
 
-        {/* EQUITY CURVE */}
-        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 mb-6">
-          <p className="card-label mb-4">Equity Curve</p>
-          <div style={{ height: 200 }}>
-            <EquityCurveChart data={equityCurveData} />
+        {/* EQUITY CURVE + DISCIPLINE SCORE — side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start">
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
+            <p className="card-label mb-4">Equity Curve</p>
+            <div style={{ height: 200 }}>
+              <EquityCurveChart data={equityCurveData} />
+            </div>
           </div>
+          <DisciplineScore trades={accountTrades} />
         </div>
 
         {/* WIN RATE + CALENDAR — side by side, each self-sizing */}
@@ -1137,11 +1140,6 @@ export default function TradingJournal() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start">
           <RiskDistribution trades={accountTrades} />
           <PerformanceBadge trades={accountTrades} />
-        </div>
-
-        {/* DISCIPLINE SCORE — full width */}
-        <div className="mb-6">
-          <DisciplineScore trades={accountTrades} />
         </div>
 
         {/* AI JOURNAL ANALYSIS — full width, no Pro gate */}

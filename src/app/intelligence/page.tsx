@@ -27,13 +27,8 @@ interface MarketOverview {
   pairs_to_avoid: string[];
 }
 
-interface LivePrices {
-  EURUSD: number;
-  GBPUSD: number;
-  XAUUSD: number;
-  fetched_at: string;
-  source: string;
-}
+// live_prices is now a flat { pair: price } map from the server
+type LivePrices = Record<string, number>;
 
 interface IntelligenceData {
   setups: Setup[];
@@ -190,6 +185,9 @@ export default function IntelligencePage() {
       await fetchAnalysis(false);
     }
     init();
+    // Auto-refresh every 15 minutes
+    const interval = setInterval(() => fetchAnalysis(false), 15 * 60 * 1000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -219,7 +217,7 @@ export default function IntelligencePage() {
             <div>
               <h1 className="text-xl font-bold text-zinc-100">Market Intelligence</h1>
               <p className="text-xs text-zinc-500 mt-0.5">
-                AI-powered market analysis updated every 30 minutes
+                AI-powered analysis for 10 pairs, auto-refreshed every 15 minutes
               </p>
               {lastUpdated && !loading && (
                 <p className="text-[11px] text-zinc-600 mt-1">
@@ -235,19 +233,21 @@ export default function IntelligencePage() {
                     </svg>
                     Live prices
                   </span>
-                  <span className="text-[10px] font-mono text-zinc-500">
-                    EUR <span className="text-zinc-400">{analysis.live_prices.EURUSD.toFixed(5)}</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-700">·</span>
-                  <span className="text-[10px] font-mono text-zinc-500">
-                    GBP <span className="text-zinc-400">{analysis.live_prices.GBPUSD.toFixed(5)}</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-700">·</span>
-                  <span className="text-[10px] font-mono text-zinc-500">
-                    XAU <span className="text-zinc-400">{analysis.live_prices.XAUUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-700">·</span>
-                  <span className="text-[10px] text-zinc-600">{analysis.live_prices.source}</span>
+                  {["EURUSD","GBPUSD","XAUUSD","BTCUSD"].map((key, i) => {
+                    const val = analysis.live_prices?.[key];
+                    if (!val) return null;
+                    const dp = key === "XAUUSD" ? 2 : key === "BTCUSD" ? 0 : 5;
+                    return (
+                      <span key={key} className="flex items-center gap-1 text-[10px] font-mono text-zinc-500">
+                        {i > 0 && <span className="text-zinc-700">·</span>}
+                        {key.replace("USD","").replace("XAU","XAU ")}
+                        <span className="text-zinc-400">
+                          {dp === 0 ? val.toLocaleString("en-US", { maximumFractionDigits: 0 })
+                            : val.toFixed(dp)}
+                        </span>
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -35,6 +35,7 @@ interface IntelligenceData {
   overview: MarketOverview;
   generated_at: string;
   live_prices?: LivePrices;
+  price_changes?: Record<string, number>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -225,26 +226,63 @@ export default function IntelligencePage() {
                 </p>
               )}
               {analysis?.live_prices && !loading && (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
                   <span className="flex items-center gap-1 text-[10px] text-zinc-600">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                     </svg>
-                    Live prices
+                    Live
                   </span>
-                  {["EURUSD","GBPUSD","XAUUSD","BTCUSD"].map((key, i) => {
+
+                  {/* GOLD / USD — highlighted tile */}
+                  {(() => {
+                    const price  = analysis.live_prices?.["XAUUSD"];
+                    const change = analysis.price_changes?.["XAUUSD"];
+                    if (!price) return null;
+                    const isUp = change !== undefined ? change >= 0 : null;
+                    return (
+                      <span
+                        key="XAUUSD"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-[11px] font-semibold"
+                        style={{
+                          background: "rgba(245,197,24,0.08)",
+                          border: "1px solid rgba(245,197,24,0.22)",
+                        }}
+                      >
+                        <span style={{ color: "var(--cj-gold)" }}>GOLD / USD</span>
+                        <span style={{ color: "var(--cj-gold)" }}>{price.toFixed(2)}</span>
+                        {change !== undefined && isUp !== null && (
+                          <span style={{ color: isUp ? "#34d399" : "#f87171", fontSize: "0.625rem" }}>
+                            {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(2)}%
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })()}
+
+                  {/* Other pairs — compact inline */}
+                  {["EURUSD","GBPUSD","BTCUSD"].map((key) => {
                     const val = analysis.live_prices?.[key];
                     if (!val) return null;
-                    const dp = key === "XAUUSD" ? 2 : key === "BTCUSD" ? 0 : 5;
+                    const dp = key === "BTCUSD" ? 0 : 5;
+                    const change = analysis.price_changes?.[key];
+                    const isUp = change !== undefined ? change >= 0 : null;
+                    const label = key === "BTCUSD" ? "BTC" : key.replace("USD", "");
                     return (
                       <span key={key} className="flex items-center gap-1 text-[10px] font-mono text-zinc-500">
-                        {i > 0 && <span className="text-zinc-700">·</span>}
-                        {key.replace("USD","").replace("XAU","XAU ")}
+                        <span className="text-zinc-700">·</span>
+                        <span className="text-zinc-500">{label}</span>
                         <span className="text-zinc-400">
-                          {dp === 0 ? val.toLocaleString("en-US", { maximumFractionDigits: 0 })
+                          {dp === 0
+                            ? val.toLocaleString("en-US", { maximumFractionDigits: 0 })
                             : val.toFixed(dp)}
                         </span>
+                        {change !== undefined && isUp !== null && (
+                          <span style={{ color: isUp ? "#34d399" : "#f87171", fontSize: "0.5rem" }}>
+                            {isUp ? "▲" : "▼"}{Math.abs(change).toFixed(2)}%
+                          </span>
+                        )}
                       </span>
                     );
                   })}

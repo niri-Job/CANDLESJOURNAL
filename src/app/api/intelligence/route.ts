@@ -91,6 +91,7 @@ async function fetchCloses(yahooSymbol: string): Promise<number[]> {
 interface PairIndicators {
   label: string;
   price: number;
+  dailyChangePct: number;
   rsi: number;
   ema20: number;
   ema50: number;
@@ -108,7 +109,10 @@ async function fetchPairIndicators(p: typeof PAIRS[0]): Promise<PairIndicators |
     const closes = await fetchCloses(p.symbol);
     if (closes.length < 30) return null;
 
-    const price  = closes[closes.length - 1];
+    const price    = closes[closes.length - 1];
+    const prev24h  = closes.length > 24 ? closes[closes.length - 25] : closes[0];
+    const dailyChangePct = prev24h > 0 ? ((price - prev24h) / prev24h) * 100 : 0;
+
     const rsi    = calcRsi(closes);
     const ema20  = calcEma(closes, 20);
     const ema50  = calcEma(closes, 50);
@@ -122,7 +126,7 @@ async function fetchPairIndicators(p: typeof PAIRS[0]): Promise<PairIndicators |
     const trend = bullPoints >= 4 ? "BULLISH" : bullPoints <= 1 ? "BEARISH" : "NEUTRAL";
 
     return {
-      label: p.label, price,
+      label: p.label, price, dailyChangePct,
       rsi, ema20, ema50, ema200,
       macdLine: macd.line, macdHist: macd.hist,
       bbUpper: bb.upper, bbLower: bb.lower, bbPct,
@@ -214,9 +218,13 @@ export async function GET(request: Request) {
     ].join("\n");
   }).join("\n\n");
 
-  // Build live_prices summary for front-end header
-  const priceMap: Record<string, number> = {};
-  for (const ind of indicators) priceMap[ind.label] = ind.price;
+  // Build live_prices and price_changes maps for front-end header
+  const priceMap:  Record<string, number> = {};
+  const changeMap: Record<string, number> = {};
+  for (const ind of indicators) {
+    priceMap[ind.label]  = ind.price;
+    changeMap[ind.label] = parseFloat(ind.dailyChangePct.toFixed(2));
+  }
 
   try {
     const response = await client.messages.create({
@@ -281,8 +289,10 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
       console.error("[intelligence] JSON parse failed:", raw);
       throw parseErr;
     }
-    cached = { data, ts: Date.now() };
-    return NextResponse.json(data);
+    // Merge server-computed change data (Claude's JSON doesn't include this)
+    const enriched = { ...(data as Record<string, unknown>), price_changes: changeMap };
+    cached = { data: enriched, ts: Date.now() };
+    return NextResponse.json(enriched);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[intelligence] error:", message);

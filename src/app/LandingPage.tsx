@@ -322,8 +322,8 @@ export default function LandingPage() {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const features = [
-    { ico: <IcoSync />, title: "Connect your MT5 account in under 60 seconds",
-      desc: "Use your investor (read-only) password to connect any MT5 account. No EA installation required. Trades appear in your journal automatically." },
+    { ico: <IcoSync />, title: "Sync your MT5 account in seconds",
+      desc: "Download the NIRI EA, drop it into MetaTrader 5, paste your sync token, and every closed trade appears in your journal automatically — no manual entry ever." },
     { ico: <IcoCoach />, title: "Know exactly what to fix after every session",
       desc: "After each session, NIRI analyses your entry timing, exit behavior, pair performance and session patterns, then generates a coaching report with specific observations." },
     { ico: <IcoChart />, title: "See every trade on the actual chart",
@@ -784,8 +784,8 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {[
-              { n: "01", title: "Connect your MT5 account in under 60 seconds",
-                desc: "Enter your broker server, account login, and investor (read-only) password. NIRI connects and begins syncing your trade history immediately. No EA installation required." },
+              { n: "01", title: "Install the NIRI EA in MetaTrader 5",
+                desc: "Download NIRI_EA.ex5, copy it into your MT5 Experts folder, allow WebRequest, then drag it onto any chart and paste your sync token. Setup takes under 2 minutes." },
               { n: "02", title: "NIRI analyses your trading behavior",
                 desc: "NIRI processes your entries, exits, timing, pairs, emotions and patterns to build a complete picture of how you actually trade." },
               { n: "03", title: "Receive your coaching report",

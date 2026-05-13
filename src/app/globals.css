@@ -52,9 +52,20 @@
 body {
   background-color: var(--cj-bg);
   color: var(--cj-text);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), var(--font-dm-sans), system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-dm-sans), var(--font-inter), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.font-mono, code, kbd, pre, [class*="font-mono"] {
+  font-family: var(--font-dm-mono), ui-monospace, "Cascadia Code", monospace;
 }
 
 /* ─── Gradient backgrounds ──────────────────────────────────────────────────── */

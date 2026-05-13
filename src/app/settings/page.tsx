@@ -524,7 +524,7 @@ export default function SettingsPage() {
             <p className="text-xs text-zinc-500 leading-relaxed mb-4">
               {eaTokens.length > 0
                 ? "Connect an additional live MT5 account to sync its trades automatically."
-                : "Install our Expert Advisor in MetaTrader 5. Trades sync automatically within seconds of closing. No investor password needed — the EA runs inside your MT5."}
+                : "Install the NIRI EA in MetaTrader 5. Trades sync automatically within seconds of closing — one file, one token, no configuration beyond that."}
             </p>
 
             {/* Live accounts only notice */}

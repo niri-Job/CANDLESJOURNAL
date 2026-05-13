@@ -270,6 +270,7 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [heroCard, setHeroCard] = useState(0);
+  const [howStep, setHowStep] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 48);
@@ -649,6 +650,23 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── FOMO SOCIAL PROOF STRIP ─────────────────────────────────────────── */}
+      <div style={{ background: "linear-gradient(90deg,rgba(245,197,24,0.06) 0%,rgba(245,197,24,0.03) 50%,rgba(245,197,24,0.06) 100%)", borderTop: "1px solid rgba(245,197,24,0.08)", borderBottom: "1px solid rgba(245,197,24,0.08)", padding: "1.25rem 1.5rem" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "2rem" }}>
+          {[
+            { val: "87%", label: "of retail traders lose money — most don't know why" },
+            { val: "₦340", label: "average monthly loss from revenge trading alone" },
+            { val: "5 min", label: "to connect your MT5 and see your first report" },
+          ].map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
+              <span style={{ color: "#F5C518", fontWeight: 900, fontSize: "1.5rem", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>{s.val}</span>
+              <span style={{ color: "#4a3a1a", fontSize: "0.875rem", lineHeight: 1.4, maxWidth: 200 }}>{s.label}</span>
+              {i < 2 && <span style={{ color: "rgba(245,197,24,0.2)", fontSize: "1.5rem", display: "block" }}>|</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ── LIVE DASHBOARD PREVIEW ──────────────────────────────────────────── */}
       <section style={{ padding: "5rem 1.5rem", background: "var(--cj-bg)" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
@@ -736,7 +754,28 @@ export default function LandingPage() {
       {/* ── PAIN ────────────────────────────────────────────────────────────── */}
       <section id="why" style={{ padding: "7rem 1.5rem", background: "var(--cj-bg)" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div ref={painRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+
+          {/* Brutal truth callout */}
+          <div className="fade-up" ref={painRef} style={{
+            background: "linear-gradient(135deg,rgba(224,85,85,0.06) 0%,rgba(245,197,24,0.04) 100%)",
+            border: "1px solid rgba(224,85,85,0.2)", borderRadius: "1.25rem",
+            padding: "2.25rem 2.5rem", marginBottom: "4rem",
+            textAlign: "center",
+          }}>
+            <p style={{ color: "#e05555", fontWeight: 800, fontSize: "clamp(1.25rem,2.5vw,1.625rem)", marginBottom: "0.75rem", lineHeight: 1.3 }}>
+              The brutal truth most traders ignore:
+            </p>
+            <p style={{ color: "#9a7a5a", fontSize: "1rem", lineHeight: 1.8, maxWidth: 640, margin: "0 auto 1rem" }}>
+              You don&rsquo;t have a strategy problem. You have a <strong style={{ color: "#f0e6c8" }}>behavior problem</strong>.
+              Your setups work. Your discipline doesn&rsquo;t.
+              NIRI shows you exactly where your behavior costs you money — with numbers, not hunches.
+            </p>
+            <p style={{ color: "#3a2a0a", fontSize: "0.9rem", fontStyle: "italic" }}>
+              Most traders read this and think &ldquo;not me.&rdquo; The data says otherwise.
+            </p>
+          </div>
+
+          <div className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
               Sound <span className="shimmer-text">Familiar?</span>
             </h2>
@@ -774,35 +813,117 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── HOW NIRI WORKS ───────────────────────────────────────────────────── */}
+      {/* ── HOW NIRI WORKS — Interactive ────────────────────────────────────── */}
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(245,197,24,0.04) 0%, transparent 70%)" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          <div ref={howRef} className="fade-up" style={{ textAlign: "center", marginBottom: "4rem" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <div ref={howRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
               Up and Running in <span className="shimmer-text">3 Steps</span>
             </h2>
+            <p style={{ color: "#4a3a1a", fontSize: "1rem" }}>Click each step to see what to expect</p>
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {[
-              { n: "01", title: "Install the NIRI EA in MetaTrader 5",
-                desc: "Download NIRI_EA.ex5, copy it into your MT5 Experts folder, allow WebRequest, then drag it onto any chart and paste your sync token. Setup takes under 2 minutes." },
-              { n: "02", title: "NIRI analyses your trading behavior",
-                desc: "NIRI processes your entries, exits, timing, pairs, emotions and patterns to build a complete picture of how you actually trade." },
-              { n: "03", title: "Receive your coaching report",
-                desc: "After every session, NIRI identifies your biggest mistakes, your strongest patterns, and the specific areas to focus on for improvement." },
-            ].map((step, i) => {
-              const sRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
-              return (
-                <div key={step.n} ref={sRef} className="fade-up" style={{ transitionDelay: `${i * 120}ms`, display: "flex", gap: "2rem", position: "relative", paddingBottom: i < 2 ? "2.75rem" : 0 }}>
-                  {i < 2 && <div style={{ position: "absolute", left: 23, top: 56, width: 2, bottom: 0, background: "linear-gradient(180deg, rgba(245,197,24,0.35) 0%, rgba(245,197,24,0.04) 100%)" }} />}
-                  <div style={{ width: 48, height: 48, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0800", fontSize: "0.875rem", zIndex: 1 }}>{step.n}</div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3.5rem", alignItems: "start" }} className="grid-2">
+            {/* Step selector */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {[
+                { n: "01", title: "Install the NIRI EA in MT5",
+                  desc: "Download NIRI_EA.ex5, copy it into your Experts folder, allow WebRequest, then drag onto any chart and paste your sync token. Under 2 minutes." },
+                { n: "02", title: "NIRI analyses your behavior",
+                  desc: "Every closed trade is processed automatically. NIRI maps your entries, exits, timing, pairs, emotions and patterns into measurable data." },
+                { n: "03", title: "Get your coaching report",
+                  desc: "After each session, NIRI identifies your biggest mistakes, your strongest edges, and gives you one specific focus area for the next session." },
+              ].map((step, i) => (
+                <div
+                  key={step.n}
+                  onClick={() => setHowStep(i)}
+                  style={{
+                    display: "flex", gap: "1.25rem", padding: "1.375rem 1.5rem",
+                    borderRadius: "1rem", cursor: "pointer", transition: "all 0.25s ease",
+                    background: howStep === i ? "linear-gradient(145deg,#1e1a06,#131000)" : "transparent",
+                    border: howStep === i ? "1px solid rgba(245,197,24,0.35)" : "1px solid transparent",
+                    boxShadow: howStep === i ? "0 8px 30px rgba(245,197,24,0.08)" : "none",
+                  }}>
+                  <div style={{
+                    width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
+                    background: howStep === i ? "linear-gradient(135deg,#F5C518,#C9A227)" : "rgba(245,197,24,0.08)",
+                    border: howStep === i ? "none" : "1px solid rgba(245,197,24,0.2)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 800, color: howStep === i ? "#0a0800" : "#6a5a3a",
+                    fontSize: "0.875rem", transition: "all 0.25s ease",
+                  }}>{step.n}</div>
                   <div>
-                    <h3 style={{ color: "#f0e6c8", fontWeight: 700, fontSize: "1.1875rem", marginBottom: "0.5rem" }}>{step.title}</h3>
-                    <p style={{ color: "#5a4a2a", lineHeight: 1.8, fontSize: "0.9375rem" }}>{step.desc}</p>
+                    <h3 style={{ color: howStep === i ? "#f0e6c8" : "#7a6a4a", fontWeight: 700, fontSize: "1rem", marginBottom: "0.375rem", transition: "color 0.25s" }}>{step.title}</h3>
+                    <p style={{ color: howStep === i ? "#6a5a3a" : "#3a2a0a", lineHeight: 1.7, fontSize: "0.875rem", transition: "color 0.25s" }}>{step.desc}</p>
                   </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            {/* Step mockup */}
+            <div className="lp-card" style={{
+              background: "linear-gradient(145deg,#1a1508,#0f0c04)",
+              border: "1px solid rgba(245,197,24,0.2)", borderRadius: "1.25rem",
+              overflow: "hidden", transition: "all 0.3s ease",
+            }}>
+              {howStep === 0 && (
+                <div style={{ padding: "1.75rem" }}>
+                  <p style={{ color: "#6a5a3a", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Expert Advisor</p>
+                  <div style={{ background: "#0a0800", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#8a7050", lineHeight: 2, border: "1px solid rgba(245,197,24,0.08)" }}>
+                    <div style={{ color: "#4a9e4a" }}>NIRI EA v1.0 — Active on account #12345678</div>
+                    <div>Scanning full history from 2000.01.01...</div>
+                    <div style={{ color: "#F5C518" }}>Synced #1029482 XAUUSD BUY 0.50 lots | P&L: +$184.20</div>
+                    <div style={{ color: "#F5C518" }}>Synced #1029481 EURUSD SELL 0.20 lots | P&L: -$32.00</div>
+                    <div style={{ color: "#4a9e4a" }}>Synced 247 trades. Up to date.</div>
+                  </div>
+                  <p style={{ color: "#4a3a1a", fontSize: "0.8125rem", marginTop: "1rem", textAlign: "center" }}>Every trade syncs within seconds of closing</p>
+                </div>
+              )}
+              {howStep === 1 && (
+                <div style={{ padding: "1.75rem" }}>
+                  <p style={{ color: "#6a5a3a", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>Behavioral Analysis</p>
+                  {[
+                    { label: "Revenge Trade Detection", pct: 78, col: "#e05555" },
+                    { label: "Session Win Rate: London", pct: 68, col: "#4a9e4a" },
+                    { label: "XAUUSD Edge Score", pct: 82, col: "#F5C518" },
+                    { label: "TP Discipline", pct: 45, col: "#C9A227" },
+                  ].map((item) => (
+                    <div key={item.label} style={{ marginBottom: "1rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
+                        <span style={{ color: "#8a7050", fontSize: "0.8125rem" }}>{item.label}</span>
+                        <span style={{ color: item.col, fontWeight: 700, fontSize: "0.8125rem" }}>{item.pct}%</span>
+                      </div>
+                      <div style={{ height: 5, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${item.pct}%`, background: item.col, borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {howStep === 2 && (
+                <div>
+                  <div style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", padding: "0.875rem 1.5rem", display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontWeight: 800, color: "#0a0800", fontSize: "0.8125rem", letterSpacing: "0.06em" }}>THIS SESSION&rsquo;S REPORT</span>
+                    <span style={{ color: "#0a0800", fontSize: "0.75rem", opacity: 0.7 }}>May 13, 2026</span>
+                  </div>
+                  <div style={{ padding: "1.5rem" }}>
+                    {[
+                      { ico: "✓", col: "#4a9e4a", label: "BEST TRADE", text: "XAUUSD SELL during London. +$184. Waited for confirmation." },
+                      { ico: "✕", col: "#e05555", label: "STOP DOING", text: "Trading GBPUSD after 2 consecutive losses. Win rate drops to 12%." },
+                      { ico: "→", col: "#F5C518", label: "FOCUS NEXT", text: "XAUUSD London session only. Your 78% win rate edge is here." },
+                    ].map((row) => (
+                      <div key={row.label} style={{ display: "flex", gap: "0.875rem", marginBottom: "1rem", paddingBottom: "1rem", borderBottom: "1px solid rgba(245,197,24,0.06)" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${row.col}20`, border: `1px solid ${row.col}40`, display: "flex", alignItems: "center", justifyContent: "center", color: row.col, fontWeight: 700, fontSize: "0.75rem", flexShrink: 0 }}>{row.ico}</div>
+                        <div>
+                          <div style={{ color: row.col, fontWeight: 700, fontSize: "0.7rem", letterSpacing: "0.08em", marginBottom: "0.2rem" }}>{row.label}</div>
+                          <div style={{ color: "#8a7050", fontSize: "0.8125rem", lineHeight: 1.5 }}>{row.text}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>

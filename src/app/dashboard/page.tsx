@@ -9,6 +9,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { RiskDistribution } from "@/components/RiskDistribution";
 import { TradeNoteModal } from "@/components/TradeNoteModal";
 import { PerformanceBadge } from "@/components/PerformanceBadge";
+import { DisciplineScore } from "@/components/DisciplineScore";
+import { TradeReflectionModal } from "@/components/TradeReflectionModal";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -396,7 +398,8 @@ export default function TradingJournal() {
     id: string; period: string; trade_count: number; analysis: string; created_at: string;
   }[]>([]);
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
-  const [noteModalTrade,   setNoteModalTrade]   = useState<Trade | null>(null);
+  const [noteModalTrade,       setNoteModalTrade]       = useState<Trade | null>(null);
+  const [reflectionTrade,      setReflectionTrade]      = useState<Trade | null>(null);
   const [aiCreditsUsed,    setAiCreditsUsed]    = useState<number>(0);
   const [aiCreditsLimit,   setAiCreditsLimit]   = useState<number>(3);
   const [trialDaysLeft,    setTrialDaysLeft]    = useState<number | null>(null);
@@ -1140,6 +1143,11 @@ export default function TradingJournal() {
           <PerformanceBadge trades={accountTrades} />
         </div>
 
+        {/* DISCIPLINE SCORE — full width */}
+        <div className="mb-6">
+          <DisciplineScore trades={accountTrades} />
+        </div>
+
         {/* AI JOURNAL ANALYSIS — full width, no Pro gate */}
         <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
@@ -1564,6 +1572,14 @@ export default function TradingJournal() {
                         <td className="px-2 py-3 border-b border-zinc-800/60 text-right">
                           <div className="flex items-center justify-end gap-1
                                           opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            {t.pnl < 0 && (
+                              <button onClick={() => setReflectionTrade(t)}
+                                className="text-zinc-500 hover:text-purple-400 border border-zinc-800
+                                           hover:border-purple-500/50 rounded-md px-2 py-1 text-xs transition-all"
+                                title="Reflect on this loss">
+                                Reflect
+                              </button>
+                            )}
                             <button onClick={() => startEdit(t)}
                               className="text-zinc-500 hover:text-blue-400 border border-zinc-800
                                          hover:border-blue-500/50 rounded-md px-2 py-1 text-xs transition-all">Edit</button>
@@ -1590,6 +1606,14 @@ export default function TradingJournal() {
           userId={currentUser.id}
           onClose={() => setNoteModalTrade(null)}
           onSave={handleNoteSave}
+        />
+      )}
+
+      {/* TRADE REFLECTION MODAL */}
+      {reflectionTrade && (
+        <TradeReflectionModal
+          trade={reflectionTrade}
+          onClose={() => setReflectionTrade(null)}
         />
       )}
 

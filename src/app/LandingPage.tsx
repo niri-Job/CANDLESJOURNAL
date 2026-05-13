@@ -674,31 +674,23 @@ export default function LandingPage() {
         position: "relative",
         overflow: "hidden",
       }}>
-        {/* Ambient gold glow top-right */}
         <div style={{
-          position: "absolute", top: -120, right: -100, width: 600, height: 600,
+          position: "absolute", top: -100, right: -80, width: 560, height: 560,
           borderRadius: "50%",
           background: "radial-gradient(circle, rgba(245,197,24,0.07) 0%, transparent 65%)",
           pointerEvents: "none",
         }} />
-        <div style={{
-          position: "absolute", bottom: -80, left: -80, width: 400, height: 400,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(120,80,200,0.05) 0%, transparent 65%)",
-          pointerEvents: "none",
-        }} />
 
-        <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: "3.5rem", flexWrap: "wrap" }}>
+        <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: "4rem", flexWrap: "wrap" }}>
 
           {/* Left copy */}
-          <div ref={previewRef} className="fade-up" style={{ flex: "1 1 340px", maxWidth: 440 }}>
+          <div ref={previewRef} className="fade-up" style={{ flex: "1 1 340px", maxWidth: 460 }}>
             <p style={{ color: "#9B7E2E", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
               Your dashboard, automated
             </p>
             <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#F0E6D3", lineHeight: 1.12, marginBottom: "1.125rem", letterSpacing: "-0.02em" }}>
               Everything you need<br />
-              to improve,{" "}
-              <span className="shimmer-text">in one place.</span>
+              to improve,{" "}<span className="shimmer-text">in one place.</span>
             </h2>
             <p style={{ color: "#8A7D65", fontSize: "1rem", lineHeight: 1.75, marginBottom: "2rem" }}>
               Trade journal, equity curve, AI analysis and discipline score — all synced automatically from MT5 in minutes.
@@ -722,168 +714,33 @@ export default function LandingPage() {
                 </button>
               </Link>
               <p style={{ color: "#5C5040", fontSize: "0.8125rem", marginTop: "0.875rem" }}>
-                This is what your dashboard looks like after connecting MT5.
+                Connect MT5 in under 5 minutes. No card required.
               </p>
             </div>
           </div>
 
-          {/* Right: floating app mockup */}
+          {/* Right: screenshot */}
           <div className="fade-up" style={{ flex: "1 1 480px", position: "relative" }}>
-            {/* Glow behind mockup */}
             <div style={{
-              position: "absolute", inset: "-2.5rem",
-              background: "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(245,197,24,0.08) 0%, transparent 70%)",
+              position: "absolute", inset: "-3rem",
+              background: "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(245,197,24,0.09) 0%, transparent 70%)",
               pointerEvents: "none",
             }} />
-
-            <div style={{
-              borderRadius: "1rem",
-              overflow: "hidden",
-              border: "1px solid rgba(245,197,24,0.2)",
-              boxShadow: "0 40px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.5), 0 0 60px rgba(245,197,24,0.05)",
-              transform: "perspective(1100px) rotateY(-5deg) rotateX(2deg)",
-              transformOrigin: "60% 50%",
-              position: "relative",
-            }}>
-
-              {/* Browser bar */}
-              <div style={{ background: "#111119", padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.625rem", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
-                <div style={{ display: "flex", gap: 5 }}>
-                  {["#ff5f57","#febc2e","#28c840"].map(c => <div key={c} style={{ width: 10, height: 10, borderRadius: "50%", background: c }} />)}
-                </div>
-                <div style={{ flex: 1, maxWidth: 280, margin: "0 auto", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "0.3rem", padding: "0.2rem 0.625rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(245,197,24,0.4)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.6875rem", fontFamily: "monospace" }}>app.niri.live/dashboard</span>
-                </div>
-              </div>
-
-              {/* App body */}
-              <div style={{ background: "#0C0C14", padding: "0.875rem 1rem" }}>
-
-                {/* Page header */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-                  <p style={{ color: "#F0E6D3", fontWeight: 700, fontSize: "0.875rem", margin: 0 }}>Trading Journal</p>
-                  <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                    <div style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: "2rem", padding: "0.15rem 0.5rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399" }} />
-                      <span style={{ color: "#34d399", fontSize: "0.6rem", fontWeight: 700 }}>SYNCING</span>
-                    </div>
-                    <div style={{ background: "rgba(245,197,24,0.07)", border: "1px solid rgba(245,197,24,0.15)", borderRadius: "0.4rem", padding: "0.175rem 0.625rem" }}>
-                      <span style={{ color: "#9B7E2E", fontSize: "0.6875rem", fontFamily: "monospace" }}>#12345678</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stat cards */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "0.5rem", marginBottom: "0.75rem" }}>
-                  {[
-                    { label: "Total P&L",  value: "+$2,847", color: "#34d399" },
-                    { label: "Win Rate",   value: "68%",     color: "#F5C518" },
-                    { label: "Trades",     value: "142",     color: "#C4B89A" },
-                    { label: "Avg P&L",    value: "+$20.05", color: "#34d399" },
-                  ].map(s => (
-                    <div key={s.label} style={{ background: "#181820", border: "1px solid #2A2430", borderRadius: "0.625rem", padding: "0.5rem 0.625rem" }}>
-                      <p style={{ color: "#6A5A75", fontSize: "0.575rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.2rem" }}>{s.label}</p>
-                      <p style={{ color: s.color, fontSize: "0.9375rem", fontWeight: 800, fontFamily: "monospace", margin: 0 }}>{s.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Two-column: table + AI panel */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 188px", gap: "0.625rem" }}>
-
-                  {/* Left: equity + trade table */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-
-                    {/* Equity curve card */}
-                    <div style={{ background: "#181820", border: "1px solid #2A2430", borderRadius: "0.625rem", padding: "0.625rem 0.75rem" }}>
-                      <p style={{ color: "#9B7E2E", fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Equity Curve</p>
-                      <svg viewBox="0 0 320 38" fill="none" style={{ width: "100%", height: 38 }}>
-                        <defs>
-                          <linearGradient id="lpEqG2" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#F5C518" stopOpacity="0.2"/>
-                            <stop offset="100%" stopColor="#F5C518" stopOpacity="0"/>
-                          </linearGradient>
-                        </defs>
-                        <path d="M0 34 L35 30 L70 27 L95 31 L120 23 L155 18 L180 21 L210 13 L245 9 L275 5 L310 2 L320 1 L320 38 L0 38Z" fill="url(#lpEqG2)"/>
-                        <path d="M0 34 L35 30 L70 27 L95 31 L120 23 L155 18 L180 21 L210 13 L245 9 L275 5 L310 2 L320 1" stroke="#F5C518" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-
-                    {/* Trade table card */}
-                    <div style={{ background: "#181820", border: "1px solid #2A2430", borderRadius: "0.625rem", padding: "0.625rem 0.75rem" }}>
-                      <p style={{ color: "#9B7E2E", fontSize: "0.5625rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>Trade History</p>
-                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <thead>
-                          <tr>
-                            {["Pair","Dir","Date","Lot","P&L"].map(h => (
-                              <th key={h} style={{ color: "#6A5A75", fontSize: "0.525rem", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", textAlign: h === "P&L" ? "right" : "left", paddingBottom: "0.35rem", borderBottom: "1px solid #2A2430" }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[
-                            { pair:"XAUUSD", dir:"BUY",  date:"13 May", lot:"0.50", pnl:"+$184", win:true  },
-                            { pair:"EURUSD", dir:"SELL", date:"13 May", lot:"0.20", pnl:"+$67",  win:true  },
-                            { pair:"GBPUSD", dir:"BUY",  date:"12 May", lot:"0.10", pnl:"-$32",  win:false },
-                            { pair:"USDJPY", dir:"SELL", date:"12 May", lot:"0.30", pnl:"+$118", win:true  },
-                          ].map((t,i) => (
-                            <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                              <td style={{ padding: "0.3rem 0", fontFamily: "monospace", fontSize: "0.5875rem", fontWeight: 700, color: "#C4B89A" }}>{t.pair}</td>
-                              <td style={{ padding: "0.3rem 0.25rem" }}>
-                                <span style={{ fontSize: "0.5rem", fontWeight: 700, padding: "0.1rem 0.25rem", borderRadius: "0.2rem", background: t.win ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)", color: t.win ? "#34d399" : "#f87171" }}>{t.dir}</span>
-                              </td>
-                              <td style={{ padding: "0.3rem 0.25rem", color: "#8A7D95", fontSize: "0.5625rem" }}>{t.date}</td>
-                              <td style={{ padding: "0.3rem 0.25rem", fontFamily: "monospace", fontSize: "0.5625rem", color: "#6A5A75" }}>{t.lot}</td>
-                              <td style={{ padding: "0.3rem 0", fontFamily: "monospace", fontSize: "0.5875rem", fontWeight: 700, color: t.win ? "#34d399" : "#f87171", textAlign: "right" }}>{t.pnl}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Right: AI analysis panel */}
-                  <div style={{ background: "#181820", border: "1px solid #2A2430", borderRadius: "0.625rem", padding: "0.75rem 0.75rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                      <div style={{ width: 18, height: 18, borderRadius: "5px", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0a0800" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
-                      </div>
-                      <p style={{ color: "#F0E6D3", fontWeight: 700, fontSize: "0.6875rem", margin: 0 }}>AI Analysis</p>
-                    </div>
-
-                    {[
-                      { col: "#34d399", icon: "✓", title: "STRENGTH", text: "XAUUSD London BUY: 78% win over 23 trades." },
-                      { col: "#f87171", icon: "✕", title: "STOP",     text: "After 2 losses win rate drops to 14%." },
-                      { col: "#F5C518", icon: "→", title: "FOCUS",    text: "London session only. Your confirmed edge." },
-                    ].map(item => (
-                      <div key={item.title} style={{ background: `${item.col}0C`, border: `1px solid ${item.col}28`, borderRadius: "0.5rem", padding: "0.5rem 0.5rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginBottom: "0.2rem" }}>
-                          <span style={{ color: item.col, fontWeight: 800, fontSize: "0.5625rem" }}>{item.icon}</span>
-                          <span style={{ color: item.col, fontWeight: 700, fontSize: "0.525rem", letterSpacing: "0.07em" }}>{item.title}</span>
-                        </div>
-                        <p style={{ color: "#8A7D95", fontSize: "0.5625rem", lineHeight: 1.5, margin: 0 }}>{item.text}</p>
-                      </div>
-                    ))}
-
-                    <div>
-                      <p style={{ color: "#6A5A75", fontSize: "0.525rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.375rem" }}>Win Rate by Pair</p>
-                      {[["XAUUSD",78,"#34d399"],["EURUSD",62,"#F5C518"],["GBPUSD",41,"#f87171"]].map(([pair,pct,col]) => (
-                        <div key={pair as string} style={{ marginBottom: "0.3rem" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.15rem" }}>
-                            <span style={{ color: "#8A7D95", fontSize: "0.525rem", fontFamily: "monospace" }}>{pair as string}</span>
-                            <span style={{ color: col as string, fontSize: "0.525rem", fontWeight: 700 }}>{pct}%</span>
-                          </div>
-                          <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${pct}%`, background: col as string, borderRadius: 2 }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/dashboard-preview.png"
+              alt="NIRI trading dashboard showing trade journal, equity curve and AI analysis"
+              style={{
+                width: "100%",
+                maxWidth: 620,
+                borderRadius: 12,
+                boxShadow: "0 0 0 1px rgba(245,197,24,0.15), 0 40px 80px rgba(0,0,0,0.6), 0 0 40px rgba(245,197,24,0.12)",
+                transform: "perspective(1100px) rotateY(-5deg)",
+                transformOrigin: "60% 50%",
+                display: "block",
+                position: "relative",
+              }}
+            />
           </div>
         </div>
       </section>

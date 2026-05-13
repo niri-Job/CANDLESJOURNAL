@@ -1133,13 +1133,9 @@ export default function TradingJournal() {
 
         </div>
 
-        {/* RISK & DISTRIBUTION — full width below calendar */}
-        <div className="mb-6">
+        {/* RISK & DISTRIBUTION + PERFORMANCE BADGE — side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 items-start">
           <RiskDistribution trades={accountTrades} />
-        </div>
-
-        {/* PERFORMANCE BADGE — full width */}
-        <div className="mb-6">
           <PerformanceBadge trades={accountTrades} />
         </div>
 

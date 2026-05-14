@@ -1,111 +1,24 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { verifyAdminCookie, adminUnauthorized } from "@/lib/adminAuth";
+import { MARKET_PAIRS, fetchPairIndicators } from "@/lib/marketPrices";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const CHANNEL = "@niritoday";
 
-const FOCUS_PAIRS = [
-  {
-    symbol: "GC=F",      // Gold Futures — more reliable than XAUUSD=X
-    fallback: "XAUUSD=X",
-    label: "XAUUSD",
-    decimals: 2,
-    sanity: { min: 1800, max: 6000 },
-  },
-  {
-    symbol: "EURUSD=X",
-    fallback: null,
-    label: "EURUSD",
-    decimals: 5,
-    sanity: { min: 0.80, max: 1.80 },
-  },
-  {
-    symbol: "GBPUSD=X",
-    fallback: null,
-    label: "GBPUSD",
-    decimals: 5,
-    sanity: { min: 0.90, max: 2.00 },
-  },
-];
+// The 3 pairs we include in the daily Telegram message
+const TELEGRAM_PAIRS = MARKET_PAIRS.filter(p =>
+  ["EURUSD", "GBPUSD", "XAUUSD"].includes(p.label)
+);
 
-function calcEma(closes: number[], period: number): number {
-  if (closes.length < period) return closes[closes.length - 1];
-  const k = 2 / (period + 1);
-  let val = closes.slice(0, period).reduce((s, v) => s + v, 0) / period;
-  for (let i = period; i < closes.length; i++) val = closes[i] * k + val * (1 - k);
-  return val;
-}
-
-function calcRsi(closes: number[], period = 14): number {
-  if (closes.length < period + 1) return 50;
-  let avgGain = 0, avgLoss = 0;
-  for (let i = 1; i <= period; i++) {
-    const d = closes[i] - closes[i - 1];
-    if (d > 0) avgGain += d; else avgLoss -= d;
-  }
-  avgGain /= period; avgLoss /= period;
-  for (let i = period + 1; i < closes.length; i++) {
-    const d = closes[i] - closes[i - 1];
-    avgGain = (avgGain * (period - 1) + Math.max(d, 0)) / period;
-    avgLoss = (avgLoss * (period - 1) + Math.max(-d, 0)) / period;
-  }
-  return avgLoss === 0 ? 100 : Math.round(100 - 100 / (1 + avgGain / avgLoss));
-}
-
-async function fetchYahooCloses(symbol: string): Promise<number[]> {
-  // Try query2 first (fresher cache), fall back to query1
-  for (const host of ["query2.finance.yahoo.com", "query1.finance.yahoo.com"]) {
-    const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1h&range=5d`;
-    try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; NIRI/1.0)" },
-        cache: "no-store",
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!res.ok) {
-        console.warn(`[daily-setup] Yahoo ${host} ${symbol}: HTTP ${res.status}`);
-        continue;
-      }
-      const json = await res.json() as {
-        chart?: { result?: { meta?: { regularMarketPrice?: number }; indicators?: { quote?: { close?: (number | null)[] }[] } }[] }
-      };
-      const result = json?.chart?.result?.[0];
-      const raw = result?.indicators?.quote?.[0]?.close;
-      if (!raw?.length) {
-        console.warn(`[daily-setup] Yahoo ${host} ${symbol}: empty close array`);
-        continue;
-      }
-      const closes = raw.filter((c): c is number => c !== null && !isNaN(c));
-      if (closes.length < 5) {
-        console.warn(`[daily-setup] Yahoo ${host} ${symbol}: only ${closes.length} closes`);
-        continue;
-      }
-      // Log so we can see what the API actually returned
-      const last = closes[closes.length - 1];
-      const regMkt = result?.meta?.regularMarketPrice;
-      console.log(`[daily-setup] Yahoo ${host} ${symbol}: last_close=${last} regularMarketPrice=${regMkt} closes=${closes.length}`);
-      return closes;
-    } catch (e) {
-      console.warn(`[daily-setup] Yahoo ${host} ${symbol} fetch error:`, e);
-    }
-  }
-  throw new Error(`Yahoo failed for ${symbol} on both hosts`);
-}
-
-// Frankfurter fallback for forex pairs (no gold support)
-async function fetchFrankfurterRate(base: string, quote: string): Promise<number> {
-  const url = `https://api.frankfurter.app/latest?base=${base}&symbols=${quote}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000), cache: "no-store" });
-  if (!res.ok) throw new Error(`Frankfurter ${base}/${quote}: HTTP ${res.status}`);
-  const json = await res.json() as { rates?: Record<string, number> };
-  const rate = json?.rates?.[quote];
-  if (!rate) throw new Error(`Frankfurter ${base}/${quote}: no rate`);
-  console.log(`[daily-setup] Frankfurter ${base}/${quote}: ${rate}`);
-  return rate;
-}
+// Sanity bounds — if the fetched price lands outside these, skip the pair
+const SANITY: Record<string, { min: number; max: number }> = {
+  XAUUSD: { min: 1800, max: 6000 },
+  EURUSD: { min: 0.80, max: 1.80 },
+  GBPUSD: { min: 0.90, max: 2.00 },
+};
 
 async function sendTelegram(token: string, chatId: string | number, text: string) {
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -144,63 +57,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 });
   }
 
-  // Fetch market data for the 3 focus pairs
+  // Fetch market data using the exact same source as /api/intelligence
   const pairData: { label: string; price: number; changePct: number; rsi: number; trend: string; decimals: number }[] = [];
-  for (const p of FOCUS_PAIRS) {
-    try {
-      // ── Step 1: fetch closes from Yahoo (primary + fallback symbol) ──────────
-      let closes: number[] | null = null;
-
-      for (const sym of [p.symbol, ...(p.fallback ? [p.fallback] : [])]) {
-        try {
-          const c = await fetchYahooCloses(sym);
-          if (c.length >= 20) { closes = c; break; }
-          console.warn(`[daily-setup] ${sym}: only ${c.length} closes, skipping`);
-        } catch (e) {
-          console.warn(`[daily-setup] ${sym} failed:`, e);
-        }
-      }
-
-      // ── Step 2: Frankfurter fallback for forex (not gold) ───────────────────
-      if (!closes && p.label !== "XAUUSD") {
-        const [base, quote] = [p.label.slice(0, 3), p.label.slice(3)];
-        try {
-          const rate = await fetchFrankfurterRate(base, quote);
-          // Frankfurter gives only the current rate; build a minimal closes array
-          // so downstream RSI/EMA still runs (flat series = RSI 50, no trend bias)
-          closes = Array(30).fill(rate);
-        } catch (e) {
-          console.warn(`[daily-setup] Frankfurter fallback for ${p.label} failed:`, e);
-        }
-      }
-
-      if (!closes) {
-        console.error(`[daily-setup] ${p.label}: all sources failed, skipping pair`);
-        continue;
-      }
-
-      const price = closes[closes.length - 1];
-
-      // ── Step 3: sanity check ─────────────────────────────────────────────────
-      if (p.sanity && (price < p.sanity.min || price > p.sanity.max)) {
-        console.error(
-          `[daily-setup] ${p.label}: price ${price} outside sane range ` +
-          `[${p.sanity.min}, ${p.sanity.max}] — skipping to avoid sending bad data`
-        );
-        continue;
-      }
-
-      console.log(`[daily-setup] ${p.label}: using price=${price.toFixed(p.decimals)}`);
-
-      const prev = closes.length > 24 ? closes[closes.length - 25] : closes[0];
-      const changePct = prev > 0 ? ((price - prev) / prev) * 100 : 0;
-      const rsi = calcRsi(closes);
-      const ema20 = calcEma(closes, 20);
-      const trend = price > ema20 ? "Bullish" : "Bearish";
-      pairData.push({ label: p.label, price, changePct, rsi, trend, decimals: p.decimals });
-    } catch (e) {
-      console.error(`[daily-setup] ${p.label} unexpected error:`, e);
+  for (const p of TELEGRAM_PAIRS) {
+    const ind = await fetchPairIndicators(p);
+    if (!ind) {
+      console.error(`[daily-setup] ${p.label}: fetchPairIndicators returned null, skipping`);
+      continue;
     }
+
+    // Sanity check — skip the pair rather than send a bad price
+    const bounds = SANITY[p.label];
+    if (bounds && (ind.price < bounds.min || ind.price > bounds.max)) {
+      console.error(
+        `[daily-setup] ${p.label}: price ${ind.price} outside sane range ` +
+        `[${bounds.min}, ${bounds.max}] — skipping`
+      );
+      continue;
+    }
+
+    console.log(`[daily-setup] ${p.label}: price=${ind.price.toFixed(p.decimals)} changePct=${ind.dailyChangePct.toFixed(2)}% rsi=${ind.rsi} trend=${ind.trend}`);
+    pairData.push({
+      label:     p.label,
+      price:     ind.price,
+      changePct: ind.dailyChangePct,
+      rsi:       ind.rsi,
+      trend:     ind.trend.charAt(0) + ind.trend.slice(1).toLowerCase(), // "BULLISH" → "Bullish"
+      decimals:  p.decimals,
+    });
   }
 
   if (pairData.length === 0) {

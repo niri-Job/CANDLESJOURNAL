@@ -92,7 +92,8 @@ export async function POST(request: Request) {
   }
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const dataText = pairData.map(p =>
+  const pairLabels = pairData.map(p => p.label).join(", ");
+  const dataText   = pairData.map(p =>
     `${p.label}: Price ${p.price.toFixed(p.decimals)} | Change ${p.changePct >= 0 ? "+" : ""}${p.changePct.toFixed(2)}% | RSI ${p.rsi} | Trend ${p.trend}`
   ).join("\n");
 
@@ -105,15 +106,16 @@ export async function POST(request: Request) {
       content: `You are a forex market analyst writing a daily Telegram message for traders.
 Today is ${today}.
 
-Live market data:
+Live market data (ONLY these pairs have real data — do NOT mention or invent analysis for any other pair):
 ${dataText}
 
-Write a concise daily market setup message for Telegram. Format it EXACTLY like this (use plain text, no markdown, no asterisks):
+Write a concise daily market setup message for Telegram covering ONLY the pairs listed above (${pairLabels}). Format it EXACTLY like this (use plain text, no markdown, no asterisks):
 
-1. One sentence market bias for each pair (XAUUSD, EURUSD, GBPUSD) based on the real data above
+1. One sentence market bias for each pair based on the real data above
 2. One actionable key level to watch per pair (derived from the price shown)
 3. One short motivational trading tip (max 1 sentence)
 
+IMPORTANT: Only analyse ${pairLabels}. If a pair is not in the data above, do not mention it at all.
 Keep it tight — traders read this on their phone. Total length: under 200 words.`,
     }],
   });

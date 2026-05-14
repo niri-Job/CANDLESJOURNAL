@@ -83,23 +83,61 @@ export function calcBbands(closes: number[], period = 20): { upper: number; mid:
 // ── Yahoo Finance fetch (30 days of hourly data, same as /api/intelligence) ───
 
 export async function fetchCloses(yahooSymbol: string): Promise<number[]> {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1h&range=30d`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
-    cache: "no-store",
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!res.ok) throw new Error(`Yahoo ${yahooSymbol}: ${res.status}`);
-  const json = await res.json() as {
-    chart?: { result?: { meta?: { regularMarketPrice?: number }; indicators?: { quote?: { close?: (number | null)[] }[] } }[] }
+  type YahooResp = {
+    chart?: {
+      result?: {
+        meta?: { regularMarketPrice?: number; previousClose?: number };
+        indicators?: { quote?: { close?: (number | null)[] }[] };
+      }[];
+    };
   };
-  const result = json?.chart?.result?.[0];
-  const raw = result?.indicators?.quote?.[0]?.close;
-  if (!raw) throw new Error(`Yahoo ${yahooSymbol}: no data`);
-  const closes = raw.filter((c): c is number => c !== null && !isNaN(c));
-  const regMkt = result?.meta?.regularMarketPrice;
-  console.log(`[marketPrices] ${yahooSymbol}: last_close=${closes[closes.length - 1]} regularMarketPrice=${regMkt} n=${closes.length}`);
-  return closes;
+
+  let lastError: unknown;
+  for (const host of ["query2.finance.yahoo.com", "query1.finance.yahoo.com"]) {
+    try {
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1h&range=30d`;
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) { lastError = `HTTP ${res.status}`; continue; }
+
+      const json = await res.json() as YahooResp;
+      const result = json?.chart?.result?.[0];
+      const raw    = result?.indicators?.quote?.[0]?.close ?? [];
+      const regMkt = result?.meta?.regularMarketPrice;
+
+      // Filter out nulls — Yahoo often trails raw arrays with null for weekends/holidays
+      const closes = raw.filter((c): c is number => c !== null && !isNaN(c));
+
+      console.log(`[marketPrices] ${host} ${yahooSymbol}: closes=${closes.length} last_close=${closes.at(-1)} regularMarketPrice=${regMkt}`);
+
+      if (closes.length < 5 && !regMkt) { lastError = "no usable data"; continue; }
+
+      // If Yahoo's regularMarketPrice differs from the last close (stale series),
+      // replace the last element with the live quote so TA uses a current price.
+      if (regMkt && regMkt > 0 && closes.length > 0) {
+        const drift = Math.abs(closes[closes.length - 1] - regMkt) / regMkt;
+        if (drift > 0.005) {
+          console.log(`[marketPrices] ${yahooSymbol}: replacing stale last_close=${closes.at(-1)} with regularMarketPrice=${regMkt}`);
+          closes[closes.length - 1] = regMkt;
+        }
+      }
+
+      // If closes array is too short but we have a live quote, build a synthetic series
+      if (closes.length < 30 && regMkt && regMkt > 0) {
+        console.log(`[marketPrices] ${yahooSymbol}: sparse closes (${closes.length}), padding with regularMarketPrice=${regMkt}`);
+        while (closes.length < 30) closes.unshift(regMkt);
+      }
+
+      if (closes.length < 5) { lastError = `only ${closes.length} closes`; continue; }
+      return closes;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw new Error(`Yahoo fetchCloses failed for ${yahooSymbol}: ${lastError}`);
 }
 
 // ── Full indicator fetch for one pair ─────────────────────────────────────────

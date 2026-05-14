@@ -11,6 +11,7 @@ import { TradeNoteModal } from "@/components/TradeNoteModal";
 import { PerformanceBadge } from "@/components/PerformanceBadge";
 import { DisciplineScore } from "@/components/DisciplineScore";
 import { TradeReflectionModal } from "@/components/TradeReflectionModal";
+import { SharePerformanceCard } from "@/components/SharePerformanceCard";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -413,6 +414,7 @@ export default function TradingJournal() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [isSyncing,        setIsSyncing]        = useState(false);
   const [strategies,       setStrategies]       = useState<Strategy[]>([]);
+  const [shareOpen,        setShareOpen]        = useState(false);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function showToast(msg: string, type: "ok" | "err") { setToast({ msg, type }); }
@@ -596,6 +598,12 @@ export default function TradingJournal() {
   const winRate  = accountTrades.length > 0 ? ((wins / accountTrades.length) * 100).toFixed(1) : null;
   const avgPnl   = accountTrades.length > 0 ? (totalPnl / accountTrades.length).toFixed(2) : null;
 
+  const profitFactor = useMemo(() => {
+    const grossWin  = accountTrades.filter((t) => t.pnl > 0).reduce((s, t) => s + t.pnl, 0);
+    const grossLoss = Math.abs(accountTrades.filter((t) => t.pnl < 0).reduce((s, t) => s + t.pnl, 0));
+    return grossLoss > 0 ? parseFloat((grossWin / grossLoss).toFixed(2)) : grossWin > 0 ? 3 : 0;
+  }, [accountTrades]);
+
   // ── Chart data ─────────────────────────────────────────────────────────────
   const equityCurveData = useMemo(() => {
     const sorted = [...accountTrades].sort((a, b) => a.date.localeCompare(b.date));
@@ -620,6 +628,27 @@ export default function TradingJournal() {
       }))
       .sort((a, b) => b.winRate - a.winRate);
   }, [accountTrades]);
+
+  const bestPair  = pairWinRateData.length > 0 ? pairWinRateData[0].pair : "—";
+  const worstPair = pairWinRateData.length > 1 ? pairWinRateData[pairWinRateData.length - 1].pair : "—";
+
+  const badgeInfo = useMemo(() => {
+    if (accountTrades.length === 0) return { icon: "🥉", name: "Bronze Trader" };
+    const wr = (wins / accountTrades.length) * 100;
+    const gw = accountTrades.filter((t) => t.pnl > 0).reduce((s, t) => s + t.pnl, 0);
+    const gl = Math.abs(accountTrades.filter((t) => t.pnl < 0).reduce((s, t) => s + t.pnl, 0));
+    const pf = gl > 0 ? gw / gl : gw > 0 ? 3 : 1;
+    const score = Math.min(100, Math.round(
+      Math.min(30, (wr / 60) * 30) +
+      Math.min(25, Math.max(0, (pf - 1) * 25)) +
+      Math.min(10, (accountTrades.length / 50) * 10)
+    ));
+    if (score >= 86) return { icon: "👑", name: "Legend" };
+    if (score >= 71) return { icon: "💎", name: "Diamond Trader" };
+    if (score >= 51) return { icon: "🥇", name: "Gold Trader" };
+    if (score >= 31) return { icon: "🥈", name: "Silver Trader" };
+    return { icon: "🥉", name: "Bronze Trader" };
+  }, [accountTrades, wins]);
 
   const dailyData = useMemo(() => {
     const map: Record<string, { pnl: number; count: number }> = {};
@@ -873,6 +902,20 @@ export default function TradingJournal() {
 
       <Sidebar user={currentUser} onSignOut={handleLogout} />
 
+      {shareOpen && (
+        <SharePerformanceCard
+          winRate={winRate}
+          totalTrades={accountTrades.length}
+          totalPnl={totalPnl}
+          profitFactor={profitFactor}
+          bestPair={bestPair}
+          worstPair={worstPair}
+          badgeName={badgeInfo.name}
+          badgeIcon={badgeInfo.icon}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+
       <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-5 sm:py-7">
 
@@ -1103,6 +1146,22 @@ export default function TradingJournal() {
         )}
 
         {/* STAT CARDS */}
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-medium text-zinc-600 uppercase tracking-widest">Stats</p>
+          {accountTrades.length > 0 && (
+            <button
+              onClick={() => setShareOpen(true)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-zinc-700
+                         text-zinc-400 hover:border-[var(--cj-gold)] hover:text-[var(--cj-gold)] transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Share Performance
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 mb-6">
           {[
             {

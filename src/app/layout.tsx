@@ -21,8 +21,40 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NIRI — AI Trading Journal",
-  description: "AI-powered trading journal for MT5 traders",
+  title: {
+    default: "NIRI — AI Trading Journal for MT5 Traders",
+    template: "%s | NIRI",
+  },
+  description:
+    "Connect your MT5, sync trades automatically, and get AI coaching that tells you exactly what behavioral patterns are costing you money.",
+  metadataBase: new URL("https://niri.live"),
+  openGraph: {
+    type: "website",
+    siteName: "NIRI",
+    url: "https://niri.live",
+    title: "NIRI — AI Trading Journal for MT5 Traders",
+    description:
+      "Connect your MT5, sync trades automatically, and get AI coaching that tells you exactly what behavioral patterns are costing you money.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "NIRI — AI Trading Journal for MT5 Traders",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@niritoday",
+    creator: "@niritoday",
+    title: "NIRI — AI Trading Journal for MT5 Traders",
+    description:
+      "Connect your MT5, sync trades automatically, and get AI coaching that tells you exactly what behavioral patterns are costing you money.",
+    images: ["/og-image.png"],
+  },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+  keywords: ["forex journal", "MT5 trading journal", "AI trading coach", "trade tracker", "forex trader", "trading performance"],
 };
 
 export default function RootLayout({

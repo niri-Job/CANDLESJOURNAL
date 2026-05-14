@@ -3,21 +3,20 @@
 import { useState, useEffect, useCallback } from "react";
 
 const THEMES = [
-  { key: "dark",     icon: "🌑", label: "Dark Gold" },
-  { key: "light",    icon: "☀️",  label: "Light"     },
-  { key: "midnight", icon: "🌙", label: "Midnight"  },
+  { key: "dark",     icon: "🌑", label: "Default" },
+  { key: "midnight", icon: "🌙", label: "Dark"    },
+  { key: "light",    icon: "☀️",  label: "Light"   },
 ] as const;
 
 type Theme = (typeof THEMES)[number]["key"];
 
-function readThemeCookie(): Theme {
-  if (typeof document === "undefined") return "dark";
-  const m = document.cookie.match(/(?:^|;\s*)cj_theme=([^;]+)/);
-  return (m?.[1] as Theme) ?? "dark";
+function readTheme(): Theme {
+  if (typeof localStorage === "undefined") return "dark";
+  return (localStorage.getItem("cj_theme") as Theme) ?? "dark";
 }
 
-function writeThemeCookie(t: Theme) {
-  document.cookie = `cj_theme=${t};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`;
+function writeTheme(t: Theme) {
+  localStorage.setItem("cj_theme", t);
 }
 
 function applyTheme(t: Theme) {
@@ -104,16 +103,16 @@ export default function AdminPage() {
   const [announceSending,    setAnnounceSending]    = useState(false);
   const [announceResult,     setAnnounceResult]     = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Restore theme from cookie on mount
+  // Restore theme from localStorage on mount
   useEffect(() => {
-    const saved = readThemeCookie();
+    const saved = readTheme();
     setTheme(saved);
     applyTheme(saved);
   }, []);
 
   function selectTheme(t: Theme) {
     setTheme(t);
-    writeThemeCookie(t);
+    writeTheme(t);
     applyTheme(t);
   }
 

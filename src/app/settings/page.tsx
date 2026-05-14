@@ -410,6 +410,20 @@ export default function SettingsPage() {
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">MT5 Sync</p>
 
+          {/* MT5 platform notice */}
+          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-3"
+               style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5"
+                 strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p className="text-xs text-indigo-300 leading-relaxed">
+              <span className="font-semibold">The NIRI EA requires MT5 on a Windows PC or Mac.</span>
+              {" "}If you trade on mobile, you can still use NIRI — just set up the EA on any desktop MT5 account connected to your broker.
+            </p>
+          </div>
+
           {/* Connected token cards */}
           {eaTokens.length > 0 && (
             <div className="space-y-3 mb-3">

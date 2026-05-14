@@ -232,7 +232,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       <div style={{
         maxHeight: open ? "24rem" : "0", overflow: "hidden",
         transition: "max-height 0.35s ease", paddingBottom: open ? "1.375rem" : 0,
-        color: "#AAAAAA", lineHeight: 1.75, fontSize: "0.9375rem",
+        color: "var(--cj-text-muted)", lineHeight: 1.75, fontSize: "0.9375rem",
       }}>{a}</div>
     </div>
   );
@@ -242,12 +242,12 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 function CmpRow({ label, niri, other, highlight }: { label: string; niri: string; other: string; highlight?: boolean }) {
   return (
     <tr style={{ background: highlight ? "rgba(245,197,24,0.05)" : "transparent" }}>
-      <td style={{ padding: "0.875rem 1rem", color: "#AAAAAA", fontSize: "0.9rem", borderBottom: "1px solid rgba(245,197,24,0.07)" }}>{label}</td>
+      <td style={{ padding: "0.875rem 1rem", color: "var(--cj-text-muted)", fontSize: "0.9rem", borderBottom: "1px solid rgba(245,197,24,0.07)" }}>{label}</td>
       <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(245,197,24,0.07)", borderLeft: "2px solid rgba(245,197,24,0.3)" }}>
         <span style={{ color: "var(--cj-gold)", fontWeight: 700, fontSize: "0.9rem" }}>{niri}</span>
       </td>
       <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(245,197,24,0.07)" }}>
-        <span style={{ color: "#888888", fontSize: "0.9rem" }}>{other}</span>
+        <span style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem" }}>{other}</span>
       </td>
     </tr>
   );
@@ -260,7 +260,7 @@ function CheckItem({ text, dim }: { text: string; dim?: boolean }) {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
         <polyline points="20 6 9 17 4 12"/>
       </svg>
-      <span style={{ color: dim ? "#AAAAAA" : "var(--cj-text)", fontSize: "0.9375rem", lineHeight: 1.5 }}>{text}</span>
+      <span style={{ color: dim ? "var(--cj-text-muted)" : "var(--cj-text)", fontSize: "0.9375rem", lineHeight: 1.5 }}>{text}</span>
     </div>
   );
 }
@@ -436,6 +436,26 @@ export default function LandingPage() {
         }
         [data-theme="light"] .lp-social-link svg { stroke: #4A3F2F !important; }
 
+        /* ── Light theme: force dark text on cream backgrounds ── */
+        [data-theme="light"] section:not(.lp-dark-bg) p { color: #1a1a1a !important; }
+        [data-theme="light"] section:not(.lp-dark-bg) li { color: #1a1a1a !important; }
+        [data-theme="light"] .lp-card p { color: #1a1a1a !important; }
+        [data-theme="light"] .lp-card div,
+        [data-theme="light"] .lp-card span:not([class]) { color: #1a1a1a !important; }
+        /* Keep gold/accent inline-colored spans readable on cream */
+        [data-theme="light"] section:not(.lp-dark-bg) span[style*="F5C518"],
+        [data-theme="light"] section:not(.lp-dark-bg) span[style*="C9A227"],
+        [data-theme="light"] section:not(.lp-dark-bg) span[style*="cj-gold"] { color: #8A6A00 !important; }
+        /* Footer */
+        [data-theme="light"] footer p,
+        [data-theme="light"] footer span,
+        [data-theme="light"] footer a { color: #333333 !important; }
+        [data-theme="light"] footer h4 { color: #1a1a1a !important; }
+        /* Protect always-dark section */
+        [data-theme="light"] .lp-dark-bg h2,
+        [data-theme="light"] .lp-dark-bg h3,
+        [data-theme="light"] .lp-dark-bg p { color: inherit !important; }
+
         @media (max-width: 768px) {
           .desktop-nav { display: none !important; }
           .hamburger   { display: flex !important; }
@@ -588,10 +608,10 @@ export default function LandingPage() {
                 <span className="shimmer-text glitch-hero" data-text="Market.">Market.</span>
               </h1>
 
-              <p style={{ color: "#CCCCCC", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
+              <p style={{ color: "var(--cj-text)", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
                 You&rsquo;re losing because of you.
               </p>
-              <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
+              <p style={{ color: "var(--cj-text)", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
                 NIRI syncs with MT5, analyses your trade history, and identifies the behavioral patterns behind your losses. Each session ends with a specific coaching report.
               </p>
 
@@ -610,7 +630,7 @@ export default function LandingPage() {
 
               <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
                 {["No credit card required", "MT5 sync in under 5 minutes", "Cancel anytime"].map(t => (
-                  <span key={t} style={{ color: "#888888", fontSize: "0.875rem" }}>• {t}</span>
+                  <span key={t} style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>• {t}</span>
                 ))}
               </div>
             </div>
@@ -660,7 +680,7 @@ export default function LandingPage() {
           ].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
               <span style={{ color: "#F5C518", fontWeight: 900, fontSize: "1.5rem", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>{s.val}</span>
-              <span style={{ color: "#888888", fontSize: "0.875rem", lineHeight: 1.4, maxWidth: 200 }}>{s.label}</span>
+              <span style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", lineHeight: 1.4, maxWidth: 200 }}>{s.label}</span>
               {i < 2 && <span style={{ color: "rgba(245,197,24,0.2)", fontSize: "1.5rem", display: "block" }}>|</span>}
             </div>
           ))}
@@ -668,7 +688,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── DASHBOARD PREVIEW ───────────────────────────────────────────────── */}
-      <section style={{ background: "#0A0A0F", padding: "5rem 1.5rem 6rem" }}>
+      <section className="lp-dark-bg" style={{ background: "#0A0A0F", padding: "5rem 1.5rem 6rem" }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: "4rem", flexWrap: "wrap" }}>
 
           {/* Left copy */}
@@ -676,10 +696,10 @@ export default function LandingPage() {
             <p style={{ color: "#9B7E2E", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
               Your dashboard, automated
             </p>
-            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#F0E6D3", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
+            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#FFFFFF", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
               Everything you need<br />to improve, <span className="shimmer-text">in one place.</span>
             </h2>
-            <p style={{ color: "#8A7D65", fontSize: "1rem", lineHeight: 1.75, marginBottom: "2rem" }}>
+            <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.75, marginBottom: "2rem" }}>
               Trade journal, equity curve, AI analysis and discipline score — all synced automatically from MT5 in minutes.
             </p>
             {[
@@ -689,7 +709,7 @@ export default function LandingPage() {
             ].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.875rem" }}>
                 <span style={{ color: "#F5C518", fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                <p style={{ color: "#C4B89A", fontSize: "0.9375rem", lineHeight: 1.6, margin: 0 }}>{f}</p>
+                <p style={{ color: "#FFFFFF", fontSize: "0.9375rem", lineHeight: 1.6, margin: 0 }}>{f}</p>
               </div>
             ))}
             <div style={{ marginTop: "2.25rem" }}>
@@ -736,12 +756,12 @@ export default function LandingPage() {
             <p style={{ color: "#e05555", fontWeight: 800, fontSize: "clamp(1.25rem,2.5vw,1.625rem)", marginBottom: "0.75rem", lineHeight: 1.3 }}>
               The brutal truth most traders ignore:
             </p>
-            <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.8, maxWidth: 640, margin: "0 auto 1rem" }}>
-              You don&rsquo;t have a strategy problem. You have a <strong style={{ color: "#f0e6c8" }}>behavior problem</strong>.
+            <p style={{ color: "var(--cj-text)", fontSize: "1rem", lineHeight: 1.8, maxWidth: 640, margin: "0 auto 1rem" }}>
+              You don&rsquo;t have a strategy problem. You have a <strong style={{ color: "#c0392b" }}>behavior problem</strong>.
               Your setups work. Your discipline doesn&rsquo;t.
               NIRI shows you exactly where your behavior costs you money — with numbers, not hunches.
             </p>
-            <p style={{ color: "#888888", fontSize: "0.9rem", fontStyle: "italic" }}>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem", fontStyle: "italic" }}>
               Most traders read this and think &ldquo;not me.&rdquo; The data says otherwise.
             </p>
           </div>
@@ -750,7 +770,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
               Sound <span className="shimmer-text">Familiar?</span>
             </h2>
-            <p style={{ color: "#888888", fontSize: "1rem" }}>Most traders know these problems exist. NIRI quantifies them.</p>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem" }}>Most traders know these problems exist. NIRI quantifies them.</p>
           </div>
           <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
             {[
@@ -791,7 +811,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
               Up and Running in <span className="shimmer-text">3 Steps</span>
             </h2>
-            <p style={{ color: "#888888", fontSize: "1rem" }}>Click each step to see what to expect</p>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem" }}>Click each step to see what to expect</p>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3.5rem", alignItems: "start" }} className="grid-2">
@@ -820,12 +840,12 @@ export default function LandingPage() {
                     background: howStep === i ? "linear-gradient(135deg,#F5C518,#C9A227)" : "rgba(245,197,24,0.08)",
                     border: howStep === i ? "none" : "1px solid rgba(245,197,24,0.2)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 800, color: howStep === i ? "#0a0800" : "#AAAAAA",
+                    fontWeight: 800, color: howStep === i ? "#0a0800" : "var(--cj-text-muted)",
                     fontSize: "0.875rem", transition: "all 0.25s ease",
                   }}>{step.n}</div>
                   <div>
-                    <h3 style={{ color: howStep === i ? "#f0e6c8" : "#AAAAAA", fontWeight: 700, fontSize: "1rem", marginBottom: "0.375rem", transition: "color 0.25s" }}>{step.title}</h3>
-                    <p style={{ color: howStep === i ? "#AAAAAA" : "#888888", lineHeight: 1.7, fontSize: "0.875rem", transition: "color 0.25s" }}>{step.desc}</p>
+                    <h3 style={{ color: howStep === i ? "var(--cj-text)" : "var(--cj-text-muted)", fontWeight: 700, fontSize: "1rem", marginBottom: "0.375rem", transition: "color 0.25s" }}>{step.title}</h3>
+                    <p style={{ color: howStep === i ? "var(--cj-text)" : "var(--cj-text-muted)", lineHeight: 1.7, fontSize: "0.875rem", transition: "color 0.25s" }}>{step.desc}</p>
                   </div>
                 </div>
               ))}
@@ -906,7 +926,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
               NIRI Doesn&rsquo;t Just <span className="shimmer-text">Track Trades.</span>
             </h2>
-            <p style={{ color: "#AAAAAA", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
               It gives you a structured analysis of what happened and what to change.
             </p>
           </div>
@@ -946,7 +966,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <p style={{ textAlign: "center", color: "#888888", fontSize: "0.875rem", margin: "1.5rem 0 2rem" }}>
+          <p style={{ textAlign: "center", color: "var(--cj-text-muted)", fontSize: "0.875rem", margin: "1.5rem 0 2rem" }}>
             This report is generated automatically after every trading session.
           </p>
           <div style={{ textAlign: "center" }}>
@@ -966,7 +986,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
               Stop Guessing. <span className="shimmer-text">Start Growing.</span>
             </h2>
-            <p style={{ color: "#AAAAAA", fontSize: "1rem", maxWidth: 520, margin: "0 auto" }}>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 520, margin: "0 auto" }}>
               Every feature is designed to turn raw trade data into specific, actionable improvements.
             </p>
           </div>
@@ -1113,19 +1133,19 @@ export default function LandingPage() {
           <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1.5rem" }}>
             <div ref={stat1.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat1.val}</div>
-              <div style={{ color: "#888888", fontSize: "0.875rem", marginTop: "0.375rem" }}>Trades Analysed</div>
+              <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Trades Analysed</div>
             </div>
             <div ref={stat2.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat2.val}</div>
-              <div style={{ color: "#888888", fontSize: "0.875rem", marginTop: "0.375rem" }}>Active Traders</div>
+              <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Active Traders</div>
             </div>
             <div ref={stat3.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>{stat3.val}</div>
-              <div style={{ color: "#888888", fontSize: "0.875rem", marginTop: "0.375rem" }}>Report Types</div>
+              <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Report Types</div>
             </div>
             <div ref={stat4.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>${stat4.val}</div>
-              <div style={{ color: "#888888", fontSize: "0.875rem", marginTop: "0.375rem" }}>Starting Price / mo</div>
+              <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Starting Price / mo</div>
             </div>
           </div>
         </div>
@@ -1138,7 +1158,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
               Invest in Your <span className="shimmer-text">Trading Education</span>
             </h2>
-            <p style={{ color: "#AAAAAA", fontSize: "1rem", maxWidth: 560, margin: "0 auto" }}>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 560, margin: "0 auto" }}>
               Behavioral mistakes cost the average trader $200 to $500 per month. NIRI costs ₦15,000/month. The math is straightforward.
             </p>
           </div>
@@ -1188,8 +1208,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div style={{ textAlign: "center", marginTop: "2rem" }}>
-            <p style={{ color: "#888888", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Start free, upgrade when ready.</p>
-            <p style={{ color: "#888888", fontSize: "0.875rem" }}>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Start free, upgrade when ready.</p>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>
               <IcoLock />Secured by Paystack. Cards, bank transfer and USSD accepted.
             </p>
           </div>
@@ -1261,7 +1281,7 @@ export default function LandingPage() {
               <h2 style={{ fontSize: "clamp(1.625rem,3.5vw,2.375rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "1rem", lineHeight: 1.2 }}>
                 Trade Synthetic Indices on <span className="shimmer-text">Deriv?</span>
               </h2>
-              <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.8, marginBottom: "1.5rem" }}>
+              <p style={{ color: "var(--cj-text)", fontSize: "1rem", lineHeight: 1.8, marginBottom: "1.5rem" }}>
                 NIRI fully supports Deriv MT5 accounts including Volatility indices, Boom and Crash,
                 Step Index and all synthetic instruments. Connect your Deriv MT5 account and finally
                 understand your performance with clarity.
@@ -1271,7 +1291,7 @@ export default function LandingPage() {
                   <span key={t} style={{
                     background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.15)",
                     borderRadius: "0.375rem", padding: "0.25rem 0.625rem",
-                    color: "#9a8050", fontSize: "0.8125rem",
+                    color: "var(--cj-text)", fontSize: "0.8125rem",
                   }}>{t}</span>
                 ))}
               </div>
@@ -1335,7 +1355,7 @@ export default function LandingPage() {
           <h2 style={{ fontSize: "clamp(2rem,5.5vw,3.25rem)", fontWeight: 900, color: "#f0e6c8", lineHeight: 1.1, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
             Stop Repeating the<br />Same Mistakes.
           </h2>
-          <p style={{ color: "#CCCCCC", fontSize: "1.0625rem", lineHeight: 1.8, marginBottom: "2.5rem", maxWidth: 500, margin: "0 auto 2.5rem" }}>
+          <p style={{ color: "var(--cj-text)", fontSize: "1.0625rem", lineHeight: 1.8, marginBottom: "2.5rem", maxWidth: 500, margin: "0 auto 2.5rem" }}>
             Create a free account, connect your MT5, and receive your first coaching report after your next session.
           </p>
           <Link href="/login">
@@ -1344,9 +1364,9 @@ export default function LandingPage() {
             </button>
           </Link>
           <div style={{ marginTop: "0.75rem" }}>
-            <a href="#pricing" style={{ color: "#888888", fontSize: "0.9375rem", textDecoration: "underline", cursor: "pointer" }}>See Pricing</a>
+            <a href="#pricing" style={{ color: "var(--cj-text-muted)", fontSize: "0.9375rem", textDecoration: "underline", cursor: "pointer" }}>See Pricing</a>
           </div>
-          <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginTop: "1.5rem" }}>
+          <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "1.5rem" }}>
             Join 500+ traders already using NIRI.
           </p>
         </div>
@@ -1362,7 +1382,7 @@ export default function LandingPage() {
                 <div style={{ width: 28, height: 28, borderRadius: "7px", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0800", fontSize: "0.75rem" }}>NI</div>
                 <span style={{ fontWeight: 800, color: "var(--cj-text)", fontSize: "1rem", letterSpacing: "-0.01em" }}>NIRI</span>
               </div>
-              <p style={{ color: "#AAAAAA", fontSize: "0.875rem", lineHeight: 1.65, maxWidth: 220 }}>
+              <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", lineHeight: 1.65, maxWidth: 220 }}>
                 Behavioral trading intelligence for MT5 traders worldwide.
               </p>
               <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.25rem" }}>
@@ -1379,23 +1399,23 @@ export default function LandingPage() {
               </div>
             </div>
             <div>
-              <h4 style={{ color: "#888888", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Product</h4>
+              <h4 style={{ color: "var(--cj-text-muted)", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Product</h4>
               {[["Features","#features"],["Pricing","#pricing"],["FAQ","#faq"]].map(([l,h]) => (
-                <a key={l as string} href={h as string} style={{ display: "block", color: "#AAAAAA", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#F5C518")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#AAAAAA")}>{l}</a>
+                <a key={l as string} href={h as string} style={{ display: "block", color: "var(--cj-text-muted)", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "var(--cj-gold)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "")}>{l}</a>
               ))}
             </div>
             <div>
-              <h4 style={{ color: "#888888", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Company</h4>
+              <h4 style={{ color: "var(--cj-text-muted)", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Company</h4>
               {[["About","/"],["Contact","/"],["Privacy Policy","/"],["Terms of Service","/"]].map(([l,h]) => (
-                <Link key={l as string} href={h as string} style={{ display: "block", color: "#AAAAAA", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#F5C518")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#AAAAAA")}>{l}</Link>
+                <Link key={l as string} href={h as string} style={{ display: "block", color: "var(--cj-text-muted)", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "var(--cj-gold)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "")}>{l}</Link>
               ))}
             </div>
             <div>
-              <h4 style={{ color: "#888888", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Get Started</h4>
+              <h4 style={{ color: "var(--cj-text-muted)", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Get Started</h4>
               <Link href="/login">
                 <button className="gold-btn" style={{ padding: "0.625rem 1.5rem", fontSize: "0.875rem", marginBottom: "0.75rem", width: "100%" }}>Create Account</button>
               </Link>
@@ -1405,8 +1425,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div style={{ borderTop: "1px solid rgba(245,197,24,0.06)", paddingTop: "1.5rem", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
-            <span style={{ color: "#888888", fontSize: "0.8125rem" }}>© 2026 NIRI. All rights reserved.</span>
-            <span style={{ color: "#888888", fontSize: "0.8125rem" }}>Built for African traders</span>
+            <span style={{ color: "var(--cj-text-muted)", fontSize: "0.8125rem" }}>© 2026 NIRI. All rights reserved.</span>
+            <span style={{ color: "var(--cj-text-muted)", fontSize: "0.8125rem" }}>Built for African traders</span>
           </div>
         </div>
       </footer>

@@ -456,6 +456,9 @@ export default function LandingPage() {
         [data-theme="light"] .lp-dark-bg h2,
         [data-theme="light"] .lp-dark-bg h3 { color: #FFFFFF !important; }
         [data-theme="light"] .lp-dark-bg p   { color: #CCCCCC !important; }
+        /* Active step card on dark #1C1C2E background */
+        [data-theme="light"] .lp-step-active h3 { color: #FFFFFF !important; }
+        [data-theme="light"] .lp-step-active p  { color: #DDDDDD !important; }
 
         /* ── Dark-mode card text: ensure nothing is invisibly dark ── */
         .lp-card [style*="color: #3a2a"],
@@ -609,17 +612,17 @@ export default function LandingPage() {
               </div>
 
               <h1 style={{ fontSize: "clamp(2.5rem,5.5vw,3.5rem)", fontWeight: 900, lineHeight: 1.08, marginBottom: "1.375rem", letterSpacing: "-0.02em" }}>
-                <span style={{ color: "#FFFFFF" }}>You&rsquo;re Not Losing</span>
+                <span style={{ color: "var(--cj-text)" }}>You&rsquo;re Not Losing</span>
                 <br />
-                <span style={{ color: "#FFFFFF" }}>Because of the</span>
+                <span style={{ color: "var(--cj-text)" }}>Because of the</span>
                 <br />
                 <span className="shimmer-text glitch-hero" data-text="Market.">Market.</span>
               </h1>
 
-              <p style={{ color: "#FFFFFF", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
+              <p style={{ color: "var(--cj-text)", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
                 You&rsquo;re losing because of you.
               </p>
-              <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
+              <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
                 NIRI syncs with MT5, analyses your trade history, and identifies the behavioral patterns behind your losses. Each session ends with a specific coaching report.
               </p>
 
@@ -638,7 +641,7 @@ export default function LandingPage() {
 
               <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
                 {["No credit card required", "MT5 sync in under 5 minutes", "Cancel anytime"].map(t => (
-                  <span key={t} style={{ color: "#FFFFFF", fontSize: "0.875rem" }}>• {t}</span>
+                  <span key={t} style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>• {t}</span>
                 ))}
               </div>
             </div>
@@ -836,6 +839,7 @@ export default function LandingPage() {
                 <div
                   key={step.n}
                   onClick={() => setHowStep(i)}
+                  className={howStep === i ? "lp-step-active" : ""}
                   style={{
                     display: "flex", gap: "1.25rem", padding: "1.375rem 1.5rem",
                     borderRadius: "1rem", cursor: "pointer", transition: "all 0.25s ease",

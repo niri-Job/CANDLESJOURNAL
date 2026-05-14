@@ -142,6 +142,15 @@ export async function POST(request: Request) {
     verification_method: "EA",
   };
 
+  // Check if this trade already exists (to know whether it's new)
+  const { data: existingTrade } = await svc
+    .from("trades")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("unique_trade_id", uniqueTradeId)
+    .maybeSingle();
+  const isNewTrade = !existingTrade;
+
   // Upsert — unique_trade_id constraint silently skips duplicate sends
   const { error: upsertErr } = await svc
     .from("trades")
@@ -156,6 +165,29 @@ export async function POST(request: Request) {
   }
 
   console.log(`[ea-sync] SUCCESS: saved trade ${uniqueTradeId}`);
+
+  // Insert a per-user notification for the new trade (throttled: at most 1 per hour)
+  if (isNewTrade) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: recentNotif } = await svc
+      .from("notifications")
+      .select("id")
+      .eq("target_user_id", userId)
+      .gte("created_at", oneHourAgo)
+      .maybeSingle();
+
+    if (!recentNotif) {
+      const pnl      = Number(profit);
+      const pnlSign  = pnl >= 0 ? "+" : "";
+      const pnlStr   = `${pnlSign}$${pnl.toFixed(2)}`;
+      await svc.from("notifications").insert({
+        title:          "Trade Synced from MT5",
+        message:        `${symbolStr} ${direction} — PnL: ${pnlStr}`,
+        target_user_id: userId,
+        is_active:      true,
+      });
+    }
+  }
 
   // Keep trading_accounts in sync with what the EA reports
   await svc.from("trading_accounts").upsert({

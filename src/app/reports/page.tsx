@@ -1404,7 +1404,7 @@ function TabCompare({ trades, accounts }: { trades: Trade[]; accounts: TradingAc
       {/* Preset selector */}
       <div>
         <SectionHead>Compare Periods</SectionHead>
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           {([["week","This Week vs Last Week"],["month","This Month vs Last Month"],["custom","Custom"]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setPreset(k)}
               className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${preset === k
@@ -1416,7 +1416,7 @@ function TabCompare({ trades, accounts }: { trades: Trade[]; accounts: TradingAc
         </div>
 
         {preset === "custom" && (
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div className="rounded-xl p-3" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
               <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">Period A</p>
               <div className="flex gap-2">

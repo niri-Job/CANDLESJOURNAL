@@ -96,7 +96,8 @@ export default function AdminPage() {
 
   const [announceSubject,    setAnnounceSubject]    = useState("");
   const [announceMessage,    setAnnounceMessage]    = useState("");
-  const [announceRecipients, setAnnounceRecipients] = useState<"all" | "pro">("all");
+  const [announceRecipients, setAnnounceRecipients] = useState<"all" | "pro" | "specific">("all");
+  const [announceSpecific,   setAnnounceSpecific]   = useState("");
   const [announceSending,    setAnnounceSending]    = useState(false);
   const [announceResult,     setAnnounceResult]     = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -253,15 +254,20 @@ export default function AdminPage() {
         subject: announceSubject.trim(),
         message: announceMessage.trim(),
         recipients: announceRecipients,
+        specific_email: announceRecipients === "specific" ? announceSpecific.trim() : undefined,
       }),
     });
     setAnnounceSending(false);
     if (res.ok) {
-      const d = (await res.json()) as { sent: number; total: number; errors?: string[] };
+      const d = (await res.json()) as { sent: number; total: number; email?: string; errors?: string[] };
       const errNote = d.errors?.length ? ` (${d.errors.length} failed)` : "";
-      setAnnounceResult({ ok: true, text: `Sent to ${d.sent} of ${d.total} recipients${errNote}.` });
+      const text = d.email
+        ? `Email sent to ${d.email}.`
+        : `Sent to ${d.sent} of ${d.total} recipients${errNote}.`;
+      setAnnounceResult({ ok: true, text });
       setAnnounceSubject("");
       setAnnounceMessage("");
+      if (announceRecipients === "specific") setAnnounceSpecific("");
     } else {
       const d = (await res.json()) as { error?: string };
       setAnnounceResult({ ok: false, text: d.error ?? "Failed to send" });
@@ -587,18 +593,39 @@ export default function AdminPage() {
             <div className="flex items-center gap-3 flex-wrap">
               <select
                 value={announceRecipients}
-                onChange={(e) => setAnnounceRecipients(e.target.value as "all" | "pro")}
+                onChange={(e) => {
+                  setAnnounceRecipients(e.target.value as "all" | "pro" | "specific");
+                  setAnnounceResult(null);
+                }}
                 className="bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-2
                            text-sm text-[var(--cj-text)] outline-none
                            focus:border-[var(--cj-gold)] transition-[border-color]"
               >
                 <option value="all">All Users</option>
                 <option value="pro">Pro Users Only</option>
+                <option value="specific">Specific User</option>
               </select>
+
+              {announceRecipients === "specific" && (
+                <input
+                  type="email"
+                  value={announceSpecific}
+                  onChange={(e) => setAnnounceSpecific(e.target.value)}
+                  placeholder="user@email.com"
+                  className="bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-2
+                             text-sm text-[var(--cj-text)] placeholder:text-[var(--cj-text-muted)] outline-none
+                             focus:border-[var(--cj-gold)] transition-[border-color] w-64"
+                />
+              )}
 
               <button
                 type="submit"
-                disabled={announceSending || !announceSubject.trim() || !announceMessage.trim()}
+                disabled={
+                  announceSending ||
+                  !announceSubject.trim() ||
+                  !announceMessage.trim() ||
+                  (announceRecipients === "specific" && !announceSpecific.trim())
+                }
                 className="btn-gold px-5 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
               >
                 {announceSending ? "Sending…" : "Send Announcement"}

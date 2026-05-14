@@ -17,9 +17,9 @@ function svc() {
 export async function POST(request: Request) {
   if (!await verifyAdminCookie()) return adminUnauthorized();
 
-  let subject: string, message: string, recipients: "all" | "pro";
+  let subject: string, message: string, recipients: "all" | "pro" | "specific", specific_email: string | undefined;
   try {
-    ({ subject, message, recipients } = await request.json());
+    ({ subject, message, recipients, specific_email } = await request.json());
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
@@ -27,8 +27,22 @@ export async function POST(request: Request) {
   if (!subject?.trim() || !message?.trim()) {
     return NextResponse.json({ error: "Subject and message are required" }, { status: 400 });
   }
-  if (recipients !== "all" && recipients !== "pro") {
+  if (recipients !== "all" && recipients !== "pro" && recipients !== "specific") {
     return NextResponse.json({ error: "Invalid recipients value" }, { status: 400 });
+  }
+  if (recipients === "specific") {
+    if (!specific_email?.trim()) {
+      return NextResponse.json({ error: "Email address is required for specific user" }, { status: 400 });
+    }
+    try {
+      await sendAnnouncementEmail(specific_email.trim(), subject.trim(), message.trim());
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ sent: 1, total: 1, email: specific_email.trim() });
   }
 
   const db = svc();

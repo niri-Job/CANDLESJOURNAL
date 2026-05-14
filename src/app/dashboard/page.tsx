@@ -32,10 +32,16 @@ interface Trade {
   asset_class: string;
   session: string;
   setup: string;
+  strategy_id?: string | null;
   news_event?: string | null;
   mt5_deal_id?: string | null;
   account_signature?: string | null;
   account_label?: string | null;
+}
+
+interface Strategy {
+  id: string;
+  name: string;
 }
 
 interface TradingAccount {
@@ -60,6 +66,7 @@ interface Filters {
   dateTo: string;
   pair: string;
   direction: "" | "BUY" | "SELL";
+  strategyId: string;
 }
 
 const ASSET_CLASSES = ["Forex", "Crypto", "Metals", "Indices", "Stocks"] as const;
@@ -70,9 +77,9 @@ const EMPTY_FORM = {
   date: new Date().toISOString().split("T")[0],
   entry: "", exit_price: "", sl: "", tp: "", pnl: "",
   notes: "", asset_class: "Forex", session: "London",
-  setup: "", news_event: "",
+  setup: "", strategy_id: "", news_event: "",
 };
-const EMPTY_FILTERS: Filters = { dateFrom: "", dateTo: "", pair: "", direction: "" };
+const EMPTY_FILTERS: Filters = { dateFrom: "", dateTo: "", pair: "", direction: "", strategyId: "" };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const EMOTION_EMOJI: Record<string, string> = {
@@ -405,6 +412,7 @@ export default function TradingJournal() {
   const [trialDaysLeft,    setTrialDaysLeft]    = useState<number | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [isSyncing,        setIsSyncing]        = useState(false);
+  const [strategies,       setStrategies]       = useState<Strategy[]>([]);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function showToast(msg: string, type: "ok" | "err") { setToast({ msg, type }); }
@@ -425,7 +433,7 @@ export default function TradingJournal() {
       if (!user) { window.location.href = "/login"; return; }
       setCurrentUser(user);
 
-      const [profileRes, tradesRes, accountsRes] = await Promise.all([
+      const [profileRes, tradesRes, accountsRes, strategiesRes] = await Promise.all([
         supabase
           .from("user_profiles")
           .select("subscription_status, subscription_end, ai_credits_used, ai_credits_limit, created_at")
@@ -440,9 +448,15 @@ export default function TradingJournal() {
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: true }),
+        supabase
+          .from("strategies")
+          .select("id, name")
+          .eq("user_id", user.id)
+          .order("name"),
       ]);
 
       if (tradesRes.data) setTrades(tradesRes.data as Trade[]);
+      if (strategiesRes.data) setStrategies(strategiesRes.data as Strategy[]);
       if (accountsRes.data) {
         const accounts = accountsRes.data as TradingAccount[];
         setTradingAccounts(accounts);
@@ -618,17 +632,36 @@ export default function TradingJournal() {
   }, [accountTrades]);
 
   // ── Filtered trades (account filter + table filters) ─────────────────────
+  const strategyMap = useMemo(() =>
+    new Map(strategies.map((s) => [s.id, s.name])),
+  [strategies]);
+
   const filteredTrades = useMemo(() => {
     return accountTrades.filter((t) => {
       if (filters.dateFrom && t.date < filters.dateFrom) return false;
       if (filters.dateTo   && t.date > filters.dateTo)   return false;
       if (filters.pair && !t.pair.toLowerCase().includes(filters.pair.toLowerCase())) return false;
       if (filters.direction && t.direction !== filters.direction) return false;
+      if (filters.strategyId && t.strategy_id !== filters.strategyId) return false;
       return true;
     });
   }, [accountTrades, filters]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  // Win rate grouped by strategy (all account trades, not filtered)
+  const strategyStats = useMemo(() => {
+    const map = new Map<string, { name: string; total: number; wins: number }>();
+    for (const t of accountTrades) {
+      if (!t.strategy_id) continue;
+      const name = strategyMap.get(t.strategy_id) ?? "Unknown";
+      const entry = map.get(t.strategy_id) ?? { name, total: 0, wins: 0 };
+      entry.total++;
+      if (t.pnl > 0) entry.wins++;
+      map.set(t.strategy_id, entry);
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [accountTrades, strategyMap]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   async function handleLogout() {
@@ -668,6 +701,7 @@ export default function TradingJournal() {
       asset_class: form.asset_class,
       session: form.session,
       setup: form.setup,
+      strategy_id: form.strategy_id || null,
       news_event: form.news_event.trim() || null,
     };
 
@@ -693,7 +727,7 @@ export default function TradingJournal() {
       sl: trade.sl ? String(trade.sl) : "", tp: trade.tp ? String(trade.tp) : "",
       pnl: "", notes: trade.notes,
       asset_class: trade.asset_class || "Forex", session: trade.session || "London",
-      setup: trade.setup || "", news_event: trade.news_event || "",
+      setup: trade.setup || "", strategy_id: trade.strategy_id || "", news_event: trade.news_event || "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -719,7 +753,8 @@ export default function TradingJournal() {
       entry: parseFloat(form.entry), exit_price: parseFloat(form.exit_price),
       sl: form.sl ? parseFloat(form.sl) : null, tp: form.tp ? parseFloat(form.tp) : null,
       pnl, notes: form.notes, asset_class: form.asset_class, session: form.session,
-      setup: form.setup, news_event: form.news_event.trim() || null,
+      setup: form.setup, strategy_id: form.strategy_id || null,
+      news_event: form.news_event.trim() || null,
     };
 
     const supabase = createClient();
@@ -1314,6 +1349,19 @@ export default function TradingJournal() {
                 value={form.setup} onChange={(e) => setForm({ ...form, setup: e.target.value })} />
             </label>
 
+            {strategies.length > 0 && (
+              <label className="block mb-4">
+                <span className="label">Playbook Strategy</span>
+                <select className="inp" value={form.strategy_id}
+                  onChange={(e) => setForm({ ...form, strategy_id: e.target.value })}>
+                  <option value="">No strategy</option>
+                  {strategies.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             <div className="grid grid-cols-2 gap-3 mb-4">
               <label>
                 <span className="label">Lot Size</span>
@@ -1411,7 +1459,7 @@ export default function TradingJournal() {
             </div>
 
             {/* Filter bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5 pb-4 border-b border-zinc-800">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-5 pb-4 border-b border-zinc-800">
               <div>
                 <span className="label">From</span>
                 <input type="date" className="inp text-xs py-1.5" value={filters.dateFrom}
@@ -1436,7 +1484,43 @@ export default function TradingJournal() {
                   <option value="SELL">SELL</option>
                 </select>
               </div>
+              <div>
+                <span className="label">Strategy</span>
+                <select className="inp text-xs py-1.5" value={filters.strategyId}
+                  onChange={(e) => setFilters({ ...filters, strategyId: e.target.value })}>
+                  <option value="">All strategies</option>
+                  {strategies.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+
+            {/* Strategy performance stats — shown when trades are tagged */}
+            {strategyStats.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {strategyStats.map((s) => (
+                  <button
+                    key={s.name}
+                    onClick={() => {
+                      const id = strategies.find((x) => x.name === s.name)?.id ?? "";
+                      setFilters((f) => ({ ...f, strategyId: f.strategyId === id ? "" : id }));
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] transition-all"
+                    style={{
+                      background: "rgba(245,197,24,0.05)",
+                      borderColor: "rgba(245,197,24,0.15)",
+                    }}
+                  >
+                    <span className="font-semibold text-zinc-300">{s.name}</span>
+                    <span className="text-zinc-500">{s.total} trades</span>
+                    <span style={{ color: s.wins / s.total >= 0.5 ? "#34d399" : "#f87171" }}>
+                      {Math.round((s.wins / s.total) * 100)}% WR
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {activeFilterCount > 0 && (
               <div className="mb-3 -mt-2">
@@ -1500,6 +1584,14 @@ export default function TradingJournal() {
                           {(t.session || t.setup) && (
                             <div className="mt-1 text-[10px] text-zinc-700 leading-tight">
                               {[t.session, t.setup].filter(Boolean).join(" · ")}
+                            </div>
+                          )}
+                          {t.strategy_id && strategyMap.get(t.strategy_id) && (
+                            <div className="mt-1">
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                                style={{ background: "rgba(245,197,24,0.08)", color: "var(--cj-gold-muted)", border: "1px solid rgba(245,197,24,0.15)" }}>
+                                {strategyMap.get(t.strategy_id)}
+                              </span>
                             </div>
                           )}
                         </td>

@@ -393,17 +393,18 @@ export default function MarketPage() {
           </div>
         )}
 
-        {/* ── Video Modal ─────────────────────────────────────────── */}
+        {/* ── Watch Live Modal ─────────────────────────────────────── */}
         {showVideo && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm px-4"
             onClick={(e) => { if (e.target === e.currentTarget) setShowVideo(false); }}
           >
-            <div className="relative w-full max-w-3xl mx-4">
-              <div className="flex items-center justify-between mb-3">
+            <div className="relative w-full max-w-lg">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-semibold text-zinc-100">Bloomberg TV — Live</p>
-                  <p className="text-[11px] text-zinc-500">Stream may be unavailable outside market hours</p>
+                  <p className="text-base font-bold text-zinc-100">📺 Watch Financial News Live</p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">Opens on YouTube in a new tab</p>
                 </div>
                 <button
                   onClick={() => setShowVideo(false)}
@@ -415,17 +416,73 @@ export default function MarketPage() {
                   </svg>
                 </button>
               </div>
-              <div className="relative rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800" style={{ paddingTop: "56.25%" }}>
-                <iframe
-                  className="absolute inset-0 w-full h-full"
-                  src="https://www.youtube-nocookie.com/embed/live_stream?channel=UCXgYMHTQodLBGMDpxaIL1NA&autoplay=1&rel=0"
-                  title="Bloomberg TV Live"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+
+              {/* Channel cards */}
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  {
+                    name: "Bloomberg Television",
+                    desc: "24/7 global financial news & markets",
+                    tag: "Forex · Stocks · Macro",
+                    url: "https://www.youtube.com/@BloombergTV/live",
+                    color: "border-blue-500/30 hover:border-blue-500/60 hover:bg-blue-500/5",
+                    dot: "bg-blue-400",
+                  },
+                  {
+                    name: "CNBC International",
+                    desc: "Live market coverage & breaking business news",
+                    tag: "Stocks · Economy · Fed",
+                    url: "https://www.youtube.com/@CNBCi/live",
+                    color: "border-sky-500/30 hover:border-sky-500/60 hover:bg-sky-500/5",
+                    dot: "bg-sky-400",
+                  },
+                  {
+                    name: "Yahoo Finance",
+                    desc: "Real-time market data & analyst commentary",
+                    tag: "Markets · Earnings · Crypto",
+                    url: "https://www.youtube.com/@YahooFinance/live",
+                    color: "border-violet-500/30 hover:border-violet-500/60 hover:bg-violet-500/5",
+                    dot: "bg-violet-400",
+                  },
+                  {
+                    name: "Reuters",
+                    desc: "Breaking global news and financial updates",
+                    tag: "News · Macro · Geopolitics",
+                    url: "https://www.youtube.com/@Reuters/live",
+                    color: "border-orange-500/30 hover:border-orange-500/60 hover:bg-orange-500/5",
+                    dot: "bg-orange-400",
+                  },
+                ].map((ch) => (
+                  <a
+                    key={ch.name}
+                    href={ch.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center justify-between gap-4 px-4 py-3.5 rounded-xl border bg-zinc-900 transition-all group ${ch.color}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 animate-pulse ${ch.dot}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-zinc-100 group-hover:text-white transition-colors">
+                          {ch.name}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 truncate">{ch.desc}</p>
+                        <p className="text-[10px] text-zinc-600 mt-0.5">{ch.tag}</p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-zinc-400 group-hover:text-zinc-200 transition-colors">
+                      Watch
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                      </svg>
+                    </div>
+                  </a>
+                ))}
               </div>
-              <p className="text-[10px] text-zinc-700 mt-2 text-center">
-                Bloomberg Television via YouTube · Not affiliated with NIRI
+
+              <p className="text-[10px] text-zinc-700 mt-3 text-center">
+                External streams · Not affiliated with NIRI · Opens YouTube in a new tab
               </p>
             </div>
           </div>

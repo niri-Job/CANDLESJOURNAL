@@ -94,6 +94,9 @@ export default function AdminPage() {
   const [notiSubmitting,     setNotiSubmitting]     = useState(false);
   const [notiError,          setNotiError]          = useState("");
 
+  const [tgSending,          setTgSending]          = useState(false);
+  const [tgResult,           setTgResult]           = useState<{ ok: boolean; text: string } | null>(null);
+
   const [announceSubject,    setAnnounceSubject]    = useState("");
   const [announceMessage,    setAnnounceMessage]    = useState("");
   const [announceRecipients, setAnnounceRecipients] = useState<"all" | "pro" | "specific">("all");
@@ -240,6 +243,20 @@ export default function AdminPage() {
   async function deleteNotification(id: string) {
     await fetch(`/api/admin/notifications?id=${id}`, { method: "DELETE" });
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }
+
+  async function handleSendDailySetup() {
+    setTgSending(true);
+    setTgResult(null);
+    const res = await fetch("/api/telegram/daily-setup", { method: "POST" });
+    setTgSending(false);
+    if (res.ok) {
+      const d = (await res.json()) as { pairs?: string[] };
+      setTgResult({ ok: true, text: `Sent to @niritoday covering ${(d.pairs ?? []).join(", ")}.` });
+    } else {
+      const d = (await res.json()) as { error?: string };
+      setTgResult({ ok: false, text: d.error ?? "Failed to send" });
+    }
   }
 
   async function handleSendAnnouncement(e: React.FormEvent) {
@@ -557,6 +574,33 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
+        {/* Telegram Daily Setup */}
+        <section>
+          <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">
+            Telegram Daily Setup
+          </h2>
+          <div className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-5 space-y-3">
+            <p className="text-xs text-[var(--cj-text-muted)]">
+              Sends an AI-generated market setup for XAUUSD, EURUSD, and GBPUSD to the{" "}
+              <span className="text-[var(--cj-gold)]">@niritoday</span> Telegram channel.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSendDailySetup}
+                disabled={tgSending}
+                className="btn-gold px-5 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+              >
+                {tgSending ? "Sending…" : "Send Daily Setup"}
+              </button>
+              {tgResult && (
+                <p className={`text-xs ${tgResult.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  {tgResult.text}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
         {/* Announcement Emailer */}
         <section>
           <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">

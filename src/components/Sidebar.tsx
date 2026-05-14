@@ -83,6 +83,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   const [plan,         setPlan]         = useState<string>("free");
   const [collapsed,    setCollapsed]    = useState(false);
   const [upgradeOpen,  setUpgradeOpen]  = useState(false);
+  const [supportOpen,  setSupportOpen]  = useState(false);
 
   // Load collapse preference from localStorage
   useEffect(() => {
@@ -299,6 +300,103 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         userId={user?.id}
         onSuccess={() => { setUpgradeOpen(false); setPlan("pro"); }}
       />
+
+      {/* ── Floating support button ──────────────────────────────────── */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+        {supportOpen && (
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 z-[-1]" onClick={() => setSupportOpen(false)} />
+            {/* Popup card */}
+            <div className="rounded-2xl overflow-hidden shadow-2xl"
+                 style={{ background: "var(--cj-surface)", border: "1px solid var(--cj-border)", minWidth: 210 }}>
+              <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--cj-border)" }}>
+                <p className="text-xs font-semibold" style={{ color: "var(--cj-gold)" }}>Support &amp; Community</p>
+              </div>
+              {[
+                {
+                  label: "Email Support",
+                  sub: "support@niri.live",
+                  href: "mailto:support@niri.live",
+                  icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                      <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                  ),
+                },
+                {
+                  label: "Telegram Channel",
+                  sub: "@niritoday",
+                  href: "https://t.me/niritoday",
+                  icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13"/>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                  ),
+                },
+                {
+                  label: "Follow on X",
+                  sub: "@niritoday",
+                  href: "https://x.com/niritoday",
+                  icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                  ),
+                },
+              ].map(({ label, sub, href, icon }) => (
+                <a
+                  key={href}
+                  href={href}
+                  target={href.startsWith("mailto") ? undefined : "_blank"}
+                  rel="noopener noreferrer"
+                  onClick={() => setSupportOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 transition-colors"
+                  style={{ borderBottom: "1px solid var(--cj-border)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--cj-raised)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                >
+                  <span style={{ color: "var(--cj-gold)" }}>{icon}</span>
+                  <div>
+                    <p className="text-xs font-medium" style={{ color: "var(--cj-text)" }}>{label}</p>
+                    <p className="text-[10px]" style={{ color: "var(--cj-text-muted)" }}>{sub}</p>
+                  </div>
+                </a>
+              ))}
+              <div className="px-4 py-2">
+                <p className="text-[10px] text-center" style={{ color: "var(--cj-text-muted)" }}>We&apos;re here to help</p>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* FAB */}
+        <button
+          onClick={() => setSupportOpen((o) => !o)}
+          aria-label="Support"
+          className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
+          style={{
+            background: supportOpen
+              ? "linear-gradient(135deg,#F5C518,#C9A227)"
+              : "var(--cj-surface)",
+            border: "1.5px solid var(--cj-gold)",
+            color: supportOpen ? "#0A0A0F" : "var(--cj-gold)",
+            boxShadow: "0 0 24px rgba(245,197,24,0.25)",
+          }}
+        >
+          {supportOpen ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          )}
+        </button>
+      </div>
 
       {/* ── Mobile overlay sidebar ────────────────────────────────────── */}
       {open && (

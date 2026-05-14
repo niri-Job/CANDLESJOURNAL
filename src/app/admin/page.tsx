@@ -580,7 +580,7 @@ export default function AdminPage() {
           </h2>
           <div className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-5 space-y-3">
             <p className="text-xs text-[var(--cj-text-muted)]">
-              Sends an AI-generated market setup for XAUUSD, EURUSD, and GBPUSD to the{" "}
+              Sends the daily AI-generated post (market data + economic calendar) to the{" "}
               <span className="text-[var(--cj-gold)]">@niritoday</span> Telegram channel.
             </p>
             <div className="flex items-center gap-3">
@@ -589,7 +589,7 @@ export default function AdminPage() {
                 disabled={tgSending}
                 className="btn-gold px-5 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
               >
-                {tgSending ? "Sending…" : "Send Daily Setup"}
+                {tgSending ? "Sending…" : "Send Daily Post"}
               </button>
               {tgResult && (
                 <p className={`text-xs ${tgResult.ok ? "text-emerald-400" : "text-red-400"}`}>

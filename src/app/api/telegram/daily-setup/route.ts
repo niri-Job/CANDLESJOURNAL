@@ -20,6 +20,85 @@ const SANITY: Record<string, { min: number; max: number }> = {
   GBPUSD: { min: 0.90, max: 2.00 },
 };
 
+// Day-of-week content rotation (0=Sun, 1=Mon, …, 6=Sat)
+const DAY_CONFIG: Record<number, { title: string; prompt: string }> = {
+  0: { // Sunday
+    title: "Weekend Mindset Reset",
+    prompt: "Write a short weekend trading mindset piece. Encourage traders to review their week, rest, and prepare mentally for the week ahead. Blend in 1-2 sentences of market context for the pairs listed. Keep it motivating and grounded.",
+  },
+  1: { // Monday
+    title: "Why Traders Lose Money",
+    prompt: "Write a concise educational piece on the most common reason traders lose money — focus on one specific psychological or technical mistake (e.g. revenge trading, ignoring stop losses, overleverage). Relate it briefly to the current market conditions for the pairs listed. End with one actionable tip for the week.",
+  },
+  2: { // Tuesday
+    title: "Daily Market Setup",
+    prompt: "Write a concise daily market setup covering ONLY the pairs listed. For each pair: one sentence bias based on the real data, one key level to watch (derived from the actual price shown). End with one short trading tip. Stay grounded in the numbers — no invention.",
+  },
+  3: { // Wednesday
+    title: "NIRI Feature Spotlight",
+    prompt: "Write a short promotional message highlighting a feature of the NIRI trading journal app (niri.live). Rotate through features: trade journaling, performance analytics, market intelligence, or EA sync with MT5. Make it feel natural and useful, not salesy. Include 1-2 sentences of market context for the pairs listed.",
+  },
+  4: { // Thursday
+    title: "Trading Psychology",
+    prompt: "Write a short trading psychology insight — pick one concept (e.g. FOMO, discipline, patience, process over outcome, detachment from results). Keep it practical and relatable to forex traders. Blend in a sentence or two about what the current market conditions demand psychologically.",
+  },
+  5: { // Friday
+    title: "Week Wrap & Levels to Watch",
+    prompt: "Write a brief end-of-week market wrap. Summarise the week's movement for the pairs listed based on their price change data. Highlight one key level to watch going into next week for each pair. End with a reminder to review trades and journal the week.",
+  },
+  6: { // Saturday
+    title: "Weekend Analysis",
+    prompt: "Write a short weekend market analysis for the pairs listed. Cover each pair's week-end position relative to key EMAs (reference the trend direction given). Give traders something to think about and prepare for next week. Keep it analytical but accessible.",
+  },
+};
+
+// ── Economic calendar ─────────────────────────────────────────────────────────
+
+interface CalendarEvent {
+  title: string;
+  country: string;
+  date: string;
+  time: string;
+  impact: string;
+  forecast: string;
+  previous: string;
+}
+
+async function fetchEconomicCalendar(todayStr: string): Promise<string> {
+  try {
+    const res = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`Calendar HTTP ${res.status}`);
+    const events: CalendarEvent[] = await res.json();
+
+    // Filter to today's events
+    const todays = events.filter(e => e.date === todayStr);
+
+    // Prefer HIGH impact; fall back to MEDIUM; fall back to message
+    let selected = todays.filter(e => e.impact === "High");
+    if (selected.length === 0) selected = todays.filter(e => e.impact === "Medium");
+    if (selected.length === 0) {
+      return "No major events today — good day to focus on execution.";
+    }
+
+    return selected.slice(0, 6).map(e => {
+      const time  = e.time || "All Day";
+      const fc    = e.forecast  ? `Forecast: ${e.forecast}` : "";
+      const prev  = e.previous  ? `Prev: ${e.previous}` : "";
+      const meta  = [fc, prev].filter(Boolean).join(" | ");
+      return `• ${e.country} — ${e.title} (${time})${meta ? "\n  " + meta : ""}`;
+    }).join("\n");
+  } catch (err) {
+    console.error("[daily-setup] calendar fetch failed:", err);
+    return "Calendar unavailable — check ForexFactory for today's events.";
+  }
+}
+
+// ── Telegram send ─────────────────────────────────────────────────────────────
+
 async function sendTelegram(token: string, chatId: string | number, text: string) {
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -33,7 +112,9 @@ async function sendTelegram(token: string, chatId: string | number, text: string
   return res.json();
 }
 
-// Called by admin UI (requires admin cookie) or by webhook (passes chat_id in body)
+// ── Route handler ─────────────────────────────────────────────────────────────
+
+// Called by admin UI (requires admin cookie) or by Vercel cron (passes chat_id in body)
 export async function POST(request: Request) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
@@ -57,7 +138,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 });
   }
 
-  // Fetch market data using the exact same source as /api/intelligence
+  // ── Market data ──────────────────────────────────────────────────────────────
   const pairData: { label: string; price: number; changePct: number; rsi: number; trend: string; decimals: number }[] = [];
   for (const p of TELEGRAM_PAIRS) {
     const ind = await fetchPairIndicators(p);
@@ -66,7 +147,6 @@ export async function POST(request: Request) {
       continue;
     }
 
-    // Sanity check — skip the pair rather than send a bad price
     const bounds = SANITY[p.label];
     if (bounds && (ind.price < bounds.min || ind.price > bounds.max)) {
       console.error(
@@ -82,7 +162,7 @@ export async function POST(request: Request) {
       price:     ind.price,
       changePct: ind.dailyChangePct,
       rsi:       ind.rsi,
-      trend:     ind.trend.charAt(0) + ind.trend.slice(1).toLowerCase(), // "BULLISH" → "Bullish"
+      trend:     ind.trend.charAt(0) + ind.trend.slice(1).toLowerCase(),
       decimals:  p.decimals,
     });
   }
@@ -91,7 +171,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not fetch market data" }, { status: 502 });
   }
 
-  const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  // ── Day config ───────────────────────────────────────────────────────────────
+  const now       = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun … 6=Sat
+  const dayConfig = DAY_CONFIG[dayOfWeek] ?? DAY_CONFIG[2]; // fallback to Tuesday
+
+  const today = now.toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+
+  // YYYY-MM-DD in UTC for calendar matching
+  const todayStr = now.toISOString().split("T")[0];
+
+  // ── Economic calendar ────────────────────────────────────────────────────────
+  const calendarSection = await fetchEconomicCalendar(todayStr);
+
+  // ── AI analysis ──────────────────────────────────────────────────────────────
   const pairLabels = pairData.map(p => p.label).join(", ");
   const dataText   = pairData.map(p =>
     `${p.label}: Price ${p.price.toFixed(p.decimals)} | Change ${p.changePct >= 0 ? "+" : ""}${p.changePct.toFixed(2)}% | RSI ${p.rsi} | Trend ${p.trend}`
@@ -100,29 +195,28 @@ export async function POST(request: Request) {
   const client = new Anthropic();
   const aiRes = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 600,
+    max_tokens: 500,
     messages: [{
       role: "user",
-      content: `You are a forex market analyst writing a daily Telegram message for traders.
+      content: `You are a forex analyst writing for a Telegram trading channel.
 Today is ${today}.
 
-Live market data (ONLY these pairs have real data — do NOT mention or invent analysis for any other pair):
+Live market data (ONLY these pairs — do NOT invent data for any other pair):
 ${dataText}
 
-Write a concise daily market setup message for Telegram covering ONLY the pairs listed above (${pairLabels}). Format it EXACTLY like this (use plain text, no markdown, no asterisks):
+Task: ${dayConfig.prompt}
 
-1. One sentence market bias for each pair based on the real data above
-2. One actionable key level to watch per pair (derived from the price shown)
-3. One short motivational trading tip (max 1 sentence)
-
-IMPORTANT: Only analyse ${pairLabels}. If a pair is not in the data above, do not mention it at all.
-Keep it tight — traders read this on their phone. Total length: under 200 words.`,
+RULES:
+- ONLY analyse ${pairLabels}. Do NOT mention any pair not listed above.
+- Use plain text only — no asterisks, no markdown, no bullet symbols.
+- Keep total length under 180 words.
+- Traders read this on their phone — keep it tight.`,
     }],
   });
 
   const aiText = aiRes.content[0].type === "text" ? aiRes.content[0].text : "";
 
-  // Build the Telegram message with HTML formatting
+  // ── Build message ─────────────────────────────────────────────────────────────
   const priceLines = pairData.map(p => {
     const arrow = p.changePct >= 0 ? "▲" : "▼";
     const sign  = p.changePct >= 0 ? "+" : "";
@@ -130,14 +224,18 @@ Keep it tight — traders read this on their phone. Total length: under 200 word
   }).join("\n");
 
   const message = [
-    `📊 <b>NIRI Daily Market Setup</b>`,
+    `📊 <b>NIRI Daily Post</b>`,
     `📅 ${today}`,
+    `<b>${dayConfig.title}</b>`,
     ``,
     `<b>Live Prices</b>`,
     priceLines,
     ``,
     `<b>Analysis</b>`,
     aiText.trim(),
+    ``,
+    `📰 <b>Economic Calendar</b>`,
+    calendarSection,
     ``,
     `—`,
     `<a href="https://niri.live">niri.live</a> · <a href="https://t.me/niritoday">@niritoday</a>`,
@@ -151,5 +249,5 @@ Keep it tight — traders read this on their phone. Total length: under 200 word
     return NextResponse.json({ error: detail }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true, chat_id: chatId, pairs: pairData.map(p => p.label) });
+  return NextResponse.json({ ok: true, chat_id: chatId, pairs: pairData.map(p => p.label), day: dayConfig.title });
 }

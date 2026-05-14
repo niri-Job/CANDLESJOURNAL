@@ -668,45 +668,30 @@ export default function LandingPage() {
       </div>
 
       {/* ── DASHBOARD PREVIEW ───────────────────────────────────────────────── */}
-      <section style={{
-        padding: "5rem 1.5rem 6rem",
-        background: "linear-gradient(160deg, #0E0B1C 0%, #0A0A0F 45%, #0D0C08 100%)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{
-          position: "absolute", top: -100, right: -80, width: 560, height: 560,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(245,197,24,0.07) 0%, transparent 65%)",
-          pointerEvents: "none",
-        }} />
-
+      <section style={{ background: "#0A0A0F", padding: "5rem 1.5rem 6rem" }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: "4rem", flexWrap: "wrap" }}>
 
           {/* Left copy */}
-          <div ref={previewRef} className="fade-up" style={{ flex: "1 1 340px", maxWidth: 460 }}>
+          <div style={{ flex: "1 1 320px", maxWidth: 460 }}>
             <p style={{ color: "#9B7E2E", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
               Your dashboard, automated
             </p>
-            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#F0E6D3", lineHeight: 1.12, marginBottom: "1.125rem", letterSpacing: "-0.02em" }}>
-              Everything you need<br />
-              to improve,{" "}<span className="shimmer-text">in one place.</span>
+            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#F0E6D3", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
+              Everything you need<br />to improve, <span className="shimmer-text">in one place.</span>
             </h2>
             <p style={{ color: "#8A7D65", fontSize: "1rem", lineHeight: 1.75, marginBottom: "2rem" }}>
               Trade journal, equity curve, AI analysis and discipline score — all synced automatically from MT5 in minutes.
             </p>
-
             {[
               "Auto-syncs every trade from MT5 via your EA file",
-              "AI coaching panel highlights patterns and your real edge",
+              "AI coaching highlights patterns and your real edge",
               "Discipline Score tracks behavioral consistency week by week",
             ].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.875rem" }}>
-                <span style={{ color: "#F5C518", fontWeight: 700, fontSize: "0.875rem", marginTop: 2, flexShrink: 0 }}>→</span>
+                <span style={{ color: "#F5C518", fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
                 <p style={{ color: "#C4B89A", fontSize: "0.9375rem", lineHeight: 1.6, margin: 0 }}>{f}</p>
               </div>
             ))}
-
             <div style={{ marginTop: "2.25rem" }}>
               <Link href="/login">
                 <button className="gold-btn" style={{ padding: "0.9rem 2rem", fontSize: "0.9375rem" }}>
@@ -719,26 +704,18 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Right: screenshot */}
-          <div className="fade-up" style={{ flex: "1 1 480px", position: "relative" }}>
-            <div style={{
-              position: "absolute", inset: "-3rem",
-              background: "radial-gradient(ellipse 90% 70% at 50% 50%, rgba(245,197,24,0.09) 0%, transparent 70%)",
-              pointerEvents: "none",
-            }} />
+          {/* Right: dashboard screenshot */}
+          <div style={{ flex: "1 1 460px" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/dashboard-preview.png"
-              alt="NIRI trading dashboard showing trade journal, equity curve and AI analysis"
+              alt="NIRI Dashboard"
               style={{
                 width: "100%",
-                maxWidth: 620,
-                borderRadius: 12,
-                boxShadow: "0 0 0 1px rgba(245,197,24,0.15), 0 40px 80px rgba(0,0,0,0.6), 0 0 40px rgba(245,197,24,0.12)",
-                transform: "perspective(1100px) rotateY(-5deg)",
-                transformOrigin: "60% 50%",
+                borderRadius: 14,
                 display: "block",
-                position: "relative",
+                boxShadow: "0 0 0 1px rgba(245,197,24,0.18), 0 32px 80px rgba(0,0,0,0.7), 0 0 60px rgba(245,197,24,0.15)",
+                transform: "perspective(1100px) rotateY(-4deg) rotateX(1deg)",
               }}
             />
           </div>

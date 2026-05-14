@@ -157,7 +157,7 @@ export default function LoginPage() {
         }
       }
 
-      window.location.href = "/";
+      window.location.href = "/onboarding";
     }
     setLoading(false);
   }

@@ -246,6 +246,8 @@ export default function MarketPage() {
   const [countdown, setCountdown] = useState<string>("");
   const [nextEvent, setNextEvent] = useState<CalendarEvent | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showVideo, setShowVideo] = useState(false);
+  const [tickMs, setTickMs] = useState(Date.now());
 
   async function handleLogout() {
     const supabase = createClient();
@@ -322,8 +324,9 @@ export default function MarketPage() {
 
   useEffect(() => {
     updateCountdown();
-    const id = setInterval(updateCountdown, 60_000);
-    return () => clearInterval(id);
+    const id  = setInterval(updateCountdown, 60_000);
+    const tid = setInterval(() => setTickMs(Date.now()), 30_000);
+    return () => { clearInterval(id); clearInterval(tid); };
   }, [updateCountdown]);
 
   // ── Filtered calendar ─────────────────────────────────────────────────────
@@ -389,6 +392,68 @@ export default function MarketPage() {
             </div>
           </div>
         )}
+
+        {/* ── Video Modal ─────────────────────────────────────────── */}
+        {showVideo && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowVideo(false); }}
+          >
+            <div className="relative w-full max-w-3xl mx-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">Bloomberg TV — Live</p>
+                  <p className="text-[11px] text-zinc-500">Stream may be unavailable outside market hours</p>
+                </div>
+                <button
+                  onClick={() => setShowVideo(false)}
+                  className="p-2 text-zinc-500 hover:text-zinc-100 transition-colors rounded-lg hover:bg-zinc-800"
+                  aria-label="Close"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+              <div className="relative rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800" style={{ paddingTop: "56.25%" }}>
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src="https://www.youtube-nocookie.com/embed/live_stream?channel=UCXgYMHTQodLBGMDpxaIL1NA&autoplay=1&rel=0"
+                  title="Bloomberg TV Live"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              <p className="text-[10px] text-zinc-700 mt-2 text-center">
+                Bloomberg Television via YouTube · Not affiliated with NIRI
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Live Market Room header ──────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 pb-5 border-b border-zinc-800">
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse shrink-0" />
+            <div>
+              <h1 className="text-base font-bold text-zinc-100">Live Market Room</h1>
+              <p className="text-[11px] text-zinc-500 mt-0.5">
+                Economic calendar · Market news · Live stream
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowVideo(true)}
+            className="flex items-center gap-2 shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold
+                       bg-red-600 hover:bg-red-500 active:bg-red-700 text-white transition-colors
+                       shadow-lg shadow-red-900/40"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <circle cx="12" cy="12" r="10" opacity="0.2"/><polygon points="10,8 16,12 10,16" fill="white"/>
+            </svg>
+            🔴 Watch Live
+          </button>
+        </div>
 
         {/* TAB BAR */}
         <div className="flex gap-1 bg-[var(--cj-surface)] border border-zinc-800 rounded-xl p-1 mb-5 w-fit">
@@ -518,6 +583,18 @@ export default function MarketPage() {
                               </td>
                               <td className="px-4 py-3 font-mono text-xs text-zinc-300 whitespace-nowrap">
                                 {toWAT(ev.date)}
+                                {(() => {
+                                  const diff = new Date(ev.date).getTime() - tickMs;
+                                  if (diff > 7 * 24 * 60 * 60_000) return null; // skip if > 1 week away
+                                  if (diff <= 0) return <div className="text-[9px] text-zinc-600 mt-0.5 font-medium">passed</div>;
+                                  const ct = countdownText(ev.date);
+                                  const urgent = diff < 30 * 60_000;
+                                  return (
+                                    <div className={`text-[9px] mt-0.5 font-semibold ${urgent ? "text-amber-400" : "text-zinc-600"}`}>
+                                      in {ct}
+                                    </div>
+                                  );
+                                })()}
                               </td>
                               <td className="px-4 py-3">
                                 <span className="font-mono text-xs font-bold text-zinc-200

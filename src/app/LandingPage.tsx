@@ -1420,7 +1420,7 @@ export default function LandingPage() {
             </div>
             <div>
               <h4 style={{ color: "var(--cj-text-muted)", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Company</h4>
-              {[["About","/"],["Contact","/"],["Privacy Policy","/"],["Terms of Service","/"]].map(([l,h]) => (
+              {[["About","/"],["Contact","/"],["Privacy Policy","/"],["Terms of Service","/terms-of-service"]].map(([l,h]) => (
                 <Link key={l as string} href={h as string} style={{ display: "block", color: "var(--cj-text-muted)", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
                   onMouseEnter={e => (e.currentTarget.style.color = "var(--cj-gold)")}
                   onMouseLeave={e => (e.currentTarget.style.color = "")}>{l}</Link>

@@ -425,6 +425,39 @@ export default function IntelligencePage() {
             </>
           )}
 
+          {/* ── Disclaimer footer ────────────────────────────────── */}
+          <div
+            className="mt-10 rounded-xl px-4 py-3 flex items-start gap-2.5"
+            style={{
+              background: "rgba(245,197,24,0.04)",
+              border: "1px solid rgba(245,197,24,0.15)",
+            }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#F5C518"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0 mt-0.5"
+              aria-hidden="true"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              These setups are for educational purposes only and do not constitute financial advice.
+              Trade at your own risk.{" "}
+              <a href="/terms-of-service" className="text-zinc-400 underline hover:text-zinc-300 transition-colors">
+                Terms of Service
+              </a>
+            </p>
+          </div>
+
         </main>
       </div>
     </div>

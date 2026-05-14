@@ -64,6 +64,16 @@ interface AdminNotification {
   is_active: boolean;
 }
 
+interface AiUsageData {
+  anthropic_key_present: boolean;
+  total_analyses: number;
+  tokens: { input: number; output: number; source: "anthropic_api" | "estimated" };
+  cost_usd: number;
+  cost_source: "anthropic_api" | "estimated";
+  per_user: { user_id: string; email: string; analyses: number; plan: string }[];
+  month: string;
+}
+
 function fmt(date: string | null) {
   if (!date) return "—";
   return new Date(date).toLocaleDateString("en-GB", {
@@ -95,6 +105,7 @@ export default function AdminPage() {
 
   const [tgSending,          setTgSending]          = useState(false);
   const [tgResult,           setTgResult]           = useState<{ ok: boolean; text: string } | null>(null);
+  const [aiUsage,            setAiUsage]            = useState<AiUsageData | null>(null);
 
   const [announceSubject,    setAnnounceSubject]    = useState("");
   const [announceMessage,    setAnnounceMessage]    = useState("");
@@ -117,10 +128,11 @@ export default function AdminPage() {
   }
 
   const loadDashboard = useCallback(async () => {
-    const [statsRes, usersRes, payoutsRes] = await Promise.all([
+    const [statsRes, usersRes, payoutsRes, aiUsageRes] = await Promise.all([
       fetch("/api/admin/stats"),
       fetch("/api/admin/users"),
       fetch("/api/admin/payouts"),
+      fetch("/api/admin/ai-usage"),
     ]);
 
     if (statsRes.status === 401) {
@@ -130,6 +142,7 @@ export default function AdminPage() {
 
     if (statsRes.ok) setStats((await statsRes.json()) as Stats);
     if (usersRes.ok) setUsers(((await usersRes.json()) as { users: AdminUser[] }).users ?? []);
+    if (aiUsageRes.ok) setAiUsage((await aiUsageRes.json()) as AiUsageData);
     if (payoutsRes.ok) {
       const d = (await payoutsRes.json()) as { payouts: Payout[]; in_payout_window: boolean };
       setPayouts(d.payouts ?? []);
@@ -598,6 +611,80 @@ export default function AdminPage() {
               )}
             </div>
           </div>
+        </section>
+
+        {/* AI Usage & Costs */}
+        <section>
+          <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">
+            AI Usage &amp; Costs
+          </h2>
+          {aiUsage ? (
+            <div className="space-y-4">
+              {/* Key + summary cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  {
+                    label: "ANTHROPIC_API_KEY",
+                    value: aiUsage.anthropic_key_present ? "✓ Configured" : "✗ Missing",
+                    ok:    aiUsage.anthropic_key_present,
+                  },
+                  { label: `Analyses (${aiUsage.month})`, value: aiUsage.total_analyses },
+                  {
+                    label: "Input tokens",
+                    value: `${(aiUsage.tokens.input / 1000).toFixed(1)}K${aiUsage.tokens.source === "estimated" ? "*" : ""}`,
+                  },
+                  {
+                    label: `Est. cost${aiUsage.cost_source === "estimated" ? " (est.)" : ""}`,
+                    value: `$${aiUsage.cost_usd.toFixed(4)}`,
+                  },
+                ].map(({ label, value, ok }) => (
+                  <div key={label} className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-4">
+                    <div className="text-[var(--cj-text-muted)] text-xs mb-1">{label}</div>
+                    <div className={`text-lg font-semibold ${ok === false ? "text-red-400" : ok === true ? "text-emerald-400" : ""}`}>
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {aiUsage.tokens.source === "estimated" && (
+                <p className="text-[10px] text-[var(--cj-text-muted)]">
+                  * Token counts marked with * are estimates based on avg usage per call (Anthropic usage API unavailable).
+                  Pricing based on Claude Haiku 4.5: $1/M input, $5/M output.
+                </p>
+              )}
+              {/* Per-user breakdown */}
+              {aiUsage.per_user.length > 0 ? (
+                <div className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--cj-border)] bg-[var(--cj-raised)]">
+                        <th className="text-left px-4 py-3 font-medium text-[var(--cj-text-muted)] text-xs">User</th>
+                        <th className="text-left px-4 py-3 font-medium text-[var(--cj-text-muted)] text-xs">Plan</th>
+                        <th className="text-right px-4 py-3 font-medium text-[var(--cj-text-muted)] text-xs">Analyses</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {aiUsage.per_user.map((u) => (
+                        <tr key={u.user_id} className="border-b border-[var(--cj-border)]/50 hover:bg-[var(--cj-raised)]">
+                          <td className="px-4 py-3 text-xs text-[var(--cj-text)] max-w-[200px] truncate">{u.email}</td>
+                          <td className="px-4 py-3 text-xs">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${u.plan === "Pro" ? "bg-amber-500/20 text-amber-400" : "bg-zinc-500/20 text-zinc-400"}`}>
+                              {u.plan}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-right font-medium">{u.analyses}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--cj-text-muted)] text-center py-4">No AI analyses recorded yet.</p>
+              )}
+            </div>
+          ) : (
+            <div className="text-[var(--cj-text-muted)] text-sm">Loading AI usage…</div>
+          )}
         </section>
 
         {/* Announcement Emailer */}

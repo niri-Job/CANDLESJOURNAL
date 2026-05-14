@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
@@ -12,6 +13,27 @@ let cached: { data: unknown; ts: number } | null = null;
 const CACHE_TTL = 15 * 60 * 1000;
 
 const PAIRS = MARKET_PAIRS;
+const DEV_USER_ID = "b9433d15-02e3-44ed-b66f-b4f51f22fac7";
+
+function svc() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY not set");
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
+async function incrementAiCredits(userId: string) {
+  try {
+    const db = svc();
+    const { data } = await db.from("user_profiles").select("ai_credits_used").eq("user_id", userId).maybeSingle();
+    const next = ((data as { ai_credits_used?: number } | null)?.ai_credits_used ?? 0) + 1;
+    await db.from("user_profiles").update({ ai_credits_used: next }).eq("user_id", userId);
+  } catch (e) {
+    console.warn("[intelligence] ai_credits increment failed:", e);
+  }
+}
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
@@ -46,6 +68,43 @@ export async function GET(request: Request) {
       return NextResponse.json({ key_prefix: apiKey.slice(0, 10), status: "ok", sample: ind });
     } catch (err) {
       return NextResponse.json({ status: "fetch_failed", error: String(err) }, { status: 502 });
+    }
+  }
+
+  // ── Pro monthly limit check ──────────────────────────────────────────────────
+  if (user.id !== DEV_USER_ID) {
+    const db = svc();
+    const { data: prof } = await db
+      .from("user_profiles")
+      .select("subscription_status, subscription_end, ai_credits_used, ai_credits_reset_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const isPro =
+      prof?.subscription_status === "pro" &&
+      !!prof?.subscription_end &&
+      new Date((prof as { subscription_end: string }).subscription_end) > new Date();
+
+    if (isPro) {
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const resetAt = (prof as { ai_credits_reset_at?: string | null }).ai_credits_reset_at;
+      let used = (prof as { ai_credits_used?: number }).ai_credits_used ?? 0;
+
+      if (!resetAt || resetAt < monthStart) {
+        await db
+          .from("user_profiles")
+          .update({ ai_credits_used: 0, ai_credits_reset_at: monthStart })
+          .eq("user_id", user.id);
+        used = 0;
+      }
+
+      if (used >= 90) {
+        return NextResponse.json(
+          { error: "You've used your 90 AI analyses for this month. Your limit resets on the 1st of next month." },
+          { status: 429 }
+        );
+      }
     }
   }
 
@@ -167,6 +226,12 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
     // Merge server-computed change data (Claude's JSON doesn't include this)
     const enriched = { ...(data as Record<string, unknown>), price_changes: changeMap };
     cached = { data: enriched, ts: Date.now() };
+
+    // Increment usage counter — best-effort, never blocks the response
+    if (user.id !== DEV_USER_ID) {
+      incrementAiCredits(user.id).catch(() => undefined);
+    }
+
     return NextResponse.json(enriched);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

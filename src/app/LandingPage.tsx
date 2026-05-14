@@ -451,10 +451,11 @@ export default function LandingPage() {
         [data-theme="light"] footer span,
         [data-theme="light"] footer a { color: #333333 !important; }
         [data-theme="light"] footer h4 { color: #1a1a1a !important; }
-        /* Protect always-dark section */
+        /* Protect always-dark section — override the global h1/h2/h3 light rules */
+        [data-theme="light"] .lp-dark-bg h1,
         [data-theme="light"] .lp-dark-bg h2,
-        [data-theme="light"] .lp-dark-bg h3,
-        [data-theme="light"] .lp-dark-bg p { color: inherit !important; }
+        [data-theme="light"] .lp-dark-bg h3 { color: #FFFFFF !important; }
+        [data-theme="light"] .lp-dark-bg p   { color: #CCCCCC !important; }
 
         /* ── Dark-mode card text: ensure nothing is invisibly dark ── */
         .lp-card [style*="color: #3a2a"],
@@ -860,19 +861,19 @@ export default function LandingPage() {
 
             {/* Step mockup */}
             <div className="lp-card" style={{
-              background: "linear-gradient(145deg,#1a1508,#0f0c04)",
+              background: "#1C1C2E",
               border: "1px solid rgba(245,197,24,0.2)", borderRadius: "1.25rem",
               overflow: "hidden", transition: "all 0.3s ease",
             }}>
               {howStep === 0 && (
                 <div style={{ padding: "1.75rem" }}>
                   <p style={{ color: "#FFFFFF", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Expert Advisor</p>
-                  <div style={{ background: "#0d0d1e", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#00FF00", lineHeight: 2, border: "1px solid rgba(0,255,0,0.2)" }}>
-                    <div style={{ color: "#00FF00" }}>NIRI EA v1.0 — Active on account #12345678</div>
-                    <div style={{ color: "#00FF00" }}>Scanning full history from 2000.01.01...</div>
-                    <div style={{ color: "#00FF00" }}>Synced #1029482 XAUUSD BUY 0.50 lots | P&L: +$184.20</div>
-                    <div style={{ color: "#00FF00" }}>Synced #1029481 EURUSD SELL 0.20 lots | P&L: -$32.00</div>
-                    <div style={{ color: "#00FF00" }}>Synced 247 trades. Up to date.</div>
+                  <div style={{ background: "#0d0d1e", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#00FF41", lineHeight: 2, border: "1px solid rgba(0,255,65,0.25)" }}>
+                    <div style={{ color: "#00FF41" }}>NIRI EA v1.0 — Active on account #12345678</div>
+                    <div style={{ color: "#00FF41" }}>Scanning full history from 2000.01.01...</div>
+                    <div style={{ color: "#00FF41" }}>Synced #1029482 XAUUSD BUY 0.50 lots | P&L: +$184.20</div>
+                    <div style={{ color: "#00FF41" }}>Synced #1029481 EURUSD SELL 0.20 lots | P&L: -$32.00</div>
+                    <div style={{ color: "#00FF41" }}>Synced 247 trades. Up to date.</div>
                   </div>
                   <p style={{ color: "#FFFFFF", fontSize: "0.8125rem", marginTop: "1rem", textAlign: "center" }}>Every trade syncs within seconds of closing</p>
                 </div>

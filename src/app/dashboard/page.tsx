@@ -398,6 +398,7 @@ export default function TradingJournal() {
   const [loading,           setLoading]           = useState(true);
   const [editingId,         setEditingId]         = useState<string | null>(null);
   const [filters,           setFilters]           = useState<Filters>(EMPTY_FILTERS);
+  const [tablePage,         setTablePage]         = useState(1);
   const [analysisLoading,   setAnalysisLoading]   = useState(false);
   const [currentAnalysis,   setCurrentAnalysis]   = useState<{
     analysis: string; period: string; created_at: string;
@@ -677,6 +678,16 @@ export default function TradingJournal() {
   }, [accountTrades, filters]);
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  const PAGE_SIZE = 10;
+  const sortedFilteredTrades = useMemo(() =>
+    [...filteredTrades].sort((a, b) => b.date.localeCompare(a.date)),
+  [filteredTrades]);
+  const totalPages  = Math.max(1, Math.ceil(sortedFilteredTrades.length / PAGE_SIZE));
+  const pagedTrades = sortedFilteredTrades.slice((tablePage - 1) * PAGE_SIZE, tablePage * PAGE_SIZE);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setTablePage(1); }, [filters]);
 
   // Win rate grouped by strategy (all account trades, not filtered)
   const strategyStats = useMemo(() => {
@@ -1609,7 +1620,13 @@ export default function TradingJournal() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                {/* Showing X–Y of Z */}
+                <p className="text-[11px] text-zinc-600 mb-2">
+                  Showing {(tablePage - 1) * PAGE_SIZE + 1}–{Math.min(tablePage * PAGE_SIZE, filteredTrades.length)} of {filteredTrades.length} trade{filteredTrades.length !== 1 ? "s" : ""}
+                </p>
+
+              <div className="overflow-x-auto" style={{ minHeight: 420 }}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr>
@@ -1623,7 +1640,7 @@ export default function TradingJournal() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredTrades.map((t) => (
+                    {pagedTrades.map((t) => (
                       <tr key={t.id}
                         className={`group transition-all border-l-2 ${editingId === t.id
                           ? "bg-[var(--cj-gold-glow)] border-l-[var(--cj-gold)]"
@@ -1738,6 +1755,32 @@ export default function TradingJournal() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-800">
+                  <button
+                    onClick={() => setTablePage(p => Math.max(1, p - 1))}
+                    disabled={tablePage === 1}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400
+                               hover:text-zinc-200 hover:border-zinc-500 disabled:opacity-30
+                               disabled:cursor-not-allowed transition-colors">
+                    ← Previous
+                  </button>
+                  <span className="text-xs text-zinc-500">
+                    Page {tablePage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setTablePage(p => Math.min(totalPages, p + 1))}
+                    disabled={tablePage === totalPages}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400
+                               hover:text-zinc-200 hover:border-zinc-500 disabled:opacity-30
+                               disabled:cursor-not-allowed transition-colors">
+                    Next →
+                  </button>
+                </div>
+              )}
+              </>
             )}
           </div>
         </div>

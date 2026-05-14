@@ -839,7 +839,7 @@ export default function LandingPage() {
                   style={{
                     display: "flex", gap: "1.25rem", padding: "1.375rem 1.5rem",
                     borderRadius: "1rem", cursor: "pointer", transition: "all 0.25s ease",
-                    background: howStep === i ? "linear-gradient(145deg,#1e1a06,#131000)" : "transparent",
+                    background: howStep === i ? "#1C1C2E" : "transparent",
                     border: howStep === i ? "1px solid rgba(245,197,24,0.35)" : "1px solid transparent",
                     boxShadow: howStep === i ? "0 8px 30px rgba(245,197,24,0.08)" : "none",
                   }}>
@@ -852,15 +852,15 @@ export default function LandingPage() {
                     fontSize: "0.875rem", transition: "all 0.25s ease",
                   }}>{step.n}</div>
                   <div>
-                    <h3 style={{ color: howStep === i ? "var(--cj-text)" : "var(--cj-text-muted)", fontWeight: 700, fontSize: "1rem", marginBottom: "0.375rem", transition: "color 0.25s" }}>{step.title}</h3>
-                    <p style={{ color: howStep === i ? "var(--cj-text)" : "var(--cj-text-muted)", lineHeight: 1.7, fontSize: "0.875rem", transition: "color 0.25s" }}>{step.desc}</p>
+                    <h3 style={{ color: howStep === i ? "#FFFFFF" : "var(--cj-text-muted)", fontWeight: 700, fontSize: "1rem", marginBottom: "0.375rem", transition: "color 0.25s" }}>{step.title}</h3>
+                    <p style={{ color: howStep === i ? "#DDDDDD" : "var(--cj-text-muted)", lineHeight: 1.7, fontSize: "0.875rem", transition: "color 0.25s" }}>{step.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Step mockup */}
-            <div className="lp-card" style={{
+            <div style={{
               background: "#1C1C2E",
               border: "1px solid rgba(245,197,24,0.2)", borderRadius: "1.25rem",
               overflow: "hidden", transition: "all 0.3s ease",

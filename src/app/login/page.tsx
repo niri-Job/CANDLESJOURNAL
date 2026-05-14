@@ -353,12 +353,21 @@ export default function LoginPage() {
 
         <p className="text-center text-zinc-600 text-xs mt-6">Your trades are private and secured.</p>
         {mode === "signup" && (
-          <p className="text-center text-zinc-600 text-xs mt-2">
-            Having trouble signing up?{" "}
-            <a href="mailto:support@niri.live" className="text-zinc-400 hover:text-zinc-200 underline transition-colors">
-              Email us at support@niri.live
-            </a>
-          </p>
+          <>
+            <p className="text-center text-zinc-600 text-xs mt-2">
+              By creating an account, you agree to our{" "}
+              <a href="/terms-of-service" className="text-zinc-400 hover:text-zinc-200 underline transition-colors">
+                Terms of Service
+              </a>
+              .
+            </p>
+            <p className="text-center text-zinc-600 text-xs mt-2">
+              Having trouble signing up?{" "}
+              <a href="mailto:support@niri.live" className="text-zinc-400 hover:text-zinc-200 underline transition-colors">
+                Email us at support@niri.live
+              </a>
+            </p>
+          </>
         )}
       </div>
     </div>

@@ -48,7 +48,9 @@ export async function proxy(request: NextRequest) {
       pathname === "/" ||
       pathname.startsWith("/login") ||
       pathname.startsWith("/admin") ||
-      pathname.startsWith("/api/")
+      pathname.startsWith("/api/") ||
+      pathname.startsWith("/terms-of-service") ||
+      pathname.startsWith("/privacy-policy")
     ) {
       return supabaseResponse;
     }

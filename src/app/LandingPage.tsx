@@ -608,17 +608,17 @@ export default function LandingPage() {
               </div>
 
               <h1 style={{ fontSize: "clamp(2.5rem,5.5vw,3.5rem)", fontWeight: 900, lineHeight: 1.08, marginBottom: "1.375rem", letterSpacing: "-0.02em" }}>
-                <span style={{ color: "var(--cj-text)" }}>You&rsquo;re Not Losing</span>
+                <span style={{ color: "#FFFFFF" }}>You&rsquo;re Not Losing</span>
                 <br />
-                <span style={{ color: "var(--cj-text)" }}>Because of the</span>
+                <span style={{ color: "#FFFFFF" }}>Because of the</span>
                 <br />
                 <span className="shimmer-text glitch-hero" data-text="Market.">Market.</span>
               </h1>
 
-              <p style={{ color: "var(--cj-text)", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
+              <p style={{ color: "#FFFFFF", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
                 You&rsquo;re losing because of you.
               </p>
-              <p style={{ color: "var(--cj-text)", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
+              <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
                 NIRI syncs with MT5, analyses your trade history, and identifies the behavioral patterns behind your losses. Each session ends with a specific coaching report.
               </p>
 
@@ -637,7 +637,7 @@ export default function LandingPage() {
 
               <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
                 {["No credit card required", "MT5 sync in under 5 minutes", "Cancel anytime"].map(t => (
-                  <span key={t} style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>• {t}</span>
+                  <span key={t} style={{ color: "#FFFFFF", fontSize: "0.875rem" }}>• {t}</span>
                 ))}
               </div>
             </div>
@@ -866,15 +866,15 @@ export default function LandingPage() {
             }}>
               {howStep === 0 && (
                 <div style={{ padding: "1.75rem" }}>
-                  <p style={{ color: "#AAAAAA", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Expert Advisor</p>
-                  <div style={{ background: "#0d0d1e", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#DDDDDD", lineHeight: 2, border: "1px solid rgba(245,197,24,0.15)" }}>
-                    <div style={{ color: "#4a9e4a" }}>NIRI EA v1.0 — Active on account #12345678</div>
-                    <div style={{ color: "#DDDDDD" }}>Scanning full history from 2000.01.01...</div>
-                    <div style={{ color: "#F5C518" }}>Synced #1029482 XAUUSD BUY 0.50 lots | P&L: +$184.20</div>
-                    <div style={{ color: "#F5C518" }}>Synced #1029481 EURUSD SELL 0.20 lots | P&L: -$32.00</div>
-                    <div style={{ color: "#4a9e4a" }}>Synced 247 trades. Up to date.</div>
+                  <p style={{ color: "#FFFFFF", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Expert Advisor</p>
+                  <div style={{ background: "#0d0d1e", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#00FF00", lineHeight: 2, border: "1px solid rgba(0,255,0,0.2)" }}>
+                    <div style={{ color: "#00FF00" }}>NIRI EA v1.0 — Active on account #12345678</div>
+                    <div style={{ color: "#00FF00" }}>Scanning full history from 2000.01.01...</div>
+                    <div style={{ color: "#00FF00" }}>Synced #1029482 XAUUSD BUY 0.50 lots | P&L: +$184.20</div>
+                    <div style={{ color: "#00FF00" }}>Synced #1029481 EURUSD SELL 0.20 lots | P&L: -$32.00</div>
+                    <div style={{ color: "#00FF00" }}>Synced 247 trades. Up to date.</div>
                   </div>
-                  <p style={{ color: "#888888", fontSize: "0.8125rem", marginTop: "1rem", textAlign: "center" }}>Every trade syncs within seconds of closing</p>
+                  <p style={{ color: "#FFFFFF", fontSize: "0.8125rem", marginTop: "1rem", textAlign: "center" }}>Every trade syncs within seconds of closing</p>
                 </div>
               )}
               {howStep === 1 && (

@@ -85,6 +85,7 @@ export default function OnboardingPage() {
   const [generating,    setGenerating]    = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [eaToken,       setEaToken]       = useState<{ token: string; account_number: string; broker_server: string } | null>(null);
+  const [tokenCopied,   setTokenCopied]   = useState(false);
   // "setup" → show form; "download" → show download + instructions; "import" → csv sub-step
   const [s3Phase, setS3Phase] = useState<"setup" | "download" | "import">("setup");
 
@@ -416,7 +417,7 @@ export default function OnboardingPage() {
                 </p>
                 <h2 className="text-xl font-bold mb-1">Connect Your MT5</h2>
                 <p className="text-sm text-zinc-500 mb-4">
-                  We&apos;ll generate a personalised EA file — install it in MT5 and trades sync automatically.
+                  We&apos;ll generate your sync token — install the EA in MT5, paste the token, and trades sync automatically.
                 </p>
 
                 {/* Live accounts only notice */}
@@ -475,7 +476,7 @@ export default function OnboardingPage() {
 
                   <button type="submit" disabled={generating}
                     className="btn-gold w-full py-3 rounded-xl text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
-                    {generating ? "Generating your EA…" : "Generate My EA →"}
+                    {generating ? "Generating your token…" : "Generate My Token →"}
                   </button>
                 </form>
 
@@ -494,36 +495,63 @@ export default function OnboardingPage() {
                 </p>
                 <h2 className="text-xl font-bold mb-1">Your EA is ready</h2>
                 <p className="text-sm text-zinc-500 mb-5">
-                  Download both files and follow the steps below to start syncing.
+                  Download the EA file, copy your token, and follow the steps below.
                 </p>
 
-                {/* Download buttons */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <a href="/NIRI_EA.ex5" download="NIRI_EA.ex5"
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-[var(--cj-gold-muted)]/40
-                               bg-[var(--cj-gold-glow)] hover:bg-[var(--cj-gold)]/10 transition-all text-center">
-                    <span className="text-2xl">📦</span>
-                    <span className="text-xs font-bold text-[var(--cj-gold)]">NIRI_EA.ex5</span>
-                    <span className="text-[10px] text-zinc-500">Compiled EA — ready to use</span>
-                  </a>
-                  <a href="/api/mt5/download/settings" download="NIRI_settings.set"
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-zinc-700
-                               bg-[var(--cj-raised)] hover:border-zinc-500 transition-all text-center">
-                    <span className="text-2xl">⚙️</span>
-                    <span className="text-xs font-bold text-zinc-200">NIRI_settings.set</span>
-                    <span className="text-[10px] text-zinc-500">Your personal settings</span>
-                  </a>
+                {/* Single download button */}
+                <a href="/NIRI_EA.ex5" download="NIRI_EA.ex5"
+                  className="flex items-center gap-3 p-4 rounded-xl border border-[var(--cj-gold-muted)]/40
+                             bg-[var(--cj-gold-glow)] hover:bg-[var(--cj-gold)]/10 transition-all mb-4">
+                  <span className="text-2xl shrink-0">📦</span>
+                  <div>
+                    <p className="text-sm font-bold text-[var(--cj-gold)]">Download NIRI_EA.ex5</p>
+                    <p className="text-[11px] text-zinc-500">Compiled EA file — ready to install</p>
+                  </div>
+                  <svg className="ml-auto shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="var(--cj-gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </a>
+
+                {/* Copyable token */}
+                <div className="mb-6">
+                  <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
+                    Your NIRI Token — paste this into MT5 Inputs tab
+                  </label>
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-zinc-700 bg-[var(--cj-raised)]">
+                    <code className="flex-1 text-xs text-[var(--cj-gold)] font-mono break-all select-all">
+                      {eaToken.token}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(eaToken.token);
+                        setTokenCopied(true);
+                        setTimeout(() => setTokenCopied(false), 2000);
+                      }}
+                      className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all"
+                      style={{
+                        background: tokenCopied ? "rgba(16,185,129,0.15)" : "rgba(245,197,24,0.1)",
+                        border: tokenCopied ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(245,197,24,0.25)",
+                        color: tokenCopied ? "#34d399" : "var(--cj-gold)",
+                      }}
+                    >
+                      {tokenCopied ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Installation steps 3–8 */}
+                {/* Installation steps 1–6 */}
                 <div className="space-y-3 mb-6">
                   {[
-                    { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 and your Settings file using the buttons above" },
-                    { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
-                    { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://www.niri.live" },
-                    { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
-                    { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → Load → select your downloaded settings file → OK" },
-                    { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Trades sync within 60 seconds." },
+                    { n: 1, icon: "📦", text: "Download NIRI_EA.ex5 using the button above" },
+                    { n: 2, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
+                    { n: 3, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://www.niri.live" },
+                    { n: 4, icon: "🔄", text: "Restart MT5 → find NIRI_EA in the Navigator panel (Ctrl+N)" },
+                    { n: 5, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → paste your NIRI token → OK" },
+                    { n: 6, icon: "✅", text: "Allow live trading → OK. Your trades will sync automatically within 60 seconds." },
                   ].map(({ n, icon, text }) => (
                     <div key={n} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"

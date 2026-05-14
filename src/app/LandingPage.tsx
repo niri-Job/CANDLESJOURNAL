@@ -456,6 +456,13 @@ export default function LandingPage() {
         [data-theme="light"] .lp-dark-bg h3,
         [data-theme="light"] .lp-dark-bg p { color: inherit !important; }
 
+        /* ── Dark-mode card text: ensure nothing is invisibly dark ── */
+        .lp-card [style*="color: #3a2a"],
+        .lp-card [style*="color: #4a3a"],
+        .lp-card [style*="color: #2a1f"],
+        .lp-card [style*="color: #5a4a"],
+        .lp-card [style*="color: #6b5a"] { color: #CCCCCC !important; }
+
         @media (max-width: 768px) {
           .desktop-nav { display: none !important; }
           .hamburger   { display: flex !important; }
@@ -693,7 +700,7 @@ export default function LandingPage() {
 
           {/* Left copy */}
           <div style={{ flex: "1 1 320px", maxWidth: 460 }}>
-            <p style={{ color: "#9B7E2E", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
+            <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
               Your dashboard, automated
             </p>
             <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#FFFFFF", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
@@ -860,9 +867,9 @@ export default function LandingPage() {
               {howStep === 0 && (
                 <div style={{ padding: "1.75rem" }}>
                   <p style={{ color: "#AAAAAA", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Expert Advisor</p>
-                  <div style={{ background: "#0a0800", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#8a7050", lineHeight: 2, border: "1px solid rgba(245,197,24,0.08)" }}>
+                  <div style={{ background: "#0d0d1e", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#DDDDDD", lineHeight: 2, border: "1px solid rgba(245,197,24,0.15)" }}>
                     <div style={{ color: "#4a9e4a" }}>NIRI EA v1.0 — Active on account #12345678</div>
-                    <div>Scanning full history from 2000.01.01...</div>
+                    <div style={{ color: "#DDDDDD" }}>Scanning full history from 2000.01.01...</div>
                     <div style={{ color: "#F5C518" }}>Synced #1029482 XAUUSD BUY 0.50 lots | P&L: +$184.20</div>
                     <div style={{ color: "#F5C518" }}>Synced #1029481 EURUSD SELL 0.20 lots | P&L: -$32.00</div>
                     <div style={{ color: "#4a9e4a" }}>Synced 247 trades. Up to date.</div>
@@ -881,7 +888,7 @@ export default function LandingPage() {
                   ].map((item) => (
                     <div key={item.label} style={{ marginBottom: "1rem" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
-                        <span style={{ color: "#8a7050", fontSize: "0.8125rem" }}>{item.label}</span>
+                        <span style={{ color: "#CCCCCC", fontSize: "0.8125rem" }}>{item.label}</span>
                         <span style={{ color: item.col, fontWeight: 700, fontSize: "0.8125rem" }}>{item.pct}%</span>
                       </div>
                       <div style={{ height: 5, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
@@ -907,7 +914,7 @@ export default function LandingPage() {
                         <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${row.col}20`, border: `1px solid ${row.col}40`, display: "flex", alignItems: "center", justifyContent: "center", color: row.col, fontWeight: 700, fontSize: "0.75rem", flexShrink: 0 }}>{row.ico}</div>
                         <div>
                           <div style={{ color: row.col, fontWeight: 700, fontSize: "0.7rem", letterSpacing: "0.08em", marginBottom: "0.2rem" }}>{row.label}</div>
-                          <div style={{ color: "#8a7050", fontSize: "0.8125rem", lineHeight: 1.5 }}>{row.text}</div>
+                          <div style={{ color: "#CCCCCC", fontSize: "0.8125rem", lineHeight: 1.5 }}>{row.text}</div>
                         </div>
                       </div>
                     ))}
@@ -1314,7 +1321,7 @@ export default function LandingPage() {
                   borderRadius: "0.875rem", padding: "1rem 1.25rem",
                 }}>
                   <p style={{ color: "#AAAAAA", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>{item.label}</p>
-                  <p style={{ color: "#c0a040", fontSize: "0.9rem", fontWeight: 600 }}>{item.value}</p>
+                  <p style={{ color: "#E0C060", fontSize: "0.9rem", fontWeight: 600 }}>{item.value}</p>
                 </div>
               ))}
             </div>

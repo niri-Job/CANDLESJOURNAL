@@ -7,6 +7,24 @@ import type { User } from "@supabase/supabase-js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface NewsItem {
+  title: string;
+  link: string;
+  pubDate: string;
+  description: string;
+  source: string;
+}
+
+interface CalendarEvent {
+  title: string;
+  country: string;
+  date: string;
+  time: string;
+  impact: string;
+  forecast: string;
+  previous: string;
+}
+
 interface Setup {
   pair: string;
   direction: "BUY" | "SELL";
@@ -143,6 +161,46 @@ function SetupCard({ s }: { s: Setup }) {
   );
 }
 
+// ── Countdown helper ─────────────────────────────────────────────────────────
+
+function parseEventMs(date: string, time: string): number | null {
+  if (!date || !time) return null;
+  // time looks like "8:30am" or "All Day" (US Eastern, UTC-5 / UTC-4 DST)
+  if (time.toLowerCase() === "all day") return null;
+  const m = /^(\d{1,2}):(\d{2})(am|pm)$/i.exec(time.trim());
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (m[3].toLowerCase() === "pm" && h !== 12) h += 12;
+  if (m[3].toLowerCase() === "am" && h === 12) h = 0;
+  // ForexFactory times are US Eastern — approximate as UTC-4 (EDT)
+  const utcH = h + 4;
+  const dt = new Date(`${date}T${String(utcH).padStart(2, "0")}:${String(min).padStart(2, "0")}:00Z`);
+  return isNaN(dt.getTime()) ? null : dt.getTime();
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "Now";
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m`;
+  if (m > 0) return `${m}m ${s % 60}s`;
+  return `${s}s`;
+}
+
+function relativeTime(pubDate: string): string {
+  if (!pubDate) return "";
+  const ms = Date.now() - new Date(pubDate).getTime();
+  if (isNaN(ms)) return "";
+  const m = Math.floor(ms / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function IntelligencePage() {
@@ -152,6 +210,13 @@ export default function IntelligencePage() {
   const [lastUpdated,  setLastUpdated]  = useState<Date | null>(null);
   const [error,        setError]        = useState<string | null>(null);
   const [trialBlock,   setTrialBlock]   = useState<{ reason: "expired" | "limit_reached"; message: string } | null>(null);
+
+  // Live Market Room
+  const [news,          setNews]         = useState<NewsItem[]>([]);
+  const [newsLoading,   setNewsLoading]  = useState(false);
+  const [calendar,      setCalendar]     = useState<CalendarEvent[]>([]);
+  const [showVideo,     setShowVideo]    = useState(false);
+  const [nowMs,         setNowMs]        = useState(Date.now());
 
   async function fetchAnalysis(bust = false) {
     setLoading(true);
@@ -177,6 +242,27 @@ export default function IntelligencePage() {
     }
   }
 
+  async function fetchNews() {
+    setNewsLoading(true);
+    try {
+      const res = await fetch("/api/market/news");
+      if (res.ok) setNews(await res.json() as NewsItem[]);
+    } catch { /* fail silently */ }
+    setNewsLoading(false);
+  }
+
+  async function fetchCalendar() {
+    try {
+      const res = await fetch("/api/market/calendar");
+      if (!res.ok) return;
+      const all = await res.json() as CalendarEvent[];
+      const today = new Date().toISOString().split("T")[0];
+      const todayHigh = all.filter(e => e.date === today && e.impact === "High");
+      const todayMed  = all.filter(e => e.date === today && e.impact === "Medium");
+      setCalendar(todayHigh.length > 0 ? todayHigh : todayMed.slice(0, 5));
+    } catch { /* fail silently */ }
+  }
+
   useEffect(() => {
     async function init() {
       const supabase = createClient();
@@ -186,9 +272,21 @@ export default function IntelligencePage() {
       await fetchAnalysis(false);
     }
     init();
-    // Auto-refresh every 15 minutes
-    const interval = setInterval(() => fetchAnalysis(false), 15 * 60 * 1000);
-    return () => clearInterval(interval);
+    fetchNews();
+    fetchCalendar();
+
+    // Auto-refresh every 15 minutes for analysis
+    const analysisInterval = setInterval(() => fetchAnalysis(false), 15 * 60 * 1000);
+    // Auto-refresh news every 5 minutes
+    const newsInterval = setInterval(fetchNews, 5 * 60 * 1000);
+    // Countdown tick every second
+    const tickInterval = setInterval(() => setNowMs(Date.now()), 1000);
+
+    return () => {
+      clearInterval(analysisInterval);
+      clearInterval(newsInterval);
+      clearInterval(tickInterval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -423,6 +521,204 @@ export default function IntelligencePage() {
                 </div>
               </div>
             </>
+          )}
+
+          {/* ── Live Market Room ─────────────────────────────────── */}
+          <div className="mt-10">
+            {/* Section header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  Live Market Room
+                </h2>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  News auto-refreshes every 5 min · Today&apos;s HIGH impact events
+                </p>
+              </div>
+              <button
+                onClick={() => setShowVideo(true)}
+                className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-xl text-xs font-semibold
+                           bg-rose-600/20 border border-rose-500/30 text-rose-400
+                           hover:bg-rose-600/30 transition-colors"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+                Watch Live
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              {/* ── News feed (3/5) ────────────────────────────── */}
+              <div className="lg:col-span-3 bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+                  <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+                    Latest Headlines
+                  </p>
+                  {newsLoading && (
+                    <span className="w-3 h-3 border border-zinc-700 border-t-[var(--cj-gold)] rounded-full animate-spin" />
+                  )}
+                </div>
+
+                {news.length === 0 && !newsLoading && (
+                  <div className="px-4 py-8 text-center text-xs text-zinc-500">
+                    News unavailable — check ForexLive or FXStreet directly.
+                  </div>
+                )}
+
+                <ul className="divide-y divide-zinc-800/60">
+                  {news.map((item, i) => (
+                    <li key={i} className="group">
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors"
+                      >
+                        <span className="shrink-0 mt-1 text-[10px] font-mono text-zinc-600 w-4 text-right">
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-zinc-200 leading-snug group-hover:text-white transition-colors line-clamp-2">
+                            {item.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-zinc-600">{item.source}</span>
+                            {item.pubDate && (
+                              <>
+                                <span className="text-zinc-700">·</span>
+                                <span className="text-[10px] text-zinc-600">
+                                  {relativeTime(item.pubDate)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <svg
+                          width="11" height="11" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                          className="shrink-0 mt-1 text-zinc-700 group-hover:text-zinc-500 transition-colors"
+                        >
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* ── Economic Calendar (2/5) ─────────────────────── */}
+              <div className="lg:col-span-2 bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-800">
+                  <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+                    Economic Calendar
+                  </p>
+                  <p className="text-[10px] text-zinc-600 mt-0.5">
+                    {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+                  </p>
+                </div>
+
+                {calendar.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-xs text-zinc-500">
+                    No major events today — good day to focus on execution.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-zinc-800/60">
+                    {calendar.map((ev, i) => {
+                      const evMs  = parseEventMs(ev.date, ev.time);
+                      const diff  = evMs !== null ? evMs - nowMs : null;
+                      const isPast = diff !== null && diff < 0;
+                      const countdown = diff !== null
+                        ? (isPast ? "passed" : formatCountdown(diff))
+                        : null;
+                      return (
+                        <li key={i} className="px-4 py-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-zinc-200 leading-snug">{ev.title}</p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-[10px] font-mono font-bold text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded">
+                                  {ev.country}
+                                </span>
+                                <span className="text-[10px] text-zinc-500">{ev.time}</span>
+                                {ev.forecast && (
+                                  <span className="text-[10px] text-zinc-500">F: {ev.forecast}</span>
+                                )}
+                                {ev.previous && (
+                                  <span className="text-[10px] text-zinc-600">P: {ev.previous}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              {countdown !== null && (
+                                <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded ${
+                                  isPast
+                                    ? "text-zinc-600 bg-zinc-800"
+                                    : diff! < 30 * 60 * 1000
+                                      ? "text-amber-400 bg-amber-500/10"
+                                      : "text-zinc-400 bg-zinc-800"
+                                }`}>
+                                  {countdown}
+                                </span>
+                              )}
+                              <div className="mt-1">
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                                  ev.impact === "High"
+                                    ? "bg-red-500/15 text-red-400"
+                                    : "bg-amber-500/15 text-amber-400"
+                                }`}>
+                                  {ev.impact}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Video Modal ───────────────────────────────────────── */}
+          {showVideo && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+              onClick={(e) => { if (e.target === e.currentTarget) setShowVideo(false); }}
+            >
+              <div className="relative w-full max-w-3xl mx-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-100">Bloomberg TV — Live</p>
+                    <p className="text-[11px] text-zinc-500">Stream may be unavailable outside market hours</p>
+                  </div>
+                  <button
+                    onClick={() => setShowVideo(false)}
+                    className="text-zinc-500 hover:text-zinc-200 transition-colors p-1"
+                    aria-label="Close"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                <div className="relative rounded-2xl overflow-hidden bg-black" style={{ paddingTop: "56.25%" }}>
+                  <iframe
+                    className="absolute inset-0 w-full h-full"
+                    src="https://www.youtube-nocookie.com/embed/live_stream?channel=UCXgYMHTQodLBGMDpxaIL1NA&autoplay=1&rel=0"
+                    title="Bloomberg TV Live"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-600 mt-2 text-center">
+                  Bloomberg Television via YouTube · Not affiliated with NIRI
+                </p>
+              </div>
+            </div>
           )}
 
           {/* ── Disclaimer footer ────────────────────────────────── */}

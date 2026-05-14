@@ -4,7 +4,7 @@ export const revalidate = 900;
 
 const TIMEOUT_MS = 5000;
 
-interface NewsItem {
+export interface NewsItem {
   title: string;
   link: string;
   pubDate: string;
@@ -14,8 +14,24 @@ interface NewsItem {
 
 const FEEDS: { url: string; source: string }[] = [
   { url: "https://www.forexlive.com/feed/news", source: "ForexLive" },
-  { url: "https://www.dailyfx.com/feeds/all", source: "DailyFX" },
+  { url: "https://feeds.fxstreet.com/fxstreet/rss/news", source: "FXStreet" },
 ];
+
+// Keywords that mark a story as high-impact for forex traders
+const HIGH_KEYWORDS = [
+  "nfp", "non-farm", "cpi", "inflation", "fed ", "federal reserve", "fomc",
+  "ecb", "boe", "bank of england", "bank of japan", "boj", "rba", "rbnz",
+  "interest rate", "rate decision", "rate hike", "rate cut", "rate hold",
+  "gdp", "unemployment", "payroll", "powell", "lagarde", "bailey",
+  "ueda", "bullock", "jobs report", "pce", "ppi", "ism", "adp",
+  "gold", "xauusd", "eurusd", "gbpusd", "dollar", "euro", "pound",
+  "yen", "usdjpy", "bitcoin", "btc", "crude", "oil", "treasury",
+];
+
+function isHighImpact(title: string): boolean {
+  const lower = title.toLowerCase();
+  return HIGH_KEYWORDS.some(kw => lower.includes(kw));
+}
 
 function extractTag(xml: string, tag: string): string {
   const cdata = xml.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[(.*?)\\]\\]><\\/${tag}>`, "s"));
@@ -82,7 +98,20 @@ export async function GET() {
     return db - da;
   });
 
-  return NextResponse.json(all.slice(0, 20), {
+  // Deduplicate by first 50 chars of title
+  const seen = new Set<string>();
+  const deduped = all.filter(item => {
+    const key = item.title.toLowerCase().slice(0, 50);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Prefer high-impact; fall back to all if fewer than 4 high-impact items
+  let filtered = deduped.filter(item => isHighImpact(item.title));
+  if (filtered.length < 4) filtered = deduped;
+
+  return NextResponse.json(filtered.slice(0, 10), {
     headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" },
   });
 }

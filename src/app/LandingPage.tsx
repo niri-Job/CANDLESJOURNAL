@@ -456,9 +456,9 @@ export default function LandingPage() {
         [data-theme="light"] .lp-dark-bg h2,
         [data-theme="light"] .lp-dark-bg h3 { color: #FFFFFF !important; }
         [data-theme="light"] .lp-dark-bg p   { color: #CCCCCC !important; }
-        /* Active step card on dark #1C1C2E background */
+        /* Active step card on dark #1C1C2E background — must beat section:not(.lp-dark-bg) p (0,2,2) */
         [data-theme="light"] .lp-step-active h3 { color: #FFFFFF !important; }
-        [data-theme="light"] .lp-step-active p  { color: #DDDDDD !important; }
+        [data-theme="light"] section .lp-step-active p { color: #DDDDDD !important; }
 
         /* ── Dark-mode card text: ensure nothing is invisibly dark ── */
         .lp-card [style*="color: #3a2a"],

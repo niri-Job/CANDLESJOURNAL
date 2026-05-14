@@ -232,7 +232,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       <div style={{
         maxHeight: open ? "24rem" : "0", overflow: "hidden",
         transition: "max-height 0.35s ease", paddingBottom: open ? "1.375rem" : 0,
-        color: "#8a7a5a", lineHeight: 1.75, fontSize: "0.9375rem",
+        color: "#AAAAAA", lineHeight: 1.75, fontSize: "0.9375rem",
       }}>{a}</div>
     </div>
   );
@@ -242,12 +242,12 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 function CmpRow({ label, niri, other, highlight }: { label: string; niri: string; other: string; highlight?: boolean }) {
   return (
     <tr style={{ background: highlight ? "rgba(245,197,24,0.05)" : "transparent" }}>
-      <td style={{ padding: "0.875rem 1rem", color: "#8a7a5a", fontSize: "0.9rem", borderBottom: "1px solid rgba(245,197,24,0.07)" }}>{label}</td>
+      <td style={{ padding: "0.875rem 1rem", color: "#AAAAAA", fontSize: "0.9rem", borderBottom: "1px solid rgba(245,197,24,0.07)" }}>{label}</td>
       <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(245,197,24,0.07)", borderLeft: "2px solid rgba(245,197,24,0.3)" }}>
         <span style={{ color: "var(--cj-gold)", fontWeight: 700, fontSize: "0.9rem" }}>{niri}</span>
       </td>
       <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(245,197,24,0.07)" }}>
-        <span style={{ color: "#4a3a1a", fontSize: "0.9rem" }}>{other}</span>
+        <span style={{ color: "#888888", fontSize: "0.9rem" }}>{other}</span>
       </td>
     </tr>
   );
@@ -260,7 +260,7 @@ function CheckItem({ text, dim }: { text: string; dim?: boolean }) {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
         <polyline points="20 6 9 17 4 12"/>
       </svg>
-      <span style={{ color: dim ? "#7a6a4a" : "var(--cj-text)", fontSize: "0.9375rem", lineHeight: 1.5 }}>{text}</span>
+      <span style={{ color: dim ? "#AAAAAA" : "var(--cj-text)", fontSize: "0.9375rem", lineHeight: 1.5 }}>{text}</span>
     </div>
   );
 }
@@ -588,10 +588,10 @@ export default function LandingPage() {
                 <span className="shimmer-text glitch-hero" data-text="Market.">Market.</span>
               </h1>
 
-              <p style={{ color: "#7a6a4a", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
+              <p style={{ color: "#CCCCCC", fontSize: "1.125rem", lineHeight: 1.75, marginBottom: "0.75rem", maxWidth: 500, fontWeight: 500 }}>
                 You&rsquo;re losing because of you.
               </p>
-              <p style={{ color: "#6a5a3a", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
+              <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
                 NIRI syncs with MT5, analyses your trade history, and identifies the behavioral patterns behind your losses. Each session ends with a specific coaching report.
               </p>
 
@@ -610,7 +610,7 @@ export default function LandingPage() {
 
               <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
                 {["No credit card required", "MT5 sync in under 5 minutes", "Cancel anytime"].map(t => (
-                  <span key={t} style={{ color: "#4a3a1a", fontSize: "0.875rem" }}>• {t}</span>
+                  <span key={t} style={{ color: "#888888", fontSize: "0.875rem" }}>• {t}</span>
                 ))}
               </div>
             </div>
@@ -660,7 +660,7 @@ export default function LandingPage() {
           ].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
               <span style={{ color: "#F5C518", fontWeight: 900, fontSize: "1.5rem", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>{s.val}</span>
-              <span style={{ color: "#4a3a1a", fontSize: "0.875rem", lineHeight: 1.4, maxWidth: 200 }}>{s.label}</span>
+              <span style={{ color: "#888888", fontSize: "0.875rem", lineHeight: 1.4, maxWidth: 200 }}>{s.label}</span>
               {i < 2 && <span style={{ color: "rgba(245,197,24,0.2)", fontSize: "1.5rem", display: "block" }}>|</span>}
             </div>
           ))}
@@ -698,7 +698,7 @@ export default function LandingPage() {
                   See Your Dashboard →
                 </button>
               </Link>
-              <p style={{ color: "#5C5040", fontSize: "0.8125rem", marginTop: "0.875rem" }}>
+              <p style={{ color: "#888888", fontSize: "0.8125rem", marginTop: "0.875rem" }}>
                 Connect MT5 in under 5 minutes. No card required.
               </p>
             </div>
@@ -736,12 +736,12 @@ export default function LandingPage() {
             <p style={{ color: "#e05555", fontWeight: 800, fontSize: "clamp(1.25rem,2.5vw,1.625rem)", marginBottom: "0.75rem", lineHeight: 1.3 }}>
               The brutal truth most traders ignore:
             </p>
-            <p style={{ color: "#9a7a5a", fontSize: "1rem", lineHeight: 1.8, maxWidth: 640, margin: "0 auto 1rem" }}>
+            <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.8, maxWidth: 640, margin: "0 auto 1rem" }}>
               You don&rsquo;t have a strategy problem. You have a <strong style={{ color: "#f0e6c8" }}>behavior problem</strong>.
               Your setups work. Your discipline doesn&rsquo;t.
               NIRI shows you exactly where your behavior costs you money — with numbers, not hunches.
             </p>
-            <p style={{ color: "#3a2a0a", fontSize: "0.9rem", fontStyle: "italic" }}>
+            <p style={{ color: "#888888", fontSize: "0.9rem", fontStyle: "italic" }}>
               Most traders read this and think &ldquo;not me.&rdquo; The data says otherwise.
             </p>
           </div>
@@ -750,7 +750,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
               Sound <span className="shimmer-text">Familiar?</span>
             </h2>
-            <p style={{ color: "#4a3a1a", fontSize: "1rem" }}>Most traders know these problems exist. NIRI quantifies them.</p>
+            <p style={{ color: "#888888", fontSize: "1rem" }}>Most traders know these problems exist. NIRI quantifies them.</p>
           </div>
           <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
             {[
@@ -773,7 +773,7 @@ export default function LandingPage() {
                 }}>
                   <div style={{ marginBottom: "0.875rem" }}>{p.ico}</div>
                   <h3 style={{ color: "#f0e6c8", fontWeight: 700, fontSize: "1.0625rem", marginBottom: "0.625rem" }}>{p.title}</h3>
-                  <p style={{ color: "#5a4a2a", lineHeight: 1.75, fontSize: "0.9375rem" }}>{p.text}</p>
+                  <p style={{ color: "#AAAAAA", lineHeight: 1.75, fontSize: "0.9375rem" }}>{p.text}</p>
                 </div>
               );
             })}
@@ -791,7 +791,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
               Up and Running in <span className="shimmer-text">3 Steps</span>
             </h2>
-            <p style={{ color: "#4a3a1a", fontSize: "1rem" }}>Click each step to see what to expect</p>
+            <p style={{ color: "#888888", fontSize: "1rem" }}>Click each step to see what to expect</p>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3.5rem", alignItems: "start" }} className="grid-2">
@@ -820,12 +820,12 @@ export default function LandingPage() {
                     background: howStep === i ? "linear-gradient(135deg,#F5C518,#C9A227)" : "rgba(245,197,24,0.08)",
                     border: howStep === i ? "none" : "1px solid rgba(245,197,24,0.2)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 800, color: howStep === i ? "#0a0800" : "#6a5a3a",
+                    fontWeight: 800, color: howStep === i ? "#0a0800" : "#AAAAAA",
                     fontSize: "0.875rem", transition: "all 0.25s ease",
                   }}>{step.n}</div>
                   <div>
-                    <h3 style={{ color: howStep === i ? "#f0e6c8" : "#7a6a4a", fontWeight: 700, fontSize: "1rem", marginBottom: "0.375rem", transition: "color 0.25s" }}>{step.title}</h3>
-                    <p style={{ color: howStep === i ? "#6a5a3a" : "#3a2a0a", lineHeight: 1.7, fontSize: "0.875rem", transition: "color 0.25s" }}>{step.desc}</p>
+                    <h3 style={{ color: howStep === i ? "#f0e6c8" : "#AAAAAA", fontWeight: 700, fontSize: "1rem", marginBottom: "0.375rem", transition: "color 0.25s" }}>{step.title}</h3>
+                    <p style={{ color: howStep === i ? "#AAAAAA" : "#888888", lineHeight: 1.7, fontSize: "0.875rem", transition: "color 0.25s" }}>{step.desc}</p>
                   </div>
                 </div>
               ))}
@@ -839,7 +839,7 @@ export default function LandingPage() {
             }}>
               {howStep === 0 && (
                 <div style={{ padding: "1.75rem" }}>
-                  <p style={{ color: "#6a5a3a", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Expert Advisor</p>
+                  <p style={{ color: "#AAAAAA", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Expert Advisor</p>
                   <div style={{ background: "#0a0800", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#8a7050", lineHeight: 2, border: "1px solid rgba(245,197,24,0.08)" }}>
                     <div style={{ color: "#4a9e4a" }}>NIRI EA v1.0 — Active on account #12345678</div>
                     <div>Scanning full history from 2000.01.01...</div>
@@ -847,12 +847,12 @@ export default function LandingPage() {
                     <div style={{ color: "#F5C518" }}>Synced #1029481 EURUSD SELL 0.20 lots | P&L: -$32.00</div>
                     <div style={{ color: "#4a9e4a" }}>Synced 247 trades. Up to date.</div>
                   </div>
-                  <p style={{ color: "#4a3a1a", fontSize: "0.8125rem", marginTop: "1rem", textAlign: "center" }}>Every trade syncs within seconds of closing</p>
+                  <p style={{ color: "#888888", fontSize: "0.8125rem", marginTop: "1rem", textAlign: "center" }}>Every trade syncs within seconds of closing</p>
                 </div>
               )}
               {howStep === 1 && (
                 <div style={{ padding: "1.75rem" }}>
-                  <p style={{ color: "#6a5a3a", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>Behavioral Analysis</p>
+                  <p style={{ color: "#AAAAAA", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>Behavioral Analysis</p>
                   {[
                     { label: "Revenge Trade Detection", pct: 78, col: "#e05555" },
                     { label: "Session Win Rate: London", pct: 68, col: "#4a9e4a" },
@@ -906,7 +906,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
               NIRI Doesn&rsquo;t Just <span className="shimmer-text">Track Trades.</span>
             </h2>
-            <p style={{ color: "#5a4a2a", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
+            <p style={{ color: "#AAAAAA", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
               It gives you a structured analysis of what happened and what to change.
             </p>
           </div>
@@ -933,7 +933,7 @@ export default function LandingPage() {
                     {row.ico}
                     <span style={{ color: row.color, fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em" }}>{row.label}</span>
                   </div>
-                  <p style={{ color: "#9a8a6a", lineHeight: 1.7, fontSize: "0.9rem" }}>{row.text}</p>
+                  <p style={{ color: "#CCCCCC", lineHeight: 1.7, fontSize: "0.9rem" }}>{row.text}</p>
                 </div>
               ))}
             </div>
@@ -946,7 +946,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <p style={{ textAlign: "center", color: "#4a3a1a", fontSize: "0.875rem", margin: "1.5rem 0 2rem" }}>
+          <p style={{ textAlign: "center", color: "#888888", fontSize: "0.875rem", margin: "1.5rem 0 2rem" }}>
             This report is generated automatically after every trading session.
           </p>
           <div style={{ textAlign: "center" }}>
@@ -966,7 +966,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
               Stop Guessing. <span className="shimmer-text">Start Growing.</span>
             </h2>
-            <p style={{ color: "#5a4a2a", fontSize: "1rem", maxWidth: 520, margin: "0 auto" }}>
+            <p style={{ color: "#AAAAAA", fontSize: "1rem", maxWidth: 520, margin: "0 auto" }}>
               Every feature is designed to turn raw trade data into specific, actionable improvements.
             </p>
           </div>
@@ -981,7 +981,7 @@ export default function LandingPage() {
                 }}>
                   <div style={{ marginBottom: "0.875rem" }}>{f.ico}</div>
                   <h3 style={{ color: "#F5C518", fontWeight: 700, fontSize: "1rem", marginBottom: "0.5rem", lineHeight: 1.4 }}>{f.title}</h3>
-                  <p style={{ color: "#5a4a2a", lineHeight: 1.75, margin: 0, fontSize: "0.9rem" }}>{f.desc}</p>
+                  <p style={{ color: "#AAAAAA", lineHeight: 1.75, margin: 0, fontSize: "0.9rem" }}>{f.desc}</p>
                 </div>
               );
             })}
@@ -1001,9 +1001,9 @@ export default function LandingPage() {
             <table className="cmp-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "rgba(245,197,24,0.06)" }}>
-                  <th style={{ padding: "1rem 1rem", textAlign: "left", color: "#6a5a3a", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.06em" }}>FEATURE</th>
+                  <th style={{ padding: "1rem 1rem", textAlign: "left", color: "#AAAAAA", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.06em" }}>FEATURE</th>
                   <th style={{ padding: "1rem 1rem", textAlign: "center", color: "#F5C518", fontSize: "0.9375rem", fontWeight: 800, borderLeft: "2px solid rgba(245,197,24,0.3)" }}>NIRI</th>
-                  <th style={{ padding: "1rem 1rem", textAlign: "center", color: "#4a3a1a", fontSize: "0.8125rem", fontWeight: 600 }}>TradeZella</th>
+                  <th style={{ padding: "1rem 1rem", textAlign: "center", color: "#888888", fontSize: "0.8125rem", fontWeight: 600 }}>TradeZella</th>
                 </tr>
               </thead>
               <tbody>
@@ -1038,14 +1038,14 @@ export default function LandingPage() {
             {/* Dashboard */}
             <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.04)", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
-                <span style={{ color: "#6a5a3a", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>DASHBOARD</span>
+                <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>DASHBOARD</span>
               </div>
               <div style={{ padding: "1.25rem" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.625rem", marginBottom: "1rem" }}>
                   {[["P&L","$2,840","+18%","#4a9e4a"],["Win Rate","67%","up 4%","#F5C518"],["Rank","Gold","Top 12%","#C9A227"]].map(([l,v,s,c]) => (
                     <div key={l} style={{ background: "rgba(245,197,24,0.04)", borderRadius: "0.625rem", padding: "0.625rem 0.5rem", textAlign: "center" }}>
                       <div style={{ color: c as string, fontWeight: 700, fontSize: "1rem" }}>{v}</div>
-                      <div style={{ color: "#3a2a0a", fontSize: "0.625rem", marginTop: 2 }}>{l}</div>
+                      <div style={{ color: "#888888", fontSize: "0.625rem", marginTop: 2 }}>{l}</div>
                       <div style={{ color: c as string, fontSize: "0.625rem" }}>{s}</div>
                     </div>
                   ))}
@@ -1063,7 +1063,7 @@ export default function LandingPage() {
             {/* Chart review */}
             <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.04)", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
-                <span style={{ color: "#6a5a3a", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>CHART REVIEW</span>
+                <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>CHART REVIEW</span>
               </div>
               <div style={{ padding: "1.25rem" }}>
                 <div style={{ background: "#0a0800", borderRadius: "0.75rem", height: 90, marginBottom: "0.875rem", position: "relative", overflow: "hidden" }}>
@@ -1087,13 +1087,13 @@ export default function LandingPage() {
             {/* Psychology */}
             <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(245,197,24,0.18)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.04)", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
-                <span style={{ color: "#6a5a3a", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>PSYCHOLOGY</span>
+                <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>PSYCHOLOGY</span>
               </div>
               <div style={{ padding: "1.25rem" }}>
                 {[["CONFIDENT","68%","#4a9e4a",68],["REVENGE","22%","#e05555",22],["FEARFUL","48%","#C9A227",48]].map(([em,pct,col,w]) => (
                   <div key={em as string} style={{ marginBottom: "0.875rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
-                      <span style={{ color: "#8a7a5a", fontSize: "0.75rem" }}>{em} trades</span>
+                      <span style={{ color: "#AAAAAA", fontSize: "0.75rem" }}>{em} trades</span>
                       <span style={{ color: col as string, fontWeight: 700, fontSize: "0.75rem" }}>{pct} win rate</span>
                     </div>
                     <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
@@ -1113,19 +1113,19 @@ export default function LandingPage() {
           <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1.5rem" }}>
             <div ref={stat1.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat1.val}</div>
-              <div style={{ color: "#3a2a0a", fontSize: "0.875rem", marginTop: "0.375rem" }}>Trades Analysed</div>
+              <div style={{ color: "#888888", fontSize: "0.875rem", marginTop: "0.375rem" }}>Trades Analysed</div>
             </div>
             <div ref={stat2.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat2.val}</div>
-              <div style={{ color: "#3a2a0a", fontSize: "0.875rem", marginTop: "0.375rem" }}>Active Traders</div>
+              <div style={{ color: "#888888", fontSize: "0.875rem", marginTop: "0.375rem" }}>Active Traders</div>
             </div>
             <div ref={stat3.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>{stat3.val}</div>
-              <div style={{ color: "#3a2a0a", fontSize: "0.875rem", marginTop: "0.375rem" }}>Report Types</div>
+              <div style={{ color: "#888888", fontSize: "0.875rem", marginTop: "0.375rem" }}>Report Types</div>
             </div>
             <div ref={stat4.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>${stat4.val}</div>
-              <div style={{ color: "#3a2a0a", fontSize: "0.875rem", marginTop: "0.375rem" }}>Starting Price / mo</div>
+              <div style={{ color: "#888888", fontSize: "0.875rem", marginTop: "0.375rem" }}>Starting Price / mo</div>
             </div>
           </div>
         </div>
@@ -1138,18 +1138,18 @@ export default function LandingPage() {
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
               Invest in Your <span className="shimmer-text">Trading Education</span>
             </h2>
-            <p style={{ color: "#5a4a2a", fontSize: "1rem", maxWidth: 560, margin: "0 auto" }}>
+            <p style={{ color: "#AAAAAA", fontSize: "1rem", maxWidth: 560, margin: "0 auto" }}>
               Behavioral mistakes cost the average trader $200 to $500 per month. NIRI costs ₦15,000/month. The math is straightforward.
             </p>
           </div>
           <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", maxWidth: 800, margin: "3rem auto 0" }}>
 
             <div className="lp-card" style={{ background: "linear-gradient(145deg,#141108,#0c0a02)", border: "1px solid rgba(245,197,24,0.15)", borderRadius: "1.375rem", padding: "2.25rem" }}>
-              <p style={{ color: "#6a5a3a", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Free</p>
-              <p style={{ color: "#5a4a2a", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Start tracking with no credit card</p>
+              <p style={{ color: "#AAAAAA", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Free</p>
+              <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Start tracking with no credit card</p>
               <div style={{ marginBottom: "1.75rem" }}>
                 <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦0</span>
-                <span style={{ color: "#3a2a0a", fontSize: "0.875rem" }}> / month</span>
+                <span style={{ color: "#888888", fontSize: "0.875rem" }}> / month</span>
               </div>
               <CheckItem text="Up to 20 trades per month" dim />
               <CheckItem text="Manual trade entry" dim />
@@ -1168,10 +1168,10 @@ export default function LandingPage() {
                 ALL FEATURES
               </div>
               <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Pro</p>
-              <p style={{ color: "#7a6a4a", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Everything you need to improve as a trader</p>
+              <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Everything you need to improve as a trader</p>
               <div style={{ marginBottom: "1.75rem" }}>
                 <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦15,000</span>
-                <span style={{ color: "#4a3a1a", fontSize: "0.875rem" }}> / month</span>
+                <span style={{ color: "#888888", fontSize: "0.875rem" }}> / month</span>
               </div>
               <CheckItem text="Unlimited trades + MT5 EA Sync" />
               <CheckItem text="Full dashboard, reports, chart review" />
@@ -1188,8 +1188,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div style={{ textAlign: "center", marginTop: "2rem" }}>
-            <p style={{ color: "#4a3a1a", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Start free, upgrade when ready.</p>
-            <p style={{ color: "#3a2a0a", fontSize: "0.875rem" }}>
+            <p style={{ color: "#888888", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Start free, upgrade when ready.</p>
+            <p style={{ color: "#888888", fontSize: "0.875rem" }}>
               <IcoLock />Secured by Paystack. Cards, bank transfer and USSD accepted.
             </p>
           </div>
@@ -1224,12 +1224,12 @@ export default function LandingPage() {
                   <div style={{ display: "flex", gap: 2, marginBottom: "1rem" }}>
                     {[1,2,3,4,5].map(s => <IcoStar key={s} color="#F5C518" />)}
                   </div>
-                  <p style={{ color: "#9a8a6a", lineHeight: 1.8, fontStyle: "italic", marginBottom: "1.5rem", fontSize: "0.9375rem" }}>&ldquo;{t.text}&rdquo;</p>
+                  <p style={{ color: "#CCCCCC", lineHeight: 1.8, fontStyle: "italic", marginBottom: "1.5rem", fontSize: "0.9375rem" }}>&ldquo;{t.text}&rdquo;</p>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0800", fontSize: "1rem", flexShrink: 0 }}>{t.name[0]}</div>
                     <div>
                       <div style={{ color: "var(--cj-text)", fontWeight: 700, fontSize: "0.875rem" }}>{t.name}</div>
-                      <div style={{ color: "#3a2a0a", fontSize: "0.8125rem" }}>{t.location}</div>
+                      <div style={{ color: "#888888", fontSize: "0.8125rem" }}>{t.location}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: 2 }}>
                         <IcoAward color="#C9A227" size={12} />
                         <span style={{ color: "#C9A227", fontSize: "0.75rem" }}>{t.badge}</span>
@@ -1261,7 +1261,7 @@ export default function LandingPage() {
               <h2 style={{ fontSize: "clamp(1.625rem,3.5vw,2.375rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "1rem", lineHeight: 1.2 }}>
                 Trade Synthetic Indices on <span className="shimmer-text">Deriv?</span>
               </h2>
-              <p style={{ color: "#6a5a3a", fontSize: "1rem", lineHeight: 1.8, marginBottom: "1.5rem" }}>
+              <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.8, marginBottom: "1.5rem" }}>
                 NIRI fully supports Deriv MT5 accounts including Volatility indices, Boom and Crash,
                 Step Index and all synthetic instruments. Connect your Deriv MT5 account and finally
                 understand your performance with clarity.
@@ -1293,7 +1293,7 @@ export default function LandingPage() {
                   border: "1px solid rgba(245,197,24,0.1)",
                   borderRadius: "0.875rem", padding: "1rem 1.25rem",
                 }}>
-                  <p style={{ color: "#5a4a2a", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>{item.label}</p>
+                  <p style={{ color: "#AAAAAA", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>{item.label}</p>
                   <p style={{ color: "#c0a040", fontSize: "0.9rem", fontWeight: 600 }}>{item.value}</p>
                 </div>
               ))}
@@ -1335,7 +1335,7 @@ export default function LandingPage() {
           <h2 style={{ fontSize: "clamp(2rem,5.5vw,3.25rem)", fontWeight: 900, color: "#f0e6c8", lineHeight: 1.1, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
             Stop Repeating the<br />Same Mistakes.
           </h2>
-          <p style={{ color: "#5a4a2a", fontSize: "1.0625rem", lineHeight: 1.8, marginBottom: "2.5rem", maxWidth: 500, margin: "0 auto 2.5rem" }}>
+          <p style={{ color: "#CCCCCC", fontSize: "1.0625rem", lineHeight: 1.8, marginBottom: "2.5rem", maxWidth: 500, margin: "0 auto 2.5rem" }}>
             Create a free account, connect your MT5, and receive your first coaching report after your next session.
           </p>
           <Link href="/login">
@@ -1344,9 +1344,9 @@ export default function LandingPage() {
             </button>
           </Link>
           <div style={{ marginTop: "0.75rem" }}>
-            <a href="#pricing" style={{ color: "#4a3a1a", fontSize: "0.9375rem", textDecoration: "underline", cursor: "pointer" }}>See Pricing</a>
+            <a href="#pricing" style={{ color: "#888888", fontSize: "0.9375rem", textDecoration: "underline", cursor: "pointer" }}>See Pricing</a>
           </div>
-          <p style={{ color: "#2a1a04", fontSize: "0.875rem", marginTop: "1.5rem" }}>
+          <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginTop: "1.5rem" }}>
             Join 500+ traders already using NIRI.
           </p>
         </div>
@@ -1362,7 +1362,7 @@ export default function LandingPage() {
                 <div style={{ width: 28, height: 28, borderRadius: "7px", background: "linear-gradient(135deg,#F5C518,#C9A227)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#0a0800", fontSize: "0.75rem" }}>NI</div>
                 <span style={{ fontWeight: 800, color: "var(--cj-text)", fontSize: "1rem", letterSpacing: "-0.01em" }}>NIRI</span>
               </div>
-              <p style={{ color: "#2a1a04", fontSize: "0.875rem", lineHeight: 1.65, maxWidth: 220 }}>
+              <p style={{ color: "#AAAAAA", fontSize: "0.875rem", lineHeight: 1.65, maxWidth: 220 }}>
                 Behavioral trading intelligence for MT5 traders worldwide.
               </p>
               <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.25rem" }}>
@@ -1379,23 +1379,23 @@ export default function LandingPage() {
               </div>
             </div>
             <div>
-              <h4 style={{ color: "#4a3a1a", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Product</h4>
+              <h4 style={{ color: "#888888", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Product</h4>
               {[["Features","#features"],["Pricing","#pricing"],["FAQ","#faq"]].map(([l,h]) => (
-                <a key={l as string} href={h as string} style={{ display: "block", color: "#2a1a04", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
+                <a key={l as string} href={h as string} style={{ display: "block", color: "#AAAAAA", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
                   onMouseEnter={e => (e.currentTarget.style.color = "#F5C518")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#2a1a04")}>{l}</a>
+                  onMouseLeave={e => (e.currentTarget.style.color = "#AAAAAA")}>{l}</a>
               ))}
             </div>
             <div>
-              <h4 style={{ color: "#4a3a1a", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Company</h4>
+              <h4 style={{ color: "#888888", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Company</h4>
               {[["About","/"],["Contact","/"],["Privacy Policy","/"],["Terms of Service","/"]].map(([l,h]) => (
-                <Link key={l as string} href={h as string} style={{ display: "block", color: "#2a1a04", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
+                <Link key={l as string} href={h as string} style={{ display: "block", color: "#AAAAAA", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
                   onMouseEnter={e => (e.currentTarget.style.color = "#F5C518")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#2a1a04")}>{l}</Link>
+                  onMouseLeave={e => (e.currentTarget.style.color = "#AAAAAA")}>{l}</Link>
               ))}
             </div>
             <div>
-              <h4 style={{ color: "#4a3a1a", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Get Started</h4>
+              <h4 style={{ color: "#888888", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Get Started</h4>
               <Link href="/login">
                 <button className="gold-btn" style={{ padding: "0.625rem 1.5rem", fontSize: "0.875rem", marginBottom: "0.75rem", width: "100%" }}>Create Account</button>
               </Link>
@@ -1405,8 +1405,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div style={{ borderTop: "1px solid rgba(245,197,24,0.06)", paddingTop: "1.5rem", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
-            <span style={{ color: "#1a0e02", fontSize: "0.8125rem" }}>© 2026 NIRI. All rights reserved.</span>
-            <span style={{ color: "#1a0e02", fontSize: "0.8125rem" }}>Built for African traders</span>
+            <span style={{ color: "#888888", fontSize: "0.8125rem" }}>© 2026 NIRI. All rights reserved.</span>
+            <span style={{ color: "#888888", fontSize: "0.8125rem" }}>Built for African traders</span>
           </div>
         </div>
       </footer>

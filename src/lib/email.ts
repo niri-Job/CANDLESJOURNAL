@@ -121,7 +121,39 @@ export async function sendDemoAccountRemovedEmail(email: string) {
   }
 }
 
-// ─── 3. Payment receipt ───────────────────────────────────────────────────────
+// ─── 3. Announcement email ────────────────────────────────────────────────────
+export async function sendAnnouncementEmail(
+  email: string,
+  subject: string,
+  message: string,
+) {
+  const paragraphs = message
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => p(line))
+    .join("");
+
+  const content = `
+    ${h1(subject)}
+    ${paragraphs}
+    ${goldButton("Go to Dashboard →", "https://niri.live/dashboard")}
+    ${p("You received this because you have a NIRI account.", "font-size:0.8125rem;color:#5a4a2a;")}`;
+
+  const { error } = await resend.emails.send({
+    from:    FROM,
+    to:      email,
+    subject,
+    html:    wrapper(content),
+  });
+
+  if (error) {
+    console.error("[email] sendAnnouncementEmail failed:", error);
+    throw error;
+  }
+}
+
+// ─── 4. Payment receipt ───────────────────────────────────────────────────────
 interface ReceiptData {
   name:            string;
   billingType:     "monthly" | "yearly";

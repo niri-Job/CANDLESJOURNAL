@@ -94,6 +94,12 @@ export default function AdminPage() {
   const [notiSubmitting,     setNotiSubmitting]     = useState(false);
   const [notiError,          setNotiError]          = useState("");
 
+  const [announceSubject,    setAnnounceSubject]    = useState("");
+  const [announceMessage,    setAnnounceMessage]    = useState("");
+  const [announceRecipients, setAnnounceRecipients] = useState<"all" | "pro">("all");
+  const [announceSending,    setAnnounceSending]    = useState(false);
+  const [announceResult,     setAnnounceResult]     = useState<{ ok: boolean; text: string } | null>(null);
+
   // Restore theme from cookie on mount
   useEffect(() => {
     const saved = readThemeCookie();
@@ -233,6 +239,33 @@ export default function AdminPage() {
   async function deleteNotification(id: string) {
     await fetch(`/api/admin/notifications?id=${id}`, { method: "DELETE" });
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }
+
+  async function handleSendAnnouncement(e: React.FormEvent) {
+    e.preventDefault();
+    if (!announceSubject.trim() || !announceMessage.trim()) return;
+    setAnnounceSending(true);
+    setAnnounceResult(null);
+    const res = await fetch("/api/admin/announce", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject: announceSubject.trim(),
+        message: announceMessage.trim(),
+        recipients: announceRecipients,
+      }),
+    });
+    setAnnounceSending(false);
+    if (res.ok) {
+      const d = (await res.json()) as { sent: number; total: number; errors?: string[] };
+      const errNote = d.errors?.length ? ` (${d.errors.length} failed)` : "";
+      setAnnounceResult({ ok: true, text: `Sent to ${d.sent} of ${d.total} recipients${errNote}.` });
+      setAnnounceSubject("");
+      setAnnounceMessage("");
+    } else {
+      const d = (await res.json()) as { error?: string };
+      setAnnounceResult({ ok: false, text: d.error ?? "Failed to send" });
+    }
   }
 
   const ThemePicker = () => (
@@ -518,6 +551,68 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
+        {/* Announcement Emailer */}
+        <section>
+          <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">
+            Send Announcement
+          </h2>
+
+          <form
+            onSubmit={handleSendAnnouncement}
+            className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-5 space-y-3"
+          >
+            <p className="text-xs text-[var(--cj-text-muted)]">
+              Sends a branded NIRI email to the selected recipients via Resend.
+            </p>
+
+            <input
+              value={announceSubject}
+              onChange={(e) => setAnnounceSubject(e.target.value)}
+              placeholder="Subject line"
+              className="w-full bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-2
+                         text-sm text-[var(--cj-text)] placeholder:text-[var(--cj-text-muted)] outline-none
+                         focus:border-[var(--cj-gold)] transition-[border-color]"
+            />
+
+            <textarea
+              value={announceMessage}
+              onChange={(e) => setAnnounceMessage(e.target.value)}
+              placeholder="Message body (each line becomes a paragraph)"
+              rows={5}
+              className="w-full bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-2
+                         text-sm text-[var(--cj-text)] placeholder:text-[var(--cj-text-muted)] outline-none
+                         focus:border-[var(--cj-gold)] transition-[border-color] resize-none"
+            />
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <select
+                value={announceRecipients}
+                onChange={(e) => setAnnounceRecipients(e.target.value as "all" | "pro")}
+                className="bg-[var(--cj-raised)] border border-[var(--cj-border)] rounded-lg px-3 py-2
+                           text-sm text-[var(--cj-text)] outline-none
+                           focus:border-[var(--cj-gold)] transition-[border-color]"
+              >
+                <option value="all">All Users</option>
+                <option value="pro">Pro Users Only</option>
+              </select>
+
+              <button
+                type="submit"
+                disabled={announceSending || !announceSubject.trim() || !announceMessage.trim()}
+                className="btn-gold px-5 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+              >
+                {announceSending ? "Sending…" : "Send Announcement"}
+              </button>
+            </div>
+
+            {announceResult && (
+              <p className={`text-xs ${announceResult.ok ? "text-emerald-400" : "text-red-400"}`}>
+                {announceResult.text}
+              </p>
+            )}
+          </form>
+        </section>
+
         {/* Notifications */}
         <section>
           <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">

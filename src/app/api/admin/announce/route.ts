@@ -121,6 +121,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     sent,
     total: emails.length,
-    errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
+    errors: errors.length > 0 ? errors : undefined,
   });
 }

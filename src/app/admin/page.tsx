@@ -112,7 +112,7 @@ export default function AdminPage() {
   const [announceRecipients, setAnnounceRecipients] = useState<"all" | "pro" | "specific">("all");
   const [announceSpecific,   setAnnounceSpecific]   = useState("");
   const [announceSending,    setAnnounceSending]    = useState(false);
-  const [announceResult,     setAnnounceResult]     = useState<{ ok: boolean; text: string } | null>(null);
+  const [announceResult,     setAnnounceResult]     = useState<{ ok: boolean; text: string; errors?: string[] } | null>(null);
 
   // Restore theme from localStorage on mount
   useEffect(() => {
@@ -293,7 +293,7 @@ export default function AdminPage() {
       const text = d.email
         ? `Email sent to ${d.email}.`
         : `Sent to ${d.sent} of ${d.total} recipients${errNote}.`;
-      setAnnounceResult({ ok: true, text });
+      setAnnounceResult({ ok: d.sent > 0, text, errors: d.errors });
       setAnnounceSubject("");
       setAnnounceMessage("");
       if (announceRecipients === "specific") setAnnounceSpecific("");
@@ -763,9 +763,23 @@ export default function AdminPage() {
             </div>
 
             {announceResult && (
-              <p className={`text-xs ${announceResult.ok ? "text-emerald-400" : "text-red-400"}`}>
-                {announceResult.text}
-              </p>
+              <div className="space-y-2">
+                <p className={`text-xs ${announceResult.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  {announceResult.text}
+                </p>
+                {announceResult.errors && announceResult.errors.length > 0 && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-amber-400 hover:text-amber-300">
+                      Show {announceResult.errors.length} failure{announceResult.errors.length !== 1 ? "s" : ""}
+                    </summary>
+                    <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto bg-zinc-900 rounded p-2">
+                      {announceResult.errors.map((e, i) => (
+                        <li key={i} className="text-red-400 font-mono break-all">{e}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
             )}
           </form>
         </section>

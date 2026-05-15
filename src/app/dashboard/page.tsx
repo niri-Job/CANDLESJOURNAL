@@ -257,25 +257,29 @@ function CalendarHeatmap({ dailyData, trades }: {
   return (
     <div>
       {/* ── Monthly summary ─────────────────────────────────────── */}
-      {monthEntries.length > 0 && (
-        <div className="grid grid-cols-4 gap-1.5 mb-4">
+      <div className="mb-4 space-y-1.5">
+        {/* Total P&L — full-width prominent card */}
+        <div className="bg-[var(--cj-raised)] rounded-lg px-4 py-2.5 flex items-center justify-between">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Total P&L</p>
+          <p className={`text-sm font-mono font-bold ${totalMonthPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            {monthEntries.length > 0 ? fmt(totalMonthPnl) : "—"}
+          </p>
+        </div>
+        {/* Four stats in a row */}
+        <div className="grid grid-cols-4 gap-1.5">
           {[
-            { label: "Month P&L",   value: fmt(totalMonthPnl),
-              color: totalMonthPnl >= 0 ? "text-emerald-400" : "text-rose-400" },
-            { label: "Green / Red", value: `${greenDays} / ${redDays}`,
-              color: "text-zinc-300" },
-            { label: "Best Day",    value: bestDay  ? fmt(parseFloat(bestDay[1].pnl.toFixed(2)))  : "—",
-              color: "text-emerald-400" },
-            { label: "Worst Day",   value: worstDay ? fmt(parseFloat(worstDay[1].pnl.toFixed(2))) : "—",
-              color: "text-rose-400" },
+            { label: "Green Days", value: monthEntries.length > 0 ? String(greenDays)  : "—", color: "text-emerald-400" },
+            { label: "Red Days",   value: monthEntries.length > 0 ? String(redDays)    : "—", color: "text-rose-400"    },
+            { label: "Best Day",   value: bestDay  ? fmt(parseFloat(bestDay[1].pnl.toFixed(2)))  : "—", color: "text-emerald-400" },
+            { label: "Worst Day",  value: worstDay ? fmt(parseFloat(worstDay[1].pnl.toFixed(2))) : "—", color: "text-rose-400"    },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-2 text-center">
-              <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-0.5">{label}</p>
-              <p className={`text-[11px] font-mono font-semibold ${color}`}>{value}</p>
+              <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">{label}</p>
+              <p className={`text-xs font-mono font-semibold ${color}`}>{value}</p>
             </div>
           ))}
         </div>
-      )}
+      </div>
 
       {/* ── Navigation ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-2">
@@ -321,22 +325,24 @@ function CalendarHeatmap({ dailyData, trades }: {
 
           return (
             <div key={i}
-              className={`h-14 rounded-[4px] flex flex-col p-1 transition-opacity select-none
-                          ${entry ? "cursor-pointer hover:opacity-75" : "cursor-default"}
+              className={`h-[72px] rounded-[5px] flex flex-col p-1.5 select-none
+                          ${entry ? "cursor-pointer" : "cursor-default"}
                           ${isToday ? "outline outline-2 outline-[var(--cj-gold)] outline-offset-[-2px]" : ""}
-                          ${isSel ? "ring-2 ring-white/50 ring-offset-1 ring-offset-transparent" : ""}`}
+                          ${isSel ? "ring-2 ring-white/50" : ""}`}
               style={{ background: bg }}
               onClick={() => entry ? setSelected(isSel ? null : ds) : undefined}
             >
-              <span className="text-[9px] text-white/40 leading-none">{day}</span>
+              {/* Day number */}
+              <span className="text-[10px] text-white/50 leading-none font-medium">{day}</span>
+              {/* PnL + count — always visible, no hover needed */}
               {entry && (
-                <div className="mt-auto flex flex-col gap-[1px]">
-                  <span className={`text-[9px] font-mono font-bold leading-tight truncate
+                <div className="mt-auto flex flex-col gap-0.5">
+                  <span className={`text-[11px] font-mono font-bold leading-tight
                                     ${entry.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
                     {fmt(parseFloat(entry.pnl.toFixed(2)))}
                   </span>
-                  <span className="text-[8px] text-white/25 leading-none">
-                    {entry.count}t
+                  <span className="text-[9px] text-white/40 leading-none">
+                    {entry.count} trade{entry.count !== 1 ? "s" : ""}
                   </span>
                 </div>
               )}

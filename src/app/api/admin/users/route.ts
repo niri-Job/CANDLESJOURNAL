@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       !!p?.subscription_end &&
       new Date(p.subscription_end) > new Date();
     const trialEnd  = p?.created_at
-      ? new Date(new Date(p.created_at).getTime() + 3 * 86_400_000)
+      ? new Date(new Date(p.created_at).getTime() + 30 * 86_400_000)
       : null;
     const trialActive = !isPro && !!trialEnd && trialEnd > new Date();
     return {
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   }
 
   if (action === "extend_trial") {
-    // Extend by 3 days: push created_at forward 3 days
+    // Extend by 30 days: push created_at forward 30 days
     const { data: profile } = await db.from("user_profiles")
       .select("created_at")
       .eq("user_id", userId)
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     if (!profile) return NextResponse.json({ error: "User profile not found" }, { status: 404 });
 
     const extended = new Date(
-      new Date(profile.created_at).getTime() + 3 * 86_400_000
+      new Date(profile.created_at).getTime() + 30 * 86_400_000
     ).toISOString();
 
     const { error } = await db.from("user_profiles")

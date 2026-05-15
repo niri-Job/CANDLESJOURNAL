@@ -8,28 +8,29 @@
 //|  2. Copy NIRI_EA.ex5 into that folder                            |
 //|  3. Restart MT5, then open Navigator (Ctrl+N)                    |
 //|  4. Tools → Options → Expert Advisors → Allow WebRequest →       |
-//|     add https://www.niri.live                                    |
+//|     add https://niri.live                                        |
 //|  5. Drag NIRI_EA onto any chart → Inputs tab →                   |
 //|     paste your token from niri.live/settings → OK               |
 //+------------------------------------------------------------------+
 #property copyright "NIRI Trading Journal"
 #property link      "https://niri.live"
-#property version   "1.00"
+#property version   "1.10"
 
 //--- Single input: your NIRI sync token from niri.live/settings
 input string InpToken = "";   // NIRI sync token (from niri.live/settings)
 
 //--- Internal
-#define WEBHOOK_URL     "https://www.niri.live/api/mt5/ea-sync"
+#define WEBHOOK_URL     "https://niri.live/api/mt5/ea-sync"
 #define CHECK_INTERVAL  5       // seconds between history scans
 #define REQUEST_TIMEOUT 8000    // ms per WebRequest call
 #define MAX_RETRIES     3
 #define MAX_SENT        5000    // in-memory dedup ring buffer size
 
-datetime g_lastCheck  = 0;
-datetime g_syncWindow = 0;   // oldest time to look for deals
-bool     g_ready      = false;
-string   g_account    = "";  // auto-detected from MT5 on init
+datetime g_lastCheck   = 0;
+datetime g_syncWindow  = 0;
+bool     g_ready       = false;
+string   g_account     = "";
+string   g_accountType = "";
 
 ulong g_sent[];
 int   g_sentCount = 0;
@@ -44,17 +45,62 @@ int OnInit()
       return INIT_FAILED;
      }
 
-   g_account    = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
+   g_account = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
+
+   ENUM_ACCOUNT_TRADE_MODE tradeMode = (ENUM_ACCOUNT_TRADE_MODE)AccountInfoInteger(ACCOUNT_TRADE_MODE);
+   g_accountType = (tradeMode == ACCOUNT_TRADE_MODE_REAL) ? "live" : "demo";
+
    ArrayResize(g_sent, MAX_SENT);
    g_sentCount  = 0;
-   g_syncWindow = D'2000.01.01 00:00';   // scan entire account history
+   g_syncWindow = D'2000.01.01 00:00';
    g_lastCheck  = TimeCurrent();
-   g_ready      = true;
 
-   Print("NIRI EA v1.0 — Active on account #", g_account,
-         " (", AccountInfoString(ACCOUNT_SERVER), ")");
+   Print("NIRI EA v1.10 — Active on account #", g_account,
+         " (", AccountInfoString(ACCOUNT_SERVER), ")",
+         " type=", g_accountType);
+   Print("NIRI EA — Server URL: ", WEBHOOK_URL);
+
+   PingServer();
+
+   g_ready = true;
    Print("NIRI EA — Scanning full account history from 2000.01.01");
    return INIT_SUCCEEDED;
+  }
+
+//+------------------------------------------------------------------+
+// Sends a minimal ping to verify WebRequest is allowed and token is valid.
+// Server returns 400 (missing required fields) for a valid token — that's fine.
+void PingServer()
+  {
+   string pingJson    = "{\"account_number\":\"ping\",\"account_type\":\"ping\"}";
+   string reqHeaders  = "Content-Type: application/json\r\nAuthorization: Bearer " + InpToken;
+
+   uchar  reqData[];
+   uchar  resData[];
+   string resHeaders;
+   StringToCharArray(pingJson, reqData, 0, StringLen(pingJson));
+
+   int code = WebRequest("POST", WEBHOOK_URL, reqHeaders,
+                         REQUEST_TIMEOUT, reqData, resData, resHeaders);
+
+   if(code == -1)
+     {
+      Alert("NIRI EA — WebRequest blocked.\n\n"
+            "Fix: MT5 → Tools → Options → Expert Advisors\n"
+            "→ Allow WebRequest for listed URL\n"
+            "→ Add: https://niri.live");
+      return;
+     }
+
+   if(code == 401)
+     {
+      Alert("NIRI EA — Invalid token (401).\n"
+            "Generate a new token at niri.live/settings and re-attach the EA.");
+      return;
+     }
+
+   // 400 = server got request, fields missing is expected for ping = connection OK
+   Print(StringFormat("NIRI EA — Ping response: HTTP %d — server reachable", code));
   }
 
 //+------------------------------------------------------------------+
@@ -76,7 +122,7 @@ void OnTick()
 //+------------------------------------------------------------------+
 void ScanDeals()
   {
-   datetime from = g_syncWindow - 120;   // 2-minute safety buffer
+   datetime from = g_syncWindow - 120;
    datetime to   = TimeCurrent() + 60;
 
    if(!HistorySelect(from, to)) return;
@@ -100,15 +146,14 @@ void ScanDeals()
 
       int result = PushDeal(ticket);
       if(result == 1)
-         MarkSent(ticket);         // success — skip on future scans
+         MarkSent(ticket);         // success
       else if(result == -1)
-         MarkSent(ticket);         // permanent error — skip forever, don't retry
+         MarkSent(ticket);         // permanent error — skip forever
       else
-         anyTransientFail = true;  // network/server error — keep in window for retry
+         anyTransientFail = true;  // transient — retry next scan
      }
 
-   // Only advance sync window when every deal in this batch succeeded or got a permanent error.
-   // Transient failures keep the window in place so they're retried on the next scan.
+   // Only advance sync window when every deal succeeded or got a permanent error
    if(!anyTransientFail && g_syncWindow < TimeCurrent() - 2 * CHECK_INTERVAL)
       g_syncWindow = TimeCurrent() - 2 * CHECK_INTERVAL;
   }
@@ -128,13 +173,11 @@ int PushDeal(ulong closeTicket)
    string comment    = HistoryDealGetString(closeTicket, DEAL_COMMENT);
    long   posId      = HistoryDealGetInteger(closeTicket, DEAL_POSITION_ID);
 
-   // Closing deal type is the opposite of the original position direction:
-   // DEAL_TYPE_BUY on a close = original SELL position; DEAL_TYPE_SELL on close = BUY position
+   // Closing deal type is opposite of original position direction
    string direction = (dealType == DEAL_TYPE_SELL) ? "BUY" : "SELL";
    double openPrice = 0.0;
    long   openTime  = 0;
 
-   // Look up the entry deal to get original open price / open time
    if(HistorySelectByPosition(posId))
      {
       int n = HistoryDealsTotal();
@@ -150,26 +193,25 @@ int PushDeal(ulong closeTicket)
             break;
            }
         }
-      // Restore the main history window
       HistorySelect(g_syncWindow - 120, TimeCurrent() + 60);
      }
 
-   // Build JSON — manual construction avoids external library dependency
    string json =
       "{"
-      "\"account_number\":\"" + g_account          + "\","
-      "\"ticket\":"           + IntegerToString((long)closeTicket) + ","
-      "\"symbol\":\""         + symbol              + "\","
-      "\"type\":\""           + direction           + "\","
-      "\"volume\":"           + DoubleToString(volume,     2) + ","
-      "\"open_price\":"       + DoubleToString(openPrice,  5) + ","
-      "\"close_price\":"      + DoubleToString(closePrice, 5) + ","
-      "\"open_time\":"        + IntegerToString(openTime)     + ","
-      "\"close_time\":"       + IntegerToString(closeTime)    + ","
-      "\"profit\":"           + DoubleToString(profit,     2) + ","
-      "\"commission\":"       + DoubleToString(commission, 2) + ","
-      "\"swap\":"             + DoubleToString(swap_val,   2) + ","
-      "\"comment\":\""        + EscapeJson(comment)          + "\""
+      "\"account_number\":\"" + g_account                          + "\","
+      "\"account_type\":\""   + g_accountType                      + "\","
+      "\"ticket\":"           + IntegerToString((long)closeTicket)  + ","
+      "\"symbol\":\""         + symbol                             + "\","
+      "\"type\":\""           + direction                          + "\","
+      "\"volume\":"           + DoubleToString(volume,     2)       + ","
+      "\"open_price\":"       + DoubleToString(openPrice,  5)       + ","
+      "\"close_price\":"      + DoubleToString(closePrice, 5)       + ","
+      "\"open_time\":"        + IntegerToString(openTime)           + ","
+      "\"close_time\":"       + IntegerToString(closeTime)          + ","
+      "\"profit\":"           + DoubleToString(profit,     2)       + ","
+      "\"commission\":"       + DoubleToString(commission, 2)       + ","
+      "\"swap\":"             + DoubleToString(swap_val,   2)       + ","
+      "\"comment\":\""        + EscapeJson(comment)                 + "\""
       "}";
 
    string reqHeaders =
@@ -186,6 +228,10 @@ int PushDeal(ulong closeTicket)
       int code = WebRequest("POST", WEBHOOK_URL, reqHeaders,
                             REQUEST_TIMEOUT, reqData, resData, resHeaders);
 
+      string resStr = CharArrayToString(resData);
+      Print(StringFormat("NIRI EA — #%I64d attempt %d/%d → HTTP %d | %s",
+                          (long)closeTicket, attempt, MAX_RETRIES, code, resStr));
+
       if(code == 200)
         {
          Print(StringFormat("NIRI EA — Synced #%I64d %s %s %.2f lots | P&L: %.2f",
@@ -193,12 +239,20 @@ int PushDeal(ulong closeTicket)
          return 1;
         }
 
+      if(code == 401)
+        {
+         Alert("NIRI EA — Token rejected (401).\n"
+               "Generate a new token at niri.live/settings and re-attach the EA.");
+         return -1;   // permanent — token is invalid
+        }
+
       if(code == 403)
         {
-         Alert("NIRI EA — Server rejected sync.\n"
+         Print(StringFormat("NIRI EA — Forbidden (403): %s", resStr));
+         Alert("NIRI EA — Server rejected sync (403).\n"
                "Your token may be for a different account.\n"
                "Generate a new token at niri.live/settings");
-         return -1;   // permanent — don't retry
+         return -1;   // permanent — wrong account
         }
 
       if(code == -1)
@@ -206,8 +260,8 @@ int PushDeal(ulong closeTicket)
          Alert("NIRI EA — WebRequest blocked.\n\n"
                "Fix: MT5 → Tools → Options → Expert Advisors\n"
                "→ Allow WebRequest for listed URL\n"
-               "→ Add: https://www.niri.live");
-         return -1;   // permanent — missing URL permission
+               "→ Add: https://niri.live");
+         return -1;   // permanent — URL not whitelisted
         }
 
       if(attempt < MAX_RETRIES)
@@ -222,7 +276,7 @@ int PushDeal(ulong closeTicket)
                              (long)closeTicket, MAX_RETRIES, code));
         }
      }
-   return 0;   // transient failure — will be retried on next scan
+   return 0;   // transient — retry next scan
   }
 
 //+------------------------------------------------------------------+

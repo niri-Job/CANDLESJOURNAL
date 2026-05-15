@@ -305,43 +305,55 @@ function CalendarHeatmap({ dailyData, trades }: {
       </div>
 
       {/* ── Day cells ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-7 gap-[3px]">
+      <div className="grid grid-cols-7 gap-1">
         {cells.map((day, i) => {
-          if (day === null) return <div key={i} className="h-14" />;
+          if (day === null) return <div key={i} className="h-[76px]" />;
           const ds      = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const entry   = dailyData[ds];
           const isToday = ds === todayStr;
           const isSel   = ds === selected;
 
-          let bg = "rgba(39,39,42,0.5)";
-          if (entry) {
-            const intensity = 0.15 + (Math.abs(entry.pnl) / maxAbs) * 0.45;
-            bg = entry.pnl > 0
-              ? `rgba(52,211,153,${intensity.toFixed(2)})`
-              : entry.pnl < 0
-              ? `rgba(248,113,113,${intensity.toFixed(2)})`
-              : "rgba(113,113,122,0.30)";
+          // Solid, opaque backgrounds — clearly readable on any theme
+          let bg: string;
+          let border: string;
+          if (entry && entry.pnl > 0) {
+            const intensity = 0.28 + (Math.abs(entry.pnl) / maxAbs) * 0.52;
+            bg     = `rgba(16,185,129,${intensity.toFixed(2)})`;   // emerald-500
+            border = "1px solid rgba(16,185,129,0.6)";
+          } else if (entry && entry.pnl < 0) {
+            const intensity = 0.28 + (Math.abs(entry.pnl) / maxAbs) * 0.52;
+            bg     = `rgba(239,68,68,${intensity.toFixed(2)})`;    // red-500
+            border = "1px solid rgba(239,68,68,0.6)";
+          } else if (entry) {
+            bg     = "rgba(113,113,122,0.35)";
+            border = "1px solid rgba(113,113,122,0.3)";
+          } else {
+            bg     = "rgba(113,113,122,0.12)";
+            border = "1px solid rgba(113,113,122,0.15)";
           }
 
           return (
             <div key={i}
-              className={`h-[72px] rounded-[5px] flex flex-col p-1.5 select-none
+              className={`h-[76px] rounded-lg flex flex-col p-2 select-none
                           ${entry ? "cursor-pointer" : "cursor-default"}
                           ${isToday ? "outline outline-2 outline-[var(--cj-gold)] outline-offset-[-2px]" : ""}
-                          ${isSel ? "ring-2 ring-white/50" : ""}`}
-              style={{ background: bg }}
+                          ${isSel ? "ring-2 ring-white ring-offset-1 ring-offset-transparent" : ""}`}
+              style={{ background: bg, border }}
               onClick={() => entry ? setSelected(isSel ? null : ds) : undefined}
             >
-              {/* Day number */}
-              <span className="text-[10px] text-white/50 leading-none font-medium">{day}</span>
-              {/* PnL + count — always visible, no hover needed */}
+              {/* Day number — always dark/bold so it's readable */}
+              <span className={`text-[11px] font-semibold leading-none
+                                ${entry ? "text-white/80" : "text-[var(--cj-text-muted)]"}`}>
+                {day}
+              </span>
+
+              {/* PnL + trade count — white on colored cell, always crisp */}
               {entry && (
-                <div className="mt-auto flex flex-col gap-0.5">
-                  <span className={`text-[11px] font-mono font-bold leading-tight
-                                    ${entry.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                <div className="mt-auto flex flex-col gap-[3px]">
+                  <span className="text-[12px] font-mono font-extrabold leading-none text-white drop-shadow-sm">
                     {fmt(parseFloat(entry.pnl.toFixed(2)))}
                   </span>
-                  <span className="text-[9px] text-white/40 leading-none">
+                  <span className="text-[10px] font-medium leading-none text-white/70">
                     {entry.count} trade{entry.count !== 1 ? "s" : ""}
                   </span>
                 </div>

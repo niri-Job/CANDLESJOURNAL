@@ -556,7 +556,7 @@ export default function LandingPage() {
           <Link href="/login" className="nav-a">Log in</Link>
           <Link href="/login">
             <button className="gold-btn" style={{ padding: "0.5rem 1.25rem", fontSize: "0.875rem" }}>
-              Start Free, No Card Needed
+              Start 30-Day Free Trial
             </button>
           </Link>
         </div>
@@ -584,7 +584,7 @@ export default function LandingPage() {
         <Link href="/login" className="nav-a" style={{ fontSize: "1.25rem" }} onClick={closeMenu}>Log in</Link>
         <Link href="/login" onClick={closeMenu}>
           <button className="gold-btn" style={{ padding: "1rem 2rem", fontSize: "1rem", width: "100%", marginTop: "0.5rem" }}>
-            Start Free, No Card Needed
+            Start 30-Day Free Trial
           </button>
         </Link>
       </div>
@@ -640,7 +640,7 @@ export default function LandingPage() {
               </div>
 
               <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                {["No credit card required", "MT5 sync in under 5 minutes", "Cancel anytime"].map(t => (
+                {["30-day free trial", "No credit card required", "MT5 sync in under 5 minutes"].map(t => (
                   <span key={t} style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>• {t}</span>
                 ))}
               </div>
@@ -1190,14 +1190,14 @@ export default function LandingPage() {
               <CheckItem text="1 trading account" dim />
               <Link href="/login">
                 <button className="outline-btn" style={{ width: "100%", padding: "0.9375rem", fontSize: "0.9375rem", marginTop: "1.75rem" }}>
-                  Start Free
+                  Start 30-Day Free Trial
                 </button>
               </Link>
             </div>
 
             <div className="lp-card" style={{ background: "linear-gradient(145deg,#1e1a06,#131000)", border: "2px solid #F5C518", borderRadius: "1.375rem", padding: "2.25rem", position: "relative", boxShadow: "0 0 50px rgba(245,197,24,0.1)" }}>
               <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0a0800", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
-                ALL FEATURES
+                30-Day Free Trial — No Card Required
               </div>
               <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Pro</p>
               <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Everything you need to improve as a trader</p>
@@ -1214,13 +1214,13 @@ export default function LandingPage() {
               <CheckItem text="Referral earnings + priority support" />
               <Link href="/login">
                 <button className="gold-btn" style={{ width: "100%", padding: "0.9375rem", fontSize: "0.9375rem", marginTop: "1.75rem" }}>
-                  Get Pro, Start Free
+                  Start Your 30-Day Free Trial
                 </button>
               </Link>
             </div>
           </div>
           <div style={{ textAlign: "center", marginTop: "2rem" }}>
-            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Start free, upgrade when ready.</p>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Try free for 30 days, upgrade when ready.</p>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>
               <IcoLock />Secured by Paystack. Cards, bank transfer and USSD accepted.
             </p>
@@ -1349,8 +1349,10 @@ export default function LandingPage() {
               a="No. Download the free NiriEA, attach it to any chart in MT5, and trades sync automatically the moment they close. No manual work is required." />
             <FaqItem q="How does the coaching report work?"
               a="After each session, NIRI analyses your trade history and generates a report covering your best and worst trades, behavioral patterns such as revenge trading or early exits, and specific observations for the next session." />
+            <FaqItem q="How does the free trial work?"
+              a="Every new account gets 30 days of full access to explore NIRI. No credit card required. After 30 days, upgrade to Pro for ₦15,000/month to keep your account active and all your data." />
             <FaqItem q="Is it free to start?"
-              a="Yes. No credit card is required to create an account. Upgrade to Pro (₦15,000/month) when you want access to all features." />
+              a="Yes. No credit card is required to create an account. You get a full 30-day free trial, then upgrade to Pro (₦15,000/month) when you're ready." />
             <FaqItem q="Which brokers does NIRI support?"
               a="NIRI works with any broker that provides an MT5 platform. This includes Exness, ICMarkets, HFM, FBS, OctaFX, XM, Deriv and hundreds more." />
             <FaqItem q="Is my trading data secure?"
@@ -1372,7 +1374,7 @@ export default function LandingPage() {
           </p>
           <Link href="/login">
             <button className="gold-btn" style={{ padding: "1.0625rem 2.75rem", fontSize: "1.125rem", marginBottom: "1rem", animation: "pulseGold 2.5s ease infinite" }}>
-              Start Free, No Card Needed
+              Start 30-Day Free Trial
             </button>
           </Link>
           <div style={{ marginTop: "0.75rem" }}>

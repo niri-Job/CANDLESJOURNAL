@@ -486,7 +486,7 @@ export default function TradingJournal() {
           const isPaid = p.subscription_status === "pro" &&
             !!p.subscription_end && new Date(p.subscription_end) > new Date();
           if (!isPaid && p.created_at) {
-            const trialEnd = new Date(new Date(p.created_at).getTime() + 3 * 86_400_000);
+            const trialEnd = new Date(new Date(p.created_at).getTime() + 30 * 86_400_000);
             const days = Math.max(0, Math.ceil((trialEnd.getTime() - Date.now()) / 86_400_000));
             setTrialDaysLeft(days);
             if (days === 0) setShowUpgradeModal(true);
@@ -951,7 +951,7 @@ export default function TradingJournal() {
                   Trial Expired
                 </div>
                 <h3 className="text-2xl font-bold text-zinc-100 mb-3">
-                  Your 3-day trial has ended
+                  Your 30-day trial has ended
                 </h3>
                 <p className="text-sm text-zinc-400 leading-relaxed mb-2 max-w-sm mx-auto">
                   Upgrade to Pro to continue using AI analysis, Market Intelligence, MT5 sync, and all other features.

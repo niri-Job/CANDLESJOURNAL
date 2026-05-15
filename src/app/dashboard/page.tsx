@@ -197,16 +197,14 @@ function WinRateChart({ data }: { data: { pair: string; winRate: number; total: 
 }
 
 // ─── Calendar Heatmap ─────────────────────────────────────────────────────────
-// Uses fixed h-8 cells so height is deterministic (no overflow into adjacent sections).
-function CalendarHeatmap({ dailyData }: {
+function CalendarHeatmap({ dailyData, trades }: {
   dailyData: Record<string, { pnl: number; count: number }>;
+  trades: Trade[];
 }) {
   const today = new Date();
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
-  const [tip, setTip] = useState<{
-    date: string; pnl: number; count: number; x: number; y: number;
-  } | null>(null);
+  const [selected,  setSelected]  = useState<string | null>(null);
 
   const canGoNext =
     viewYear < today.getFullYear() ||
@@ -225,14 +223,17 @@ function CalendarHeatmap({ dailyData }: {
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
 
-  // Max abs PnL this month for intensity scaling
-  const monthValues = Object.entries(dailyData)
-    .filter(([ds]) => {
-      const [y, mo] = ds.split("-").map(Number);
-      return y === viewYear && mo === viewMonth + 1;
-    })
-    .map(([, v]) => Math.abs(v.pnl));
-  const maxAbs = monthValues.length > 0 ? Math.max(...monthValues) : 0.01;
+  const monthEntries = Object.entries(dailyData).filter(([ds]) => {
+    const [y, mo] = ds.split("-").map(Number);
+    return y === viewYear && mo === viewMonth + 1;
+  });
+
+  const maxAbs       = monthEntries.length > 0 ? Math.max(...monthEntries.map(([, v]) => Math.abs(v.pnl))) : 0.01;
+  const totalMonthPnl = parseFloat(monthEntries.reduce((s, [, v]) => s + v.pnl, 0).toFixed(2));
+  const greenDays    = monthEntries.filter(([, v]) => v.pnl > 0).length;
+  const redDays      = monthEntries.filter(([, v]) => v.pnl < 0).length;
+  const bestDay      = monthEntries.length > 0 ? monthEntries.reduce((a, b) => a[1].pnl > b[1].pnl ? a : b) : null;
+  const worstDay     = monthEntries.length > 0 ? monthEntries.reduce((a, b) => a[1].pnl < b[1].pnl ? a : b) : null;
 
   const cells: (number | null)[] = [
     ...Array(firstDay).fill(null),
@@ -240,14 +241,43 @@ function CalendarHeatmap({ dailyData }: {
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const todayStr  = today.toISOString().split("T")[0];
+  const todayStr   = today.toISOString().split("T")[0];
   const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleString("default", {
     month: "long", year: "numeric",
   });
 
+  // Selected day data
+  const selTrades  = selected ? trades.filter((t) => t.date === selected) : [];
+  const selEntry   = selected ? dailyData[selected] : null;
+  const selWins    = selTrades.filter((t) => t.pnl > 0).length;
+  const selWinRate = selTrades.length > 0 ? Math.round((selWins / selTrades.length) * 100) : 0;
+  const selBest    = selTrades.length > 0 ? selTrades.reduce((a, b) => a.pnl > b.pnl ? a : b) : null;
+  const selWorst   = selTrades.length > 0 ? selTrades.reduce((a, b) => a.pnl < b.pnl ? a : b) : null;
+
   return (
     <div>
-      {/* Navigation */}
+      {/* ── Monthly summary ─────────────────────────────────────── */}
+      {monthEntries.length > 0 && (
+        <div className="grid grid-cols-4 gap-1.5 mb-4">
+          {[
+            { label: "Month P&L",   value: fmt(totalMonthPnl),
+              color: totalMonthPnl >= 0 ? "text-emerald-400" : "text-rose-400" },
+            { label: "Green / Red", value: `${greenDays} / ${redDays}`,
+              color: "text-zinc-300" },
+            { label: "Best Day",    value: bestDay  ? fmt(parseFloat(bestDay[1].pnl.toFixed(2)))  : "—",
+              color: "text-emerald-400" },
+            { label: "Worst Day",   value: worstDay ? fmt(parseFloat(worstDay[1].pnl.toFixed(2))) : "—",
+              color: "text-rose-400" },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-2 text-center">
+              <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-0.5">{label}</p>
+              <p className={`text-[11px] font-mono font-semibold ${color}`}>{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Navigation ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-2">
         <button onClick={prevMonth}
           className="w-7 h-7 flex items-center justify-center text-lg text-zinc-500
@@ -263,56 +293,146 @@ function CalendarHeatmap({ dailyData }: {
         </button>
       </div>
 
-      {/* Weekday headers */}
+      {/* ── Weekday headers ─────────────────────────────────────── */}
       <div className="grid grid-cols-7 gap-[3px] mb-[3px]">
         {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d, i) => (
-          <div key={i} className="text-[13px] text-zinc-600 text-center">{d}</div>
+          <div key={i} className="text-[10px] text-zinc-600 text-center">{d}</div>
         ))}
       </div>
 
-      {/* Day cells — fixed h-8 so no overflow */}
+      {/* ── Day cells ───────────────────────────────────────────── */}
       <div className="grid grid-cols-7 gap-[3px]">
         {cells.map((day, i) => {
-          if (day === null) return <div key={i} className="h-8" />;
-          const ds = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          if (day === null) return <div key={i} className="h-14" />;
+          const ds      = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const entry   = dailyData[ds];
           const isToday = ds === todayStr;
+          const isSel   = ds === selected;
 
           let bg = "rgba(39,39,42,0.5)";
           if (entry) {
-            const intensity = 0.25 + (Math.abs(entry.pnl) / maxAbs) * 0.65;
+            const intensity = 0.15 + (Math.abs(entry.pnl) / maxAbs) * 0.45;
             bg = entry.pnl > 0
               ? `rgba(52,211,153,${intensity.toFixed(2)})`
               : entry.pnl < 0
               ? `rgba(248,113,113,${intensity.toFixed(2)})`
-              : "rgba(113,113,122,0.35)";
+              : "rgba(113,113,122,0.30)";
           }
 
           return (
             <div key={i}
-              className={`h-8 rounded-[3px] flex items-end justify-end cursor-default
-                          hover:opacity-75 transition-opacity
-                          ${isToday ? "outline outline-2 outline-[var(--cj-gold)] outline-offset-[-2px]" : ""}`}
+              className={`h-14 rounded-[4px] flex flex-col p-1 transition-opacity select-none
+                          ${entry ? "cursor-pointer hover:opacity-75" : "cursor-default"}
+                          ${isToday ? "outline outline-2 outline-[var(--cj-gold)] outline-offset-[-2px]" : ""}
+                          ${isSel ? "ring-2 ring-white/50 ring-offset-1 ring-offset-transparent" : ""}`}
               style={{ background: bg }}
-              onMouseEnter={(e) => entry && setTip({ date: ds, pnl: entry.pnl, count: entry.count, x: e.clientX, y: e.clientY })}
-              onMouseMove={(e)  => entry && setTip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
-              onMouseLeave={() => setTip(null)}
+              onClick={() => entry ? setSelected(isSel ? null : ds) : undefined}
             >
-              <span className="text-[13px] text-white/40 leading-none pr-[3px] pb-[2px]">{day}</span>
+              <span className="text-[9px] text-white/40 leading-none">{day}</span>
+              {entry && (
+                <div className="mt-auto flex flex-col gap-[1px]">
+                  <span className={`text-[9px] font-mono font-bold leading-tight truncate
+                                    ${entry.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                    {fmt(parseFloat(entry.pnl.toFixed(2)))}
+                  </span>
+                  <span className="text-[8px] text-white/25 leading-none">
+                    {entry.count}t
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      {tip && (
-        <div className="fixed z-50 bg-[var(--cj-raised)] border border-zinc-700 rounded-lg
-                        px-3 py-2 text-xs shadow-xl pointer-events-none"
-             style={{ left: tip.x + 14, top: tip.y - 42 }}>
-          <p className="text-zinc-400 mb-0.5">{tip.date}</p>
-          <p className={`font-mono font-semibold ${tip.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-            {fmt(tip.pnl)}
-          </p>
-          <p className="text-zinc-600 mt-0.5">{tip.count} trade{tip.count !== 1 ? "s" : ""}</p>
+      {/* ── Day detail modal ────────────────────────────────────── */}
+      {selected && selEntry && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="relative w-full max-w-sm mx-4 bg-[var(--cj-surface)] border border-zinc-700
+                        rounded-2xl shadow-2xl p-5 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-[11px] text-zinc-500 mb-0.5">{selected}</p>
+                <p className={`text-xl font-mono font-bold
+                               ${selEntry.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {fmt(parseFloat(selEntry.pnl.toFixed(2)))}
+                </p>
+              </div>
+              <button onClick={() => setSelected(null)}
+                className="text-zinc-500 hover:text-zinc-200 transition-colors p-1 -mr-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {[
+                { label: "Trades",   value: String(selTrades.length), color: "text-zinc-300" },
+                { label: "Win Rate", value: `${selWinRate}%`,          color: selWinRate >= 50 ? "text-emerald-400" : "text-rose-400" },
+                { label: "Best",     value: selBest  ? fmt(selBest.pnl)  : "—", color: "text-emerald-400" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-2 text-center">
+                  <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-0.5">{label}</p>
+                  <p className={`text-xs font-mono font-semibold ${color}`}>{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Best / Worst callout */}
+            {selBest && selWorst && selTrades.length > 1 && (
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="bg-emerald-500/8 border border-emerald-500/15 rounded-lg px-3 py-2">
+                  <p className="text-[9px] text-emerald-700 uppercase mb-0.5">Best trade</p>
+                  <p className="text-xs font-mono font-semibold text-emerald-400">
+                    {selBest.pair} · {fmt(selBest.pnl)}
+                  </p>
+                </div>
+                <div className="bg-rose-500/8 border border-rose-500/15 rounded-lg px-3 py-2">
+                  <p className="text-[9px] text-rose-700 uppercase mb-0.5">Worst trade</p>
+                  <p className="text-xs font-mono font-semibold text-rose-400">
+                    {selWorst.pair} · {fmt(selWorst.pnl)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Trade list */}
+            <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2">All trades</p>
+            <ul className="space-y-1.5">
+              {selTrades.map((t) => (
+                <li key={t.id}
+                  className="flex items-center justify-between bg-[var(--cj-raised)]
+                             rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-semibold text-zinc-200">{t.pair}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded
+                                      ${t.direction === "BUY"
+                                        ? "bg-emerald-500/10 text-emerald-400"
+                                        : "bg-rose-500/10 text-rose-400"}`}>
+                      {t.direction}
+                    </span>
+                    {t.lot > 0 && (
+                      <span className="text-[10px] text-zinc-600">{t.lot}L</span>
+                    )}
+                  </div>
+                  <span className={`text-xs font-mono font-semibold
+                                    ${t.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {fmt(t.pnl)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
     </div>
@@ -1236,7 +1356,7 @@ export default function TradingJournal() {
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
             <p className="card-label mb-4">Daily P&L Calendar</p>
             {/* No fixed height — CalendarHeatmap uses fixed h-8 cells, no overflow */}
-            <CalendarHeatmap dailyData={dailyData} />
+            <CalendarHeatmap dailyData={dailyData} trades={accountTrades} />
           </div>
 
         </div>

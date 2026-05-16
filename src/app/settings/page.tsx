@@ -35,6 +35,16 @@ interface EaTokenRow {
   last_used_at: string | null;
 }
 
+interface DerivConnection {
+  connected:        boolean;
+  deriv_account_id: string | null;
+  account_currency: string | null;
+  status:           string;
+  last_synced_at:   string | null;
+  last_error:       string | null;
+  total_synced:     number;
+}
+
 function timeAgo(iso: string | null): string {
   if (!iso) return "Never";
   const diff = Date.now() - new Date(iso).getTime();
@@ -225,6 +235,18 @@ export default function SettingsPage() {
   const [generating,    setGenerating]    = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
+  // Deriv state
+  const [derivConn,       setDerivConn]       = useState<DerivConnection | null>(null);
+  const [derivToken,      setDerivToken]      = useState("");
+  const [derivConnecting, setDerivConnecting] = useState(false);
+  const [derivSyncing,    setDerivSyncing]    = useState(false);
+  const [derivError,      setDerivError]      = useState<string | null>(null);
+
+  // CSV state
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvResult,    setCsvResult]    = useState<{ inserted: number; duplicates: number } | null>(null);
+  const [csvError,     setCsvError]     = useState<string | null>(null);
+
   // Delete modal state
   const [deleteTarget, setDeleteTarget] = useState<TradingAccount | null>(null);
   const [deleting,     setDeleting]     = useState(false);
@@ -253,7 +275,7 @@ export default function SettingsPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
-      const [subRes, accountsRes, tokenRes] = await Promise.all([
+      const [subRes, accountsRes, tokenRes, derivRes] = await Promise.all([
         supabase
           .from("user_profiles")
           .select("subscription_status, subscription_end")
@@ -269,6 +291,7 @@ export default function SettingsPage() {
           .select("token, account_number, broker_server, last_used_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
+        fetch("/api/deriv/status").then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
 
       const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
@@ -276,6 +299,7 @@ export default function SettingsPage() {
 
       if (accountsRes.data) setTradingAccounts(accountsRes.data as TradingAccount[]);
       if (tokenRes.data)    setEaTokens(tokenRes.data as EaTokenRow[]);
+      if (derivRes)         setDerivConn(derivRes as DerivConnection);
 
       setLoading(false);
     }
@@ -374,6 +398,89 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleDerivConnect(e: React.FormEvent) {
+    e.preventDefault();
+    if (!derivToken.trim()) { setDerivError("Enter your Deriv API token."); return; }
+    setDerivConnecting(true);
+    setDerivError(null);
+    try {
+      const res  = await fetch("/api/deriv/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_token: derivToken.trim() }),
+      });
+      const json = await res.json() as { success?: boolean; account_id?: string; currency?: string; inserted?: number; duplicates?: number; error?: string };
+      if (!res.ok) {
+        setDerivError(json.error ?? "Connection failed.");
+      } else {
+        setDerivConn({ connected: true, deriv_account_id: json.account_id ?? null, account_currency: json.currency ?? "USD", status: "connected", last_synced_at: new Date().toISOString(), last_error: null, total_synced: json.inserted ?? 0 });
+        setDerivToken("");
+        await refreshAccounts();
+        showToast(`Deriv connected — ${json.inserted ?? 0} trades synced.`);
+      }
+    } catch {
+      setDerivError("Network error — check your connection.");
+    } finally {
+      setDerivConnecting(false);
+    }
+  }
+
+  async function handleDerivSync() {
+    setDerivSyncing(true);
+    setDerivError(null);
+    try {
+      const res  = await fetch("/api/deriv/sync", { method: "POST" });
+      const json = await res.json() as { success?: boolean; new_trades?: number; duplicates?: number; error?: string };
+      if (!res.ok) {
+        setDerivError(json.error ?? "Sync failed.");
+      } else {
+        setDerivConn((prev) => prev ? { ...prev, last_synced_at: new Date().toISOString(), total_synced: (prev.total_synced ?? 0) + (json.new_trades ?? 0) } : prev);
+        await refreshAccounts();
+        showToast(`Synced — ${json.new_trades ?? 0} new trades.`);
+      }
+    } catch {
+      setDerivError("Network error.");
+    } finally {
+      setDerivSyncing(false);
+    }
+  }
+
+  async function handleDerivDisconnect() {
+    if (!confirm("Disconnect your Deriv account? Your existing synced trades will stay in NIRI.")) return;
+    await fetch("/api/deriv/connect", { method: "DELETE" });
+    setDerivConn(null);
+    showToast("Deriv account disconnected.");
+  }
+
+  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvImporting(true);
+    setCsvResult(null);
+    setCsvError(null);
+    try {
+      const text = await file.text();
+      const res  = await fetch("/api/trades/import-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv_content: text }),
+      });
+      const json = await res.json() as { success?: boolean; inserted?: number; duplicates?: number; total?: number; error?: string };
+      if (!res.ok) {
+        setCsvError(json.error ?? "Import failed.");
+      } else {
+        setCsvResult({ inserted: json.inserted ?? 0, duplicates: json.duplicates ?? 0 });
+        await refreshAccounts();
+        showToast(`${json.inserted ?? 0} trades imported successfully.`);
+      }
+    } catch {
+      setCsvError("Failed to read file.");
+    } finally {
+      setCsvImporting(false);
+      e.target.value = "";
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center">
@@ -405,6 +512,67 @@ export default function SettingsPage() {
 
       <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[680px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
+
+        {/* ── SYNC METHOD OVERVIEW ──────────────────────────────────────────── */}
+        <div className="mb-6">
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Sync Method</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* MT5 EA card */}
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                     style={{ background: "rgba(245,197,24,0.1)", border: "1px solid rgba(245,197,24,0.2)" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cj-gold)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                  </svg>
+                </div>
+                <span className="text-xs font-bold text-zinc-200">MT5 EA</span>
+              </div>
+              <p className="text-[11px] text-zinc-500 leading-relaxed">Best for real-time auto sync from MetaTrader 5.</p>
+              <div className="mt-auto">
+                {eaTokens.length > 0
+                  ? <span className="flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Connected</span>
+                  : <span className="flex items-center gap-1.5 text-[11px] text-zinc-500"><span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />Not set up</span>}
+              </div>
+            </div>
+
+            {/* Deriv API card */}
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                     style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                  </svg>
+                </div>
+                <span className="text-xs font-bold text-zinc-200">Deriv API</span>
+              </div>
+              <p className="text-[11px] text-zinc-500 leading-relaxed">Real-time sync for Deriv / Binary.com traders.</p>
+              <div className="mt-auto">
+                {derivConn?.connected
+                  ? <span className="flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Connected — {derivConn.deriv_account_id}</span>
+                  : <span className="flex items-center gap-1.5 text-[11px] text-zinc-500"><span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />Not connected</span>}
+              </div>
+            </div>
+
+            {/* CSV Import card */}
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                     style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </div>
+                <span className="text-xs font-bold text-zinc-200">CSV Import</span>
+              </div>
+              <p className="text-[11px] text-zinc-500 leading-relaxed">Manual import from any broker — MT5 history CSV.</p>
+              <div className="mt-auto">
+                <span className="flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Always available</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* ── MT5 EA SYNC ───────────────────────────────────────────────────── */}
         <div className="mb-5">
@@ -643,6 +811,187 @@ export default function SettingsPage() {
                 ) : eaTokens.length > 0 ? "Add Account →" : "Generate My EA Token →"}
               </button>
             </form>
+          </div>
+        </div>
+
+        {/* ── DERIV API SYNC ────────────────────────────────────────────────── */}
+        <div className="mb-5">
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Deriv API Sync</p>
+
+          {derivConn?.connected ? (
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider
+                                   px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Connected
+                  </span>
+                  <p className="text-sm font-semibold text-zinc-100">{derivConn.deriv_account_id}</p>
+                  <span className="text-xs text-zinc-500">{derivConn.account_currency}</span>
+                </div>
+                <span className="text-[11px] text-zinc-500">
+                  {derivConn.total_synced} trades synced · Last: {timeAgo(derivConn.last_synced_at)}
+                </span>
+              </div>
+
+              {derivConn.last_error && (
+                <div className="mb-3 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                  <p className="text-xs text-rose-400">{derivConn.last_error}</p>
+                </div>
+              )}
+
+              {derivError && (
+                <div className="mb-3 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                  <p className="text-xs text-rose-400">{derivError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDerivSync}
+                  disabled={derivSyncing}
+                  className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all
+                             disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}>
+                  {derivSyncing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Syncing…
+                    </span>
+                  ) : "Sync Now"}
+                </button>
+                <button
+                  onClick={handleDerivDisconnect}
+                  className="px-4 py-2.5 rounded-xl font-semibold text-sm border border-rose-500/20
+                             text-rose-500 hover:bg-rose-500/10 hover:border-rose-500/40 transition-all">
+                  Disconnect
+                </button>
+              </div>
+              <p className="text-[11px] text-zinc-600 mt-3">Auto-syncs every 15 minutes via Vercel cron.</p>
+            </div>
+          ) : (
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+              <p className="text-sm font-semibold text-zinc-100 mb-1">Connect Deriv Account</p>
+              <p className="text-xs text-zinc-500 leading-relaxed mb-4">
+                Paste your Deriv API token to sync your full trade history and auto-sync new trades every 15 minutes.
+              </p>
+
+              <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
+                   style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5"
+                     strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p className="text-xs text-indigo-300 leading-relaxed">
+                  Get your API token from{" "}
+                  <a href="https://app.deriv.com/account/api-token" target="_blank" rel="noopener noreferrer"
+                     className="underline font-semibold">app.deriv.com/account/api-token</a>
+                  {" "}— create a token with <strong>Read</strong> and <strong>Trading information</strong> permissions.
+                </p>
+              </div>
+
+              {derivError && (
+                <div className="mb-4 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                  <p className="text-xs text-rose-400">{derivError}</p>
+                </div>
+              )}
+
+              <form onSubmit={handleDerivConnect} className="space-y-3">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                    Deriv API Token <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={derivToken}
+                    onChange={(e) => setDerivToken(e.target.value)}
+                    placeholder="e.g. a1-xxxxxxxxxx…"
+                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
+                               text-sm font-mono text-zinc-100 placeholder-zinc-600
+                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={derivConnecting}
+                  className="w-full py-3 rounded-xl font-semibold text-sm transition-all
+                             disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}>
+                  {derivConnecting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Connecting & syncing history…
+                    </span>
+                  ) : "Connect Deriv Account →"}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+
+        {/* ── CSV IMPORT ────────────────────────────────────────────────────── */}
+        <div className="mb-5">
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">CSV Import</p>
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+            <p className="text-sm font-semibold text-zinc-100 mb-1">Import from MT5 History CSV</p>
+            <p className="text-xs text-zinc-500 leading-relaxed mb-4">
+              Export your trade history from MetaTrader 5 as CSV and import it here. Works with any broker.
+            </p>
+
+            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
+                 style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.5"
+                   strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <div className="text-xs text-emerald-300 leading-relaxed space-y-1">
+                <p>In MT5: <strong>View → Terminal → Account History</strong> → right-click → <strong>Save as Report</strong> → choose CSV.</p>
+                <p className="text-zinc-500">Columns expected: ticket, open time, type, size, symbol, price, S/L, T/P, close time, close price, commission, swap, profit.</p>
+              </div>
+            </div>
+
+            {csvError && (
+              <div className="mb-4 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                <p className="text-xs text-rose-400">{csvError}</p>
+              </div>
+            )}
+
+            {csvResult && (
+              <div className="mb-4 rounded-xl px-4 py-3"
+                   style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}>
+                <p className="text-xs text-emerald-400 font-semibold">
+                  {csvResult.inserted} trade{csvResult.inserted !== 1 ? "s" : ""} imported
+                  {csvResult.duplicates > 0 ? `, ${csvResult.duplicates} duplicate${csvResult.duplicates !== 1 ? "s" : ""} skipped` : ""}.
+                </p>
+              </div>
+            )}
+
+            <label className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm
+                               transition-all cursor-pointer ${csvImporting ? "opacity-60 pointer-events-none" : "hover:opacity-90"}`}
+                   style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff" }}>
+              {csvImporting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Importing…
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Select CSV File to Import
+                </>
+              )}
+              <input
+                type="file"
+                accept=".csv,.txt"
+                className="hidden"
+                onChange={handleCsvImport}
+                disabled={csvImporting}
+              />
+            </label>
           </div>
         </div>
 

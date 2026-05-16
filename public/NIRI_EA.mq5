@@ -1,26 +1,26 @@
 //+------------------------------------------------------------------+
 //|  NIRI_EA.mq5                                                     |
 //|  Automatically syncs closed trades to your NIRI journal          |
-//|  https://niri.live                                                |
+//|  https://www.niri.live                                                |
 //|                                                                   |
 //|  INSTALLATION (5 steps, one file only):                          |
 //|  1. Open MT5 → File → Open Data Folder → MQL5 → Experts          |
 //|  2. Copy NIRI_EA.ex5 into that folder                            |
 //|  3. Restart MT5, then open Navigator (Ctrl+N)                    |
 //|  4. Tools → Options → Expert Advisors → Allow WebRequest →       |
-//|     add https://niri.live                                        |
+//|     add https://www.niri.live                                        |
 //|  5. Drag NIRI_EA onto any chart → Inputs tab →                   |
-//|     paste your token from niri.live/settings → OK               |
+//|     paste your token from www.niri.live/settings → OK               |
 //+------------------------------------------------------------------+
 #property copyright "NIRI Trading Journal"
-#property link      "https://niri.live"
+#property link      "https://www.niri.live"
 #property version   "1.20"
 
-//--- Single input: your NIRI sync token from niri.live/settings
-input string InpToken = "";   // NIRI sync token (from niri.live/settings)
+//--- Single input: your NIRI sync token from www.niri.live/settings
+input string InpToken = "";   // NIRI sync token (from www.niri.live/settings)
 
 //--- Internal
-#define WEBHOOK_URL     "https://niri.live/api/mt5/ea-sync"
+#define WEBHOOK_URL     "https://www.niri.live/api/mt5/ea-sync"
 #define CHECK_INTERVAL  10      // seconds between history scans (timer-based)
 #define REQUEST_TIMEOUT 10000   // ms per WebRequest call
 #define MAX_RETRIES     3
@@ -41,7 +41,7 @@ int OnInit()
    if(InpToken == "")
      {
       Alert("NIRI EA: Token is empty.\n"
-            "Drag the EA onto a chart → Inputs tab → paste your token from niri.live/settings");
+            "Drag the EA onto a chart → Inputs tab → paste your token from www.niri.live/settings");
       return INIT_FAILED;
      }
 
@@ -112,13 +112,13 @@ void PingServer()
       Alert("NIRI EA — WebRequest blocked.\n\n"
             "Fix: MT5 → Tools → Options → Expert Advisors\n"
             "→ Allow WebRequest for listed URL\n"
-            "→ Add: https://niri.live");
+            "→ Add: https://www.niri.live");
       return;
      }
    if(code == 401)
      {
       Alert("NIRI EA — Invalid token (401).\n"
-            "Generate a new token at niri.live/settings and re-attach the EA.");
+            "Generate a new token at www.niri.live/settings and re-attach the EA.");
       return;
      }
 
@@ -265,7 +265,7 @@ int PushDeal(ulong closeTicket)
       if(code == 401)
         {
          Alert("NIRI EA — Token rejected (401).\n"
-               "Generate a new token at niri.live/settings and re-attach the EA.");
+               "Generate a new token at www.niri.live/settings and re-attach the EA.");
          return -1;
         }
 
@@ -273,7 +273,7 @@ int PushDeal(ulong closeTicket)
         {
          Alert("NIRI EA — Server rejected sync (403).\n"
                "Response: " + resStr + "\n"
-               "If account mismatch: generate a new token at niri.live/settings");
+               "If account mismatch: generate a new token at www.niri.live/settings");
          return -1;
         }
 
@@ -282,7 +282,7 @@ int PushDeal(ulong closeTicket)
          Alert("NIRI EA — WebRequest blocked.\n\n"
                "Fix: MT5 → Tools → Options → Expert Advisors\n"
                "→ Allow WebRequest for listed URL\n"
-               "→ Add: https://niri.live");
+               "→ Add: https://www.niri.live");
          return -1;
         }
 

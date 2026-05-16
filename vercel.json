@@ -7,10 +7,6 @@
     {
       "path": "/api/telegram/daily-setup",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/deriv/cron-sync",
-      "schedule": "0 2 * * *"
     }
   ]
 }

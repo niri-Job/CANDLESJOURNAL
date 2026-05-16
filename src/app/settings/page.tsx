@@ -35,16 +35,6 @@ interface EaTokenRow {
   last_used_at: string | null;
 }
 
-interface DerivConnection {
-  connected:        boolean;
-  deriv_account_id: string | null;
-  account_currency: string | null;
-  status:           string;
-  last_synced_at:   string | null;
-  last_error:       string | null;
-  total_synced:     number;
-}
-
 function timeAgo(iso: string | null): string {
   if (!iso) return "Never";
   const diff = Date.now() - new Date(iso).getTime();
@@ -235,13 +225,6 @@ export default function SettingsPage() {
   const [generating,    setGenerating]    = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  // Deriv state
-  const [derivConn,       setDerivConn]       = useState<DerivConnection | null>(null);
-  const [derivToken,      setDerivToken]      = useState("");
-  const [derivConnecting, setDerivConnecting] = useState(false);
-  const [derivSyncing,    setDerivSyncing]    = useState(false);
-  const [derivError,      setDerivError]      = useState<string | null>(null);
-
   // CSV state
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvResult,    setCsvResult]    = useState<{ inserted: number; duplicates: number } | null>(null);
@@ -275,7 +258,7 @@ export default function SettingsPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
-      const [subRes, accountsRes, tokenRes, derivRes] = await Promise.all([
+      const [subRes, accountsRes, tokenRes] = await Promise.all([
         supabase
           .from("user_profiles")
           .select("subscription_status, subscription_end")
@@ -291,7 +274,6 @@ export default function SettingsPage() {
           .select("token, account_number, broker_server, last_used_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
-        fetch("/api/deriv/status").then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
 
       const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
@@ -299,7 +281,6 @@ export default function SettingsPage() {
 
       if (accountsRes.data) setTradingAccounts(accountsRes.data as TradingAccount[]);
       if (tokenRes.data)    setEaTokens(tokenRes.data as EaTokenRow[]);
-      if (derivRes)         setDerivConn(derivRes as DerivConnection);
 
       setLoading(false);
     }
@@ -398,60 +379,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleDerivConnect(e: React.FormEvent) {
-    e.preventDefault();
-    if (!derivToken.trim()) { setDerivError("Enter your Deriv API token."); return; }
-    setDerivConnecting(true);
-    setDerivError(null);
-    try {
-      const res  = await fetch("/api/deriv/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_token: derivToken.trim() }),
-      });
-      const json = await res.json() as { success?: boolean; account_id?: string; currency?: string; inserted?: number; duplicates?: number; error?: string };
-      if (!res.ok) {
-        setDerivError(json.error ?? "Connection failed.");
-      } else {
-        setDerivConn({ connected: true, deriv_account_id: json.account_id ?? null, account_currency: json.currency ?? "USD", status: "connected", last_synced_at: new Date().toISOString(), last_error: null, total_synced: json.inserted ?? 0 });
-        setDerivToken("");
-        await refreshAccounts();
-        showToast(`Deriv connected — ${json.inserted ?? 0} trades synced.`);
-      }
-    } catch {
-      setDerivError("Network error — check your connection.");
-    } finally {
-      setDerivConnecting(false);
-    }
-  }
-
-  async function handleDerivSync() {
-    setDerivSyncing(true);
-    setDerivError(null);
-    try {
-      const res  = await fetch("/api/deriv/sync", { method: "POST" });
-      const json = await res.json() as { success?: boolean; new_trades?: number; duplicates?: number; error?: string };
-      if (!res.ok) {
-        setDerivError(json.error ?? "Sync failed.");
-      } else {
-        setDerivConn((prev) => prev ? { ...prev, last_synced_at: new Date().toISOString(), total_synced: (prev.total_synced ?? 0) + (json.new_trades ?? 0) } : prev);
-        await refreshAccounts();
-        showToast(`Synced — ${json.new_trades ?? 0} new trades.`);
-      }
-    } catch {
-      setDerivError("Network error.");
-    } finally {
-      setDerivSyncing(false);
-    }
-  }
-
-  async function handleDerivDisconnect() {
-    if (!confirm("Disconnect your Deriv account? Your existing synced trades will stay in NIRI.")) return;
-    await fetch("/api/deriv/connect", { method: "DELETE" });
-    setDerivConn(null);
-    showToast("Deriv account disconnected.");
-  }
-
   async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -516,7 +443,7 @@ export default function SettingsPage() {
         {/* ── SYNC METHOD OVERVIEW ──────────────────────────────────────────── */}
         <div className="mb-6">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Sync Method</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* MT5 EA card */}
             <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
               <div className="flex items-center gap-2 mb-1">
@@ -533,25 +460,6 @@ export default function SettingsPage() {
                 {eaTokens.length > 0
                   ? <span className="flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Connected</span>
                   : <span className="flex items-center gap-1.5 text-[11px] text-zinc-500"><span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />Not set up</span>}
-              </div>
-            </div>
-
-            {/* Deriv API card */}
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                     style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-                  </svg>
-                </div>
-                <span className="text-xs font-bold text-zinc-200">Deriv API</span>
-              </div>
-              <p className="text-[11px] text-zinc-500 leading-relaxed">Real-time sync for Deriv / Binary.com traders.</p>
-              <div className="mt-auto">
-                {derivConn?.connected
-                  ? <span className="flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Connected — {derivConn.deriv_account_id}</span>
-                  : <span className="flex items-center gap-1.5 text-[11px] text-zinc-500"><span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />Not connected</span>}
               </div>
             </div>
 
@@ -812,233 +720,6 @@ export default function SettingsPage() {
               </button>
             </form>
           </div>
-        </div>
-
-        {/* ── DERIV API SYNC ────────────────────────────────────────────────── */}
-        <div className="mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Deriv API Sync</p>
-
-          {derivConn?.connected ? (
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider
-                                   px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Connected
-                  </span>
-                  <p className="text-sm font-semibold text-zinc-100">{derivConn.deriv_account_id}</p>
-                  <span className="text-xs text-zinc-500">{derivConn.account_currency}</span>
-                </div>
-                <span className="text-[11px] text-zinc-500">
-                  {derivConn.total_synced} trades synced · Last: {timeAgo(derivConn.last_synced_at)}
-                </span>
-              </div>
-
-              {derivConn.last_error && (
-                <div className="mb-3 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                  <p className="text-xs text-rose-400">{derivConn.last_error}</p>
-                </div>
-              )}
-
-              {derivError && (
-                <div className="mb-3 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                  <p className="text-xs text-rose-400">{derivError}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={handleDerivSync}
-                  disabled={derivSyncing}
-                  className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all
-                             disabled:opacity-60 disabled:cursor-not-allowed"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}>
-                  {derivSyncing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Syncing…
-                    </span>
-                  ) : "Sync Now"}
-                </button>
-                <button
-                  onClick={handleDerivDisconnect}
-                  className="px-4 py-2.5 rounded-xl font-semibold text-sm border border-rose-500/20
-                             text-rose-500 hover:bg-rose-500/10 hover:border-rose-500/40 transition-all">
-                  Disconnect
-                </button>
-              </div>
-              <p className="text-[11px] text-zinc-600 mt-3">Auto-syncs every 15 minutes via Vercel cron.</p>
-            </div>
-          ) : (
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-sm font-semibold text-zinc-100">Connect Deriv Account</p>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                                 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
-                  Real-time
-                </span>
-              </div>
-              <p className="text-xs text-zinc-500 leading-relaxed mb-6">
-                Takes about 2 minutes. Your full trade history syncs automatically — no MT5 needed.
-              </p>
-
-              {/* ── Step-by-step guide ────────────────────────────────────── */}
-              <div className="space-y-3 mb-5">
-
-                {/* Step 1 */}
-                <div className="rounded-xl p-4"
-                     style={{ background: "var(--cj-raised)", border: "1px solid rgba(99,102,241,0.15)" }}>
-                  <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
-                          style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
-                      1
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs font-semibold text-zinc-200 mb-1">Open the Deriv API Token page</p>
-                      <p className="text-[11px] text-zinc-500 mb-3">
-                        Sign in to your Deriv account, then go to your API Token settings.
-                      </p>
-                      <a
-                        href="https://app.deriv.com/account/api-token"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-lg transition-all hover:opacity-90"
-                        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                        </svg>
-                        Get Deriv Token
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Step 2 */}
-                <div className="rounded-xl p-4"
-                     style={{ background: "var(--cj-raised)", border: "1px solid rgba(99,102,241,0.15)" }}>
-                  <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
-                          style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
-                      2
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs font-semibold text-zinc-200 mb-1">Create a token — tick <span className="text-indigo-400">&quot;Read&quot;</span> permission only</p>
-                      <p className="text-[11px] text-zinc-500 mb-4">
-                        Give it any name (e.g. <span className="font-mono text-zinc-300">&quot;NIRI&quot;</span>), tick <strong className="text-zinc-300">Read</strong>, then click <strong className="text-zinc-300">Create</strong>. No other permissions needed — NIRI only reads your history.
-                      </p>
-
-                      {/* Deriv page illustration */}
-                      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #2a2a3e" }}>
-                        {/* Browser chrome */}
-                        <div className="flex items-center gap-2 px-3 py-2" style={{ background: "#0f0f1a", borderBottom: "1px solid #1e1e30" }}>
-                          <div className="flex gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-                            <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-                            <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
-                          </div>
-                          <div className="flex-1 flex items-center justify-center">
-                            <span className="text-[9px] text-zinc-600 font-mono bg-zinc-800/60 px-3 py-0.5 rounded-full">
-                              app.deriv.com/account/api-token
-                            </span>
-                          </div>
-                        </div>
-                        {/* Page content mockup */}
-                        <div className="p-4" style={{ background: "#13131f" }}>
-                          <p className="text-[11px] font-bold text-white mb-3">API token</p>
-                          {/* Token name field */}
-                          <div className="mb-3">
-                            <p className="text-[9px] text-zinc-500 mb-1 uppercase tracking-wider">Token name</p>
-                            <div className="rounded-lg px-3 py-2 flex items-center" style={{ background: "#0f0f1a", border: "1px solid #2a2a3e" }}>
-                              <span className="text-[10px] text-zinc-300 font-mono">NIRI</span>
-                              <span className="ml-auto w-1 h-3 rounded-full bg-indigo-400 animate-pulse" />
-                            </div>
-                          </div>
-                          {/* Permissions */}
-                          <p className="text-[9px] text-zinc-500 mb-2 uppercase tracking-wider">Select scopes</p>
-                          <div className="space-y-1.5 mb-3">
-                            {[
-                              { label: "Read",     checked: true,  note: "← tick this one" },
-                              { label: "Trade",    checked: false, note: "" },
-                              { label: "Payments", checked: false, note: "" },
-                              { label: "Admin",    checked: false, note: "" },
-                            ].map(({ label, checked, note }) => (
-                              <div key={label} className="flex items-center gap-2">
-                                <div className="w-3.5 h-3.5 rounded shrink-0 flex items-center justify-center"
-                                     style={{ background: checked ? "#6366f1" : "#1e1e30", border: `1px solid ${checked ? "#6366f1" : "#2a2a3e"}` }}>
-                                  {checked && (
-                                    <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
-                                      <polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                    </svg>
-                                  )}
-                                </div>
-                                <span className={`text-[9px] ${checked ? "text-white font-semibold" : "text-zinc-600"}`}>{label}</span>
-                                {note && <span className="text-[9px] text-indigo-400 font-semibold">{note}</span>}
-                              </div>
-                            ))}
-                          </div>
-                          {/* Create button */}
-                          <div className="w-full rounded-lg py-1.5 text-center text-[10px] font-bold text-white"
-                               style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}>
-                            Create
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Step 3 */}
-                <div className="rounded-xl p-4"
-                     style={{ background: "var(--cj-raised)", border: "1px solid rgba(99,102,241,0.15)" }}>
-                  <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
-                          style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
-                      3
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-xs font-semibold text-zinc-200 mb-1">Copy the token and paste it below</p>
-                      <p className="text-[11px] text-zinc-500 mb-3">
-                        After creating, Deriv shows your token once. Copy it immediately and paste it here.
-                      </p>
-
-                      {derivError && (
-                        <div className="mb-3 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                          <p className="text-xs text-rose-400">{derivError}</p>
-                        </div>
-                      )}
-
-                      <form onSubmit={handleDerivConnect} className="space-y-2.5">
-                        <input
-                          type="text"
-                          value={derivToken}
-                          onChange={(e) => setDerivToken(e.target.value)}
-                          placeholder="Paste your Deriv API token here…"
-                          className="w-full bg-[var(--cj-surface)] border border-zinc-700 rounded-xl px-4 py-2.5
-                                     text-sm font-mono text-zinc-100 placeholder-zinc-600
-                                     focus:outline-none focus:border-indigo-500 transition-colors"
-                        />
-                        <button
-                          type="submit"
-                          disabled={derivConnecting}
-                          className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all
-                                     disabled:opacity-60 disabled:cursor-not-allowed"
-                          style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}>
-                          {derivConnecting ? (
-                            <span className="flex items-center justify-center gap-2">
-                              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              Connecting & syncing history…
-                            </span>
-                          ) : "Connect Deriv Account →"}
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── CSV IMPORT ────────────────────────────────────────────────────── */}

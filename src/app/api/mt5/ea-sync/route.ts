@@ -161,7 +161,7 @@ export async function POST(request: Request) {
     verification_method: "EA",
   };
 
-  // Check if this trade already exists (to know whether it's new)
+  // Check if this trade already exists
   const { data: existingTrade, error: existingErr } = await svc
     .from("trades")
     .select("id")
@@ -175,41 +175,50 @@ export async function POST(request: Request) {
   const isNewTrade = !existingTrade;
   console.log(`[ea-sync:${requestId}] Trade ${isNewTrade ? "NEW — will insert" : "DUPLICATE — will skip"} (unique_trade_id=${uniqueTradeId})`);
 
-  // Upsert — unique_trade_id constraint silently skips duplicate sends
-  const { error: upsertErr } = await svc
-    .from("trades")
-    .upsert(tradeRow, { onConflict: "user_id,unique_trade_id", ignoreDuplicates: true });
-
-  if (upsertErr) {
-    console.log(`[ea-sync:${requestId}] DB ERROR upserting trade: ${upsertErr.message} | code=${upsertErr.code} | details=${upsertErr.details}`);
-    return NextResponse.json(
-      { error: "Failed to save trade: " + upsertErr.message },
-      { status: 500 }
-    );
+  // Conditional insert — does not rely on DB-side unique constraint existing
+  if (isNewTrade) {
+    const { error: insertErr } = await svc.from("trades").insert(tradeRow);
+    if (insertErr) {
+      // 23505 = unique_violation: race-condition duplicate, treat as success
+      if (insertErr.code === "23505") {
+        console.log(`[ea-sync:${requestId}] Race-condition duplicate (23505) — treating as success`);
+      } else {
+        console.log(`[ea-sync:${requestId}] DB ERROR inserting trade: ${insertErr.message} | code=${insertErr.code} | details=${insertErr.details} | hint=${insertErr.hint}`);
+        return NextResponse.json(
+          { error: "Failed to save trade: " + insertErr.message },
+          { status: 500 }
+        );
+      }
+    }
   }
 
   console.log(`[ea-sync:${requestId}] SUCCESS: trade ${isNewTrade ? "inserted" : "skipped (duplicate)"} — ${uniqueTradeId}`);
 
   // Insert a per-user notification for the new trade (throttled: at most 1 per hour)
   if (isNewTrade) {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: recentNotif } = await svc
-      .from("notifications")
-      .select("id")
-      .eq("target_user_id", userId)
-      .gte("created_at", oneHourAgo)
-      .maybeSingle();
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data: recentNotif } = await svc
+        .from("notifications")
+        .select("id")
+        .eq("target_user_id", userId)
+        .gte("created_at", oneHourAgo)
+        .maybeSingle();
 
-    if (!recentNotif) {
-      const pnl      = Number(profit);
-      const pnlSign  = pnl >= 0 ? "+" : "";
-      const pnlStr   = `${pnlSign}$${pnl.toFixed(2)}`;
-      await svc.from("notifications").insert({
-        title:          "Trade Synced from MT5",
-        message:        `${symbolStr} ${direction} — PnL: ${pnlStr}`,
-        target_user_id: userId,
-        is_active:      true,
-      });
+      if (!recentNotif) {
+        const pnl     = Number(profit);
+        const pnlSign = pnl >= 0 ? "+" : "";
+        const pnlStr  = `${pnlSign}$${pnl.toFixed(2)}`;
+        const { error: notifErr } = await svc.from("notifications").insert({
+          title:          "Trade Synced from MT5",
+          message:        `${symbolStr} ${direction} — PnL: ${pnlStr}`,
+          target_user_id: userId,
+          is_active:      true,
+        });
+        if (notifErr) console.log(`[ea-sync:${requestId}] WARN: notification insert failed — ${notifErr.message}`);
+      }
+    } catch (notifEx) {
+      console.log(`[ea-sync:${requestId}] WARN: notification step threw — ${notifEx}`);
     }
   }
 

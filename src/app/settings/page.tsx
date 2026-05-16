@@ -871,61 +871,172 @@ export default function SettingsPage() {
             </div>
           ) : (
             <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-              <p className="text-sm font-semibold text-zinc-100 mb-1">Connect Deriv Account</p>
-              <p className="text-xs text-zinc-500 leading-relaxed mb-4">
-                Paste your Deriv API token to sync your full trade history and auto-sync new trades every 15 minutes.
+              {/* Header */}
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm font-semibold text-zinc-100">Connect Deriv Account</p>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                                 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+                  Real-time
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500 leading-relaxed mb-6">
+                Takes about 2 minutes. Your full trade history syncs automatically — no MT5 needed.
               </p>
 
-              <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
-                   style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)" }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5"
-                     strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <p className="text-xs text-indigo-300 leading-relaxed">
-                  Get your API token from{" "}
-                  <a href="https://app.deriv.com/account/api-token" target="_blank" rel="noopener noreferrer"
-                     className="underline font-semibold">app.deriv.com/account/api-token</a>
-                  {" "}— create a token with <strong>Read</strong> and <strong>Trading information</strong> permissions.
-                </p>
-              </div>
+              {/* ── Step-by-step guide ────────────────────────────────────── */}
+              <div className="space-y-3 mb-5">
 
-              {derivError && (
-                <div className="mb-4 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                  <p className="text-xs text-rose-400">{derivError}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleDerivConnect} className="space-y-3">
-                <div>
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
-                    Deriv API Token <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={derivToken}
-                    onChange={(e) => setDerivToken(e.target.value)}
-                    placeholder="e.g. a1-xxxxxxxxxx…"
-                    className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
-                               text-sm font-mono text-zinc-100 placeholder-zinc-600
-                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={derivConnecting}
-                  className="w-full py-3 rounded-xl font-semibold text-sm transition-all
-                             disabled:opacity-60 disabled:cursor-not-allowed"
-                  style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}>
-                  {derivConnecting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Connecting & syncing history…
+                {/* Step 1 */}
+                <div className="rounded-xl p-4"
+                     style={{ background: "var(--cj-raised)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
+                          style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
+                      1
                     </span>
-                  ) : "Connect Deriv Account →"}
-                </button>
-              </form>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-zinc-200 mb-1">Open the Deriv API Token page</p>
+                      <p className="text-[11px] text-zinc-500 mb-3">
+                        Sign in to your Deriv account, then go to your API Token settings.
+                      </p>
+                      <a
+                        href="https://app.deriv.com/account/api-token"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-lg transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                        Get Deriv Token
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="rounded-xl p-4"
+                     style={{ background: "var(--cj-raised)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
+                          style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
+                      2
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-zinc-200 mb-1">Create a token — tick <span className="text-indigo-400">&quot;Read&quot;</span> permission only</p>
+                      <p className="text-[11px] text-zinc-500 mb-4">
+                        Give it any name (e.g. <span className="font-mono text-zinc-300">&quot;NIRI&quot;</span>), tick <strong className="text-zinc-300">Read</strong>, then click <strong className="text-zinc-300">Create</strong>. No other permissions needed — NIRI only reads your history.
+                      </p>
+
+                      {/* Deriv page illustration */}
+                      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #2a2a3e" }}>
+                        {/* Browser chrome */}
+                        <div className="flex items-center gap-2 px-3 py-2" style={{ background: "#0f0f1a", borderBottom: "1px solid #1e1e30" }}>
+                          <div className="flex gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-zinc-700" />
+                          </div>
+                          <div className="flex-1 flex items-center justify-center">
+                            <span className="text-[9px] text-zinc-600 font-mono bg-zinc-800/60 px-3 py-0.5 rounded-full">
+                              app.deriv.com/account/api-token
+                            </span>
+                          </div>
+                        </div>
+                        {/* Page content mockup */}
+                        <div className="p-4" style={{ background: "#13131f" }}>
+                          <p className="text-[11px] font-bold text-white mb-3">API token</p>
+                          {/* Token name field */}
+                          <div className="mb-3">
+                            <p className="text-[9px] text-zinc-500 mb-1 uppercase tracking-wider">Token name</p>
+                            <div className="rounded-lg px-3 py-2 flex items-center" style={{ background: "#0f0f1a", border: "1px solid #2a2a3e" }}>
+                              <span className="text-[10px] text-zinc-300 font-mono">NIRI</span>
+                              <span className="ml-auto w-1 h-3 rounded-full bg-indigo-400 animate-pulse" />
+                            </div>
+                          </div>
+                          {/* Permissions */}
+                          <p className="text-[9px] text-zinc-500 mb-2 uppercase tracking-wider">Select scopes</p>
+                          <div className="space-y-1.5 mb-3">
+                            {[
+                              { label: "Read",     checked: true,  note: "← tick this one" },
+                              { label: "Trade",    checked: false, note: "" },
+                              { label: "Payments", checked: false, note: "" },
+                              { label: "Admin",    checked: false, note: "" },
+                            ].map(({ label, checked, note }) => (
+                              <div key={label} className="flex items-center gap-2">
+                                <div className="w-3.5 h-3.5 rounded shrink-0 flex items-center justify-center"
+                                     style={{ background: checked ? "#6366f1" : "#1e1e30", border: `1px solid ${checked ? "#6366f1" : "#2a2a3e"}` }}>
+                                  {checked && (
+                                    <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
+                                      <polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className={`text-[9px] ${checked ? "text-white font-semibold" : "text-zinc-600"}`}>{label}</span>
+                                {note && <span className="text-[9px] text-indigo-400 font-semibold">{note}</span>}
+                              </div>
+                            ))}
+                          </div>
+                          {/* Create button */}
+                          <div className="w-full rounded-lg py-1.5 text-center text-[10px] font-bold text-white"
+                               style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}>
+                            Create
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="rounded-xl p-4"
+                     style={{ background: "var(--cj-raised)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                  <div className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
+                          style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}>
+                      3
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-zinc-200 mb-1">Copy the token and paste it below</p>
+                      <p className="text-[11px] text-zinc-500 mb-3">
+                        After creating, Deriv shows your token once. Copy it immediately and paste it here.
+                      </p>
+
+                      {derivError && (
+                        <div className="mb-3 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
+                          <p className="text-xs text-rose-400">{derivError}</p>
+                        </div>
+                      )}
+
+                      <form onSubmit={handleDerivConnect} className="space-y-2.5">
+                        <input
+                          type="text"
+                          value={derivToken}
+                          onChange={(e) => setDerivToken(e.target.value)}
+                          placeholder="Paste your Deriv API token here…"
+                          className="w-full bg-[var(--cj-surface)] border border-zinc-700 rounded-xl px-4 py-2.5
+                                     text-sm font-mono text-zinc-100 placeholder-zinc-600
+                                     focus:outline-none focus:border-indigo-500 transition-colors"
+                        />
+                        <button
+                          type="submit"
+                          disabled={derivConnecting}
+                          className="w-full py-2.5 rounded-xl font-semibold text-sm transition-all
+                                     disabled:opacity-60 disabled:cursor-not-allowed"
+                          style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff" }}>
+                          {derivConnecting ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Connecting & syncing history…
+                            </span>
+                          ) : "Connect Deriv Account →"}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

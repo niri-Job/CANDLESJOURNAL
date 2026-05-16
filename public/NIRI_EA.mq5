@@ -14,23 +14,23 @@
 //+------------------------------------------------------------------+
 #property copyright "NIRI Trading Journal"
 #property link      "https://niri.live"
-#property version   "1.10"
+#property version   "1.20"
 
 //--- Single input: your NIRI sync token from niri.live/settings
 input string InpToken = "";   // NIRI sync token (from niri.live/settings)
 
 //--- Internal
 #define WEBHOOK_URL     "https://niri.live/api/mt5/ea-sync"
-#define CHECK_INTERVAL  5       // seconds between history scans
-#define REQUEST_TIMEOUT 8000    // ms per WebRequest call
+#define CHECK_INTERVAL  10      // seconds between history scans (timer-based)
+#define REQUEST_TIMEOUT 10000   // ms per WebRequest call
 #define MAX_RETRIES     3
 #define MAX_SENT        5000    // in-memory dedup ring buffer size
 
-datetime g_lastCheck   = 0;
 datetime g_syncWindow  = 0;
 bool     g_ready       = false;
 string   g_account     = "";
 string   g_accountType = "";
+int      g_scanCount   = 0;
 
 ulong g_sent[];
 int   g_sentCount = 0;
@@ -53,27 +53,51 @@ int OnInit()
    ArrayResize(g_sent, MAX_SENT);
    g_sentCount  = 0;
    g_syncWindow = D'2000.01.01 00:00';
-   g_lastCheck  = TimeCurrent();
+   g_scanCount  = 0;
 
-   Print("NIRI EA v1.10 — Active on account #", g_account,
+   Print("NIRI EA v1.20 — Active on account #", g_account,
          " (", AccountInfoString(ACCOUNT_SERVER), ")",
          " type=", g_accountType);
    Print("NIRI EA — Server URL: ", WEBHOOK_URL);
 
    PingServer();
 
+   // Timer-based scanning — works even when chart has no ticks (weekends, off-hours)
+   EventSetTimer(CHECK_INTERVAL);
+
    g_ready = true;
-   Print("NIRI EA — Scanning full account history from 2000.01.01");
+   Print("NIRI EA — Timer started, scanning every ", CHECK_INTERVAL, "s. History from 2000.01.01");
    return INIT_SUCCEEDED;
   }
 
 //+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+  {
+   EventKillTimer();
+   if(g_ready)
+      Print("NIRI EA — Stopped (reason=", reason, "). Total scans: ", g_scanCount);
+  }
+
+//+------------------------------------------------------------------+
+// Timer fires every CHECK_INTERVAL seconds regardless of market activity
+void OnTimer()
+  {
+   if(!g_ready) return;
+   ScanDeals();
+  }
+
+//+------------------------------------------------------------------+
+// OnTick kept as backup trigger
+void OnTick()
+  {
+  }
+
+//+------------------------------------------------------------------+
 // Sends a minimal ping to verify WebRequest is allowed and token is valid.
-// Server returns 400 (missing required fields) for a valid token — that's fine.
 void PingServer()
   {
-   string pingJson    = "{\"account_number\":\"ping\",\"account_type\":\"ping\"}";
-   string reqHeaders  = "Content-Type: application/json\r\nAuthorization: Bearer " + InpToken;
+   string pingJson   = "{\"account_number\":\"ping\",\"account_type\":\"ping\"}";
+   string reqHeaders = "Content-Type: application/json\r\nAuthorization: Bearer " + InpToken;
 
    uchar  reqData[];
    uchar  resData[];
@@ -91,7 +115,6 @@ void PingServer()
             "→ Add: https://niri.live");
       return;
      }
-
    if(code == 401)
      {
       Alert("NIRI EA — Invalid token (401).\n"
@@ -99,61 +122,61 @@ void PingServer()
       return;
      }
 
-   // 400 = server got request, fields missing is expected for ping = connection OK
-   Print(StringFormat("NIRI EA — Ping response: HTTP %d — server reachable", code));
-  }
-
-//+------------------------------------------------------------------+
-void OnDeinit(const int reason)
-  {
-   if(g_ready)
-      Print("NIRI EA — Stopped (reason=", reason, ")");
-  }
-
-//+------------------------------------------------------------------+
-void OnTick()
-  {
-   if(!g_ready) return;
-   if(TimeCurrent() - g_lastCheck < CHECK_INTERVAL) return;
-   g_lastCheck = TimeCurrent();
-   ScanDeals();
+   string resStr = CharArrayToString(resData);
+   Print(StringFormat("NIRI EA — Ping: HTTP %d — server reachable | %s", code, resStr));
   }
 
 //+------------------------------------------------------------------+
 void ScanDeals()
   {
+   g_scanCount++;
+
    datetime from = g_syncWindow - 120;
    datetime to   = TimeCurrent() + 60;
 
-   if(!HistorySelect(from, to)) return;
+   if(!HistorySelect(from, to))
+     {
+      Print("NIRI EA — Scan #", g_scanCount, ": HistorySelect failed");
+      return;
+     }
 
-   int  total            = HistoryDealsTotal();
+   int total = HistoryDealsTotal();
+   Print(StringFormat("NIRI EA — Scan #%d: %d deals in history (window from %s)",
+                       g_scanCount, total, TimeToString(g_syncWindow)));
+
+   if(total == 0) return;
+
+   int  sent             = 0;
+   int  skipped          = 0;
+   int  filtered         = 0;
    bool anyTransientFail = false;
 
    for(int i = 0; i < total; i++)
      {
       ulong ticket = HistoryDealGetTicket(i);
-      if(ticket == 0 || IsSent(ticket)) continue;
+      if(ticket == 0) continue;
+
+      if(IsSent(ticket)) { skipped++; continue; }
 
       long dealType  = HistoryDealGetInteger(ticket, DEAL_TYPE);
       long dealEntry = HistoryDealGetInteger(ticket, DEAL_ENTRY);
 
       // Only closing entries on buy/sell deals
-      if(dealType  != DEAL_TYPE_BUY  && dealType  != DEAL_TYPE_SELL)    continue;
+      if(dealType  != DEAL_TYPE_BUY  && dealType  != DEAL_TYPE_SELL)    { filtered++; continue; }
       if(dealEntry != DEAL_ENTRY_OUT &&
          dealEntry != DEAL_ENTRY_INOUT &&
-         dealEntry != DEAL_ENTRY_OUT_BY) continue;
+         dealEntry != DEAL_ENTRY_OUT_BY) { filtered++; continue; }
 
       int result = PushDeal(ticket);
-      if(result == 1)
-         MarkSent(ticket);         // success
-      else if(result == -1)
-         MarkSent(ticket);         // permanent error — skip forever
-      else
-         anyTransientFail = true;  // transient — retry next scan
+      if(result == 1)      { MarkSent(ticket); sent++; }
+      else if(result == -1)  MarkSent(ticket);         // permanent — skip forever
+      else                   anyTransientFail = true;  // transient — retry next scan
      }
 
-   // Only advance sync window when every deal succeeded or got a permanent error
+   if(sent > 0 || g_scanCount <= 3)
+      Print(StringFormat("NIRI EA — Scan #%d done: %d sent, %d already-sent skipped, %d filtered (non-close deals)",
+                          g_scanCount, sent, skipped, filtered));
+
    if(!anyTransientFail && g_syncWindow < TimeCurrent() - 2 * CHECK_INTERVAL)
       g_syncWindow = TimeCurrent() - 2 * CHECK_INTERVAL;
   }
@@ -243,16 +266,15 @@ int PushDeal(ulong closeTicket)
         {
          Alert("NIRI EA — Token rejected (401).\n"
                "Generate a new token at niri.live/settings and re-attach the EA.");
-         return -1;   // permanent — token is invalid
+         return -1;
         }
 
       if(code == 403)
         {
-         Print(StringFormat("NIRI EA — Forbidden (403): %s", resStr));
          Alert("NIRI EA — Server rejected sync (403).\n"
-               "Your token may be for a different account.\n"
-               "Generate a new token at niri.live/settings");
-         return -1;   // permanent — wrong account
+               "Response: " + resStr + "\n"
+               "If account mismatch: generate a new token at niri.live/settings");
+         return -1;
         }
 
       if(code == -1)
@@ -261,7 +283,7 @@ int PushDeal(ulong closeTicket)
                "Fix: MT5 → Tools → Options → Expert Advisors\n"
                "→ Allow WebRequest for listed URL\n"
                "→ Add: https://niri.live");
-         return -1;   // permanent — URL not whitelisted
+         return -1;
         }
 
       if(attempt < MAX_RETRIES)
@@ -276,7 +298,7 @@ int PushDeal(ulong closeTicket)
                              (long)closeTicket, MAX_RETRIES, code));
         }
      }
-   return 0;   // transient — retry next scan
+   return 0;
   }
 
 //+------------------------------------------------------------------+
@@ -307,7 +329,6 @@ void MarkSent(ulong ticket)
      }
    else
      {
-      // Ring buffer: evict oldest entry
       for(int i = 0; i < MAX_SENT - 1; i++)
          g_sent[i] = g_sent[i + 1];
       g_sent[MAX_SENT - 1] = ticket;

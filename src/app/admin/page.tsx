@@ -105,6 +105,8 @@ export default function AdminPage() {
 
   const [tgSending,          setTgSending]          = useState(false);
   const [tgResult,           setTgResult]           = useState<{ ok: boolean; text: string } | null>(null);
+  const [calSending,         setCalSending]         = useState(false);
+  const [calResult,          setCalResult]          = useState<{ ok: boolean; text: string } | null>(null);
   const [aiUsage,            setAiUsage]            = useState<AiUsageData | null>(null);
 
   const [announceSubject,    setAnnounceSubject]    = useState("");
@@ -268,6 +270,20 @@ export default function AdminPage() {
     } else {
       const d = (await res.json()) as { error?: string };
       setTgResult({ ok: false, text: d.error ?? "Failed to send" });
+    }
+  }
+
+  async function handleSendWeeklyCalendar() {
+    setCalSending(true);
+    setCalResult(null);
+    const res = await fetch("/api/telegram/weekly-calendar", { method: "POST" });
+    setCalSending(false);
+    if (res.ok) {
+      const d = (await res.json()) as { range?: string; events_high?: number; events_medium?: number };
+      setCalResult({ ok: true, text: `Calendar sent — ${d.range} · ${d.events_high ?? 0} high + ${d.events_medium ?? 0} medium events.` });
+    } else {
+      const d = (await res.json()) as { error?: string };
+      setCalResult({ ok: false, text: d.error ?? "Failed to send" });
     }
   }
 
@@ -586,20 +602,22 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
-        {/* Telegram Daily Setup */}
+        {/* Telegram */}
         <section>
           <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">
-            Telegram Daily Setup
+            Telegram Channel
           </h2>
-          <div className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-5 space-y-3">
+          <div className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-5 space-y-4">
             <p className="text-xs text-[var(--cj-text-muted)]">
-              Sends the daily AI-generated post (market data + economic calendar) to the{" "}
+              Sends posts to the{" "}
               <span className="text-[var(--cj-gold)]">@niritoday</span> Telegram channel.
             </p>
-            <div className="flex items-center gap-3">
+
+            {/* Daily post */}
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={handleSendDailySetup}
-                disabled={tgSending}
+                disabled={tgSending || calSending}
                 className="btn-gold px-5 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
               >
                 {tgSending ? "Sending…" : "Send Daily Post"}
@@ -609,6 +627,31 @@ export default function AdminPage() {
                   {tgResult.text}
                 </p>
               )}
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-[var(--cj-border)]" />
+
+            {/* Weekly calendar */}
+            <div>
+              <p className="text-xs text-[var(--cj-text-muted)] mb-2">
+                Generates a 1080×1080 PNG flier of the week&apos;s high-impact economic events and sends it as an image.
+                Auto-fires every Monday at 7:30 AM WAT.
+              </p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={handleSendWeeklyCalendar}
+                  disabled={calSending || tgSending}
+                  className="btn-gold px-5 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
+                >
+                  {calSending ? "Generating…" : "Send Weekly Calendar"}
+                </button>
+                {calResult && (
+                  <p className={`text-xs ${calResult.ok ? "text-emerald-400" : "text-red-400"}`}>
+                    {calResult.text}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </section>

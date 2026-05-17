@@ -173,7 +173,7 @@ LIVE MARKET DATA WITH TECHNICAL INDICATORS (hourly, 30-day history):
 
 ${indicatorTable}
 
-Using the real indicator data above, identify the 5 strongest trading setups across all available pairs. For each setup:
+Using the real indicator data above, identify 5 trading setups: XAUUSD must always be included (it is the primary pair for this platform), plus the 4 next strongest setups from the remaining pairs. For each setup:
 - Entry zone must be derived from the actual current price shown
 - Stop loss / take profit must be real price levels near the current price
 - Confidence (1–10) should reflect indicator confluence count (how many indicators agree)

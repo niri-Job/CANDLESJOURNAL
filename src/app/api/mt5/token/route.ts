@@ -52,16 +52,18 @@ export async function POST(request: Request) {
 
   const token = randomBytes(32).toString("hex");  // 64-char hex
 
-  const { error: insertErr } = await svc.from("ea_tokens").insert({
+  // Upsert on (user_id, account_number): creates a new row for a new account,
+  // or regenerates the token if this account is already registered.
+  const { error: upsertErr } = await svc.from("ea_tokens").upsert({
     user_id:        user.id,
     account_number: account_number.trim(),
     broker_server:  broker_server.trim(),
     token,
-  });
+  }, { onConflict: "user_id,account_number" });
 
-  if (insertErr)
+  if (upsertErr)
     return NextResponse.json(
-      { error: "Failed to generate token: " + insertErr.message },
+      { error: "Failed to generate token: " + upsertErr.message },
       { status: 500 }
     );
 

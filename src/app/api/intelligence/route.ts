@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { checkTrialAccess } from "@/lib/trial";
-import { MARKET_PAIRS, fetchPairIndicators, type PairIndicators } from "@/lib/marketPrices";
+import { MARKET_PAIRS, fetchAllPairIndicators, type PairIndicators } from "@/lib/marketPrices";
 
 export const maxDuration = 60;
 
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 
   if (isTest) {
     try {
-      const ind = await fetchPairIndicators(PAIRS[0]);
+      const [ind] = await fetchAllPairIndicators([PAIRS[0]]);
       return NextResponse.json({ key_prefix: apiKey.slice(0, 10), status: "ok", sample: ind });
     } catch (err) {
       return NextResponse.json({ status: "fetch_failed", error: String(err) }, { status: 502 });
@@ -120,8 +120,8 @@ export async function GET(request: Request) {
     return NextResponse.json(cached.data);
   }
 
-  // Fetch all 10 pairs in parallel
-  const results = await Promise.all(PAIRS.map(fetchPairIndicators));
+  // Fetch all 10 pairs (shared crumb + single batch quote call)
+  const results = await fetchAllPairIndicators(PAIRS);
   const indicators = results.filter((r): r is PairIndicators => r !== null);
 
   if (indicators.length < 3) {

@@ -15,7 +15,7 @@ const TELEGRAM_PAIRS = MARKET_PAIRS.filter(p =>
 
 // Sanity bounds — if the fetched price lands outside these, skip the pair
 const SANITY: Record<string, { min: number; max: number }> = {
-  XAUUSD: { min: 1800, max: 6000 },
+  XAUUSD: { min: 2500, max: 6000 },
   EURUSD: { min: 0.80, max: 1.80 },
   GBPUSD: { min: 0.90, max: 2.00 },
 };

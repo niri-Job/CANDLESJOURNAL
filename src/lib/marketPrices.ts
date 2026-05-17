@@ -9,7 +9,7 @@ export const MARKET_PAIRS = [
   { symbol: "AUDUSD=X",  label: "AUDUSD",  decimals: 5 },
   { symbol: "USDCAD=X",  label: "USDCAD",  decimals: 5 },
   { symbol: "NZDUSD=X",  label: "NZDUSD",  decimals: 5 },
-  { symbol: "XAUUSD=X",  label: "XAUUSD",  decimals: 2 },
+  { symbol: "GC=F",       label: "XAUUSD",  decimals: 2 },
   { symbol: "^DJI",      label: "US30",    decimals: 0 },
   { symbol: "BTC-USD",   label: "BTCUSD",  decimals: 0 },
 ] as const;
@@ -140,6 +140,32 @@ async function acquireYahooCrumb(): Promise<{ value: string; cookie: string } | 
   }
 }
 
+// ── Dedicated gold spot price ─────────────────────────────────────────────────
+// GoldPrice.org API — free, no auth, reliable from serverless environments.
+// Used as the authoritative gold price because Yahoo's XAUUSD=X / GC=F can
+// still return stale data from cloud IPs even with crumb authentication.
+
+async function fetchGoldSpot(): Promise<number | null> {
+  try {
+    const res = await fetch("https://data-asg.goldprice.org/GetData/USD-XAU/1", {
+      headers: { "User-Agent": UA },
+      cache: "no-store",
+      signal: AbortSignal.timeout(6_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { items?: { xauPrice?: number }[] };
+    const price = data?.items?.[0]?.xauPrice;
+    if (price && price > 1000) {
+      console.log(`[marketPrices] gold spot from goldprice.org: $${price}`);
+      return price;
+    }
+    return null;
+  } catch (e) {
+    console.warn("[marketPrices] goldprice.org fetch failed:", e);
+    return null;
+  }
+}
+
 // ── Live batch quote (backup spot price) ─────────────────────────────────────
 // Fetches current market prices for all symbols in a single v7/quote request.
 // Used to override stale chart-series closes when the authenticated chart API
@@ -256,9 +282,13 @@ export async function fetchCloses(
 
 export async function fetchPairIndicators(p: { symbol: string; label: string; decimals: number }): Promise<PairIndicators | null> {
   try {
-    const auth   = await acquireYahooCrumb();
+    const [auth, goldSpot] = await Promise.all([
+      acquireYahooCrumb(),
+      p.label === "XAUUSD" ? fetchGoldSpot() : Promise.resolve(null),
+    ]);
     const quotes = await fetchLiveQuotes([p.symbol], auth);
-    const closes = await fetchCloses(p.symbol, auth, quotes.get(p.symbol));
+    const livePrice = goldSpot ?? quotes.get(p.symbol);
+    const closes = await fetchCloses(p.symbol, auth, livePrice);
     return _buildIndicators(p, closes);
   } catch (e) {
     console.warn(`[marketPrices] ${p.label} fetch failed:`, e);
@@ -271,8 +301,18 @@ export async function fetchPairIndicators(p: { symbol: string; label: string; de
 export async function fetchAllPairIndicators(
   pairs: readonly { symbol: string; label: string; decimals: number }[],
 ): Promise<(PairIndicators | null)[]> {
-  const auth   = await acquireYahooCrumb();
+  // Run crumb, batch quote, and gold spot fetch in parallel
+  const [auth, goldSpot] = await Promise.all([
+    acquireYahooCrumb(),
+    fetchGoldSpot(),
+  ]);
   const quotes = await fetchLiveQuotes(pairs.map(p => p.symbol), auth);
+
+  // Override gold with the dedicated goldprice.org live price
+  if (goldSpot) {
+    const goldPair = pairs.find(p => p.label === "XAUUSD");
+    if (goldPair) quotes.set(goldPair.symbol, goldSpot);
+  }
 
   return Promise.all(
     pairs.map(async p => {

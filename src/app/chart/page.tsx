@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
+import { AccountSwitcher } from "@/components/AccountSwitcher";
 import type { User } from "@supabase/supabase-js";
 
 declare global {
@@ -30,6 +31,15 @@ interface Trade {
   session: string;
   setup: string;
   strategy_id?: string | null;
+  account_signature?: string | null;
+}
+
+interface TradingAccount {
+  id: string;
+  account_signature: string;
+  account_login: string | null;
+  account_server: string | null;
+  account_type: string;
 }
 
 interface Strategy {
@@ -492,10 +502,12 @@ function WinBar({ label, winRate, total }: { label: string; winRate: number; tot
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function ChartPage() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [trades,      setTrades]      = useState<Trade[]>([]);
-  const [strategies,  setStrategies]  = useState<Strategy[]>([]);
-  const [loading,     setLoading]     = useState(true);
+  const [currentUser,       setCurrentUser]       = useState<User | null>(null);
+  const [trades,            setTrades]            = useState<Trade[]>([]);
+  const [tradingAccounts,   setTradingAccounts]   = useState<TradingAccount[]>([]);
+  const [selectedAccountSig, setSelectedAccountSig] = useState<string>("");
+  const [strategies,        setStrategies]        = useState<Strategy[]>([]);
+  const [loading,           setLoading]           = useState(true);
   const [tab,         setTab]         = useState<"chart" | "insights">("chart");
   const [symbol,      setSymbol]      = useState("XAUUSD");
   const [interval,    setIntervalVal] = useState("60");
@@ -513,29 +525,44 @@ export default function ChartPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { window.location.href = "/login"; return; }
       setCurrentUser(user);
-      const [tradesRes, strategiesRes] = await Promise.all([
+      const [tradesRes, strategiesRes, accountsRes] = await Promise.all([
         supabase.from("trades").select("*").eq("user_id", user.id).order("date", { ascending: false }),
         supabase.from("strategies").select("id, name").eq("user_id", user.id).order("name"),
+        supabase.from("trading_accounts").select("id,account_signature,account_login,account_server,account_type").eq("user_id", user.id).order("created_at", { ascending: true }),
       ]);
       if (tradesRes.data) setTrades(tradesRes.data as Trade[]);
       if (strategiesRes.data) setStrategies(strategiesRes.data as Strategy[]);
+      if (accountsRes.data) {
+        const accts = accountsRes.data as TradingAccount[];
+        setTradingAccounts(accts);
+        const real = accts.filter(a => a.account_type !== "demo");
+        const first = (real.length > 0 ? real : accts)[0];
+        if (first) setSelectedAccountSig(first.account_signature);
+      }
       setLoading(false);
     })();
   }, []);
 
+  // ── Account-filtered trade set ────────────────────────────────────────────
+  const accountTrades = useMemo(() => {
+    if (tradingAccounts.length === 0) return trades;
+    if (!selectedAccountSig) return [];
+    return trades.filter(t => t.account_signature === selectedAccountSig);
+  }, [trades, tradingAccounts, selectedAccountSig]);
+
   // ── Quick pair list ───────────────────────────────────────────────────────
   const quickPairs = useMemo(() => {
     const cnt: Record<string, number> = {};
-    for (const t of trades) cnt[t.pair] = (cnt[t.pair] || 0) + 1;
+    for (const t of accountTrades) cnt[t.pair] = (cnt[t.pair] || 0) + 1;
     const top = Object.entries(cnt).sort(([, a], [, b]) => b - a).slice(0, 8).map(([p]) => p);
     const result = [...top];
     for (const p of DEFAULT_PAIRS) if (!result.includes(p) && result.length < 8) result.push(p);
     return result;
-  }, [trades]);
+  }, [accountTrades]);
 
   const symbolTrades = useMemo(
-    () => trades.filter((t) => t.pair.toUpperCase() === symbol.toUpperCase()),
-    [trades, symbol]
+    () => accountTrades.filter((t) => t.pair.toUpperCase() === symbol.toUpperCase()),
+    [accountTrades, symbol]
   );
 
   // ── Click a trade → always switch to Trade Review mode ───────────────────
@@ -606,10 +633,10 @@ Notes: ${t.notes || "—"}`;
 
   // ── Insights-tab stats ────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    if (trades.length < 3) return null;
+    if (accountTrades.length < 3) return null;
 
     const sessMap: Record<string, { w: number; n: number }> = {};
-    for (const t of trades) {
+    for (const t of accountTrades) {
       const s = t.session || "Unknown";
       if (!sessMap[s]) sessMap[s] = { w: 0, n: 0 };
       sessMap[s].n++; if (t.pnl > 0) sessMap[s].w++;
@@ -620,7 +647,7 @@ Notes: ${t.notes || "—"}`;
 
     const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dayMap: Record<number, { w: number; n: number }> = {};
-    for (const t of trades) {
+    for (const t of accountTrades) {
       const d = new Date(t.date + "T12:00:00").getDay();
       if (!dayMap[d]) dayMap[d] = { w: 0, n: 0 };
       dayMap[d].n++; if (t.pnl > 0) dayMap[d].w++;
@@ -631,7 +658,7 @@ Notes: ${t.notes || "—"}`;
       .sort((a, b) => a.num - b.num);
 
     const pairMap: Record<string, { w: number; n: number; pnl: number }> = {};
-    for (const t of trades) {
+    for (const t of accountTrades) {
       if (!pairMap[t.pair]) pairMap[t.pair] = { w: 0, n: 0, pnl: 0 };
       pairMap[t.pair].n++; pairMap[t.pair].pnl += t.pnl;
       if (t.pnl > 0) pairMap[t.pair].w++;
@@ -640,12 +667,12 @@ Notes: ${t.notes || "—"}`;
       .map(([pair, v]) => ({ pair, wr: (v.w / v.n) * 100, n: v.n, pnl: v.pnl }))
       .sort((a, b) => b.wr - a.wr);
 
-    const rrTrades = trades.filter((t) => t.sl != null && t.tp != null && t.entry !== t.sl);
+    const rrTrades = accountTrades.filter((t) => t.sl != null && t.tp != null && t.entry !== t.sl);
     const avgRR = rrTrades.length > 0
       ? rrTrades.reduce((s, t) => s + Math.abs((t.tp! - t.entry) / (t.entry - t.sl!)), 0) / rrTrades.length
       : null;
 
-    const sorted = [...trades].sort((a, b) => a.date.localeCompare(b.date));
+    const sorted = [...accountTrades].sort((a, b) => a.date.localeCompare(b.date));
     let maxConsec = 0, run = 0;
     for (const t of sorted) { if (t.pnl < 0) { run++; maxConsec = Math.max(maxConsec, run); } else run = 0; }
 
@@ -656,9 +683,9 @@ Notes: ${t.notes || "—"}`;
       let c = 0;
       for (const t of dt) { if (c >= 2) break; simPnl += t.pnl; if (t.pnl < 0) c++; else c = 0; }
     }
-    const actualPnl  = trades.reduce((s, t) => s + t.pnl, 0);
+    const actualPnl  = accountTrades.reduce((s, t) => s + t.pnl, 0);
     const consecDelta = simPnl - actualPnl;
-    const overallWR  = (trades.filter((t) => t.pnl > 0).length / trades.length) * 100;
+    const overallWR  = (accountTrades.filter((t) => t.pnl > 0).length / accountTrades.length) * 100;
 
     const bestSession  = sessionStats[0]      ?? null;
     const worstSession = sessionStats.at(-1)  ?? null;
@@ -727,9 +754,19 @@ Notes: ${t.notes || "—"}`;
         {/* ── Page header ────────────────────────────────────────────────── */}
         <div className="shrink-0 flex items-center justify-between px-5 py-3"
              style={{ borderBottom: "1px solid var(--cj-border)", background: "var(--cj-bg)" }}>
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl">🕯️</span>
-            <span className="font-semibold text-base text-zinc-100">Chart</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">🕯️</span>
+              <span className="font-semibold text-base text-zinc-100">Chart</span>
+            </div>
+            {/* Account switcher — inline, no bottom margin */}
+            <div className="[&>div]:mb-0">
+              <AccountSwitcher
+                accounts={tradingAccounts}
+                selected={selectedAccountSig}
+                onChange={setSelectedAccountSig}
+              />
+            </div>
           </div>
           <div className="flex gap-1 bg-[var(--cj-raised)] rounded-xl p-1" style={{ border: "1px solid var(--cj-border)" }}>
             {(["chart", "insights"] as const).map((t) => (

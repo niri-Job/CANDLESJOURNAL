@@ -6,6 +6,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
 import { Sidebar } from "@/components/Sidebar";
+import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -25,6 +26,7 @@ interface Trade {
 interface TradingAccount {
   id: string; account_signature: string; account_label: string | null;
   account_type: string; account_currency: string; current_balance: number | null;
+  account_login: string | null; account_server: string | null;
 }
 
 const TABS = [
@@ -1518,7 +1520,7 @@ export default function ReportsPage() {
   const [tab,      setTab]      = useState<Tab>("OVERVIEW");
 
   // Account + date filters
-  const [selAccount,  setSelAccount]  = useState<string>("__all_real__");
+  const [selAccount,  setSelAccount]  = useState<string>("");
   const [datePreset,  setDatePreset]  = useState<string>("ALL");
   const [customFrom,  setCustomFrom]  = useState<string>("");
   const [customTo,    setCustomTo]    = useState<string>("");
@@ -1538,7 +1540,7 @@ export default function ReportsPage() {
 
       const [tradesRes, { data: aData }] = await Promise.all([
         supabase.from("trades").select(FULL_COLS).eq("user_id", u.id).order("date", { ascending: true }),
-        supabase.from("trading_accounts").select("id,account_signature,account_label,account_type,account_currency,current_balance").eq("user_id", u.id),
+        supabase.from("trading_accounts").select("id,account_signature,account_label,account_type,account_currency,current_balance,account_login,account_server").eq("user_id", u.id),
       ]);
 
       let loadedTrades: Trade[] = [];
@@ -1561,10 +1563,11 @@ export default function ReportsPage() {
       setTrades(loadedTrades);
       setAccounts((aData as TradingAccount[]) || []);
 
-      // Default to real accounts; fall back to demo-only if user has no real accounts
-      const real = (aData || []).filter((a: TradingAccount) => a.account_type !== "demo");
-      const demo = (aData || []).filter((a: TradingAccount) => a.account_type === "demo");
-      if (!real.length && demo.length) setSelAccount("__all_demo__");
+      // Default to first real account; fall back to first demo if no real accounts
+      const allAccts = (aData as TradingAccount[]) || [];
+      const real = allAccts.filter((a) => a.account_type !== "demo");
+      const first = (real.length > 0 ? real : allAccts)[0];
+      if (first) setSelAccount(first.account_signature);
 
       setLoading(false);
     })();
@@ -1572,38 +1575,17 @@ export default function ReportsPage() {
 
   // ── Filtered trades ────────────────────────────────────────────
   const filtered = useMemo(() => {
-    const realAccts = accounts.filter(a => a.account_type !== "demo");
-    const demoAccts = accounts.filter(a => a.account_type === "demo");
-
-    let base = trades;
-
-    if (accounts.length > 0) {
-      if (selAccount === "__all_real__") {
-        if (realAccts.length === 0) {
-          // No real accounts — show everything (unfiltered by account)
-          base = trades;
-        } else {
-          const sigs = new Set(realAccts.map(a => a.account_signature));
-          // Include manually-logged trades (no account_signature) + trades from real accounts
-          base = trades.filter(t => !t.account_signature || sigs.has(t.account_signature));
-        }
-      } else if (selAccount === "__all_demo__") {
-        if (demoAccts.length === 0) {
-          base = trades;
-        } else {
-          const sigs = new Set(demoAccts.map(a => a.account_signature));
-          base = trades.filter(t => Boolean(t.account_signature) && sigs.has(t.account_signature!));
-        }
-      } else {
-        base = trades.filter(t => t.account_signature === selAccount);
-      }
-    }
+    // No accounts connected — show all manually-entered trades
+    const base = accounts.length === 0
+      ? trades
+      : selAccount
+        ? trades.filter(t => t.account_signature === selAccount)
+        : [];
 
     const { from, to } = datePreset === "CUSTOM"
       ? { from: customFrom, to: customTo }
       : rangeFor(datePreset);
 
-    // "ALL" → rangeFor returns { from: "", to: "" } → inRange passes everything
     return base.filter(t => inRange(t.date, from, to));
   }, [trades, accounts, selAccount, datePreset, customFrom, customTo]);
 
@@ -1622,9 +1604,6 @@ export default function ReportsPage() {
     );
   }
 
-  const realAccts = accounts.filter(a => a.account_type !== "demo");
-  const demoAccts = accounts.filter(a => a.account_type === "demo");
-
   return (
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
       <Sidebar user={user} onSignOut={handleLogout} />
@@ -1640,36 +1619,11 @@ export default function ReportsPage() {
 
           {/* Account switcher */}
           {accounts.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap mb-4">
-              {realAccts.length > 0 && (
-                <button onClick={() => setSelAccount("__all_real__")}
-                  className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-colors ${selAccount === "__all_real__"
-                    ? "border-[var(--cj-gold)] text-[var(--cj-gold)] bg-[var(--cj-gold-glow)]"
-                    : "border-zinc-700 text-zinc-400 hover:border-zinc-600"}`}>
-                  All Real
-                </button>
-              )}
-              {demoAccts.length > 0 && (
-                <button onClick={() => setSelAccount("__all_demo__")}
-                  className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-colors ${selAccount === "__all_demo__"
-                    ? "border-yellow-400/60 text-yellow-400 bg-yellow-500/10"
-                    : "border-zinc-700 text-zinc-400 hover:border-zinc-600"}`}>
-                  All Demo
-                </button>
-              )}
-              {accounts.length > 1 && <span className="h-4 w-px bg-zinc-700" />}
-              {accounts.map(a => (
-                <button key={a.account_signature} onClick={() => setSelAccount(a.account_signature)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${selAccount === a.account_signature
-                    ? "border-blue-500/60 text-blue-400 bg-blue-500/10"
-                    : "border-zinc-700 text-zinc-400 hover:border-zinc-600"}`}>
-                  {a.account_label || a.account_signature.split("_")[0]}
-                  <span className={`ml-1 text-[9px] font-bold ${a.account_type === "demo" ? "text-yellow-500" : "text-emerald-500"}`}>
-                    {a.account_type.toUpperCase()}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <AccountSwitcher
+              accounts={accounts}
+              selected={selAccount}
+              onChange={setSelAccount}
+            />
           )}
 
           {/* Date range filter */}

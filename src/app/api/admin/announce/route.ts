@@ -95,26 +95,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ sent: 0, message: "No emails found for matching users" });
   }
 
-  // Send in batches of 10 to avoid Resend rate limits
-  const BATCH = 10;
+  // Send one at a time with 300ms gap — stays well under Resend's 5/second limit
   let sent = 0;
   const errors: string[] = [];
 
-  for (let i = 0; i < emails.length; i += BATCH) {
-    const batch = emails.slice(i, i + BATCH);
-    await Promise.all(
-      batch.map(async (email) => {
-        try {
-          await sendAnnouncementEmail(email, subject.trim(), message.trim());
-          sent++;
-        } catch (err) {
-          errors.push(`${email}: ${err instanceof Error ? err.message : String(err)}`);
-        }
-      })
-    );
-    // Small pause between batches
-    if (i + BATCH < emails.length) {
-      await new Promise((r) => setTimeout(r, 200));
+  for (let i = 0; i < emails.length; i++) {
+    try {
+      await sendAnnouncementEmail(emails[i], subject.trim(), message.trim());
+      sent++;
+    } catch (err) {
+      errors.push(`${emails[i]}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    if (i < emails.length - 1) {
+      await new Promise((r) => setTimeout(r, 300));
     }
   }
 

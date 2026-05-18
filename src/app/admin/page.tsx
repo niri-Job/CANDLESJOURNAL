@@ -114,6 +114,7 @@ export default function AdminPage() {
   const [announceRecipients, setAnnounceRecipients] = useState<"all" | "pro" | "specific">("all");
   const [announceSpecific,   setAnnounceSpecific]   = useState("");
   const [announceSending,    setAnnounceSending]    = useState(false);
+  const [announceProgress,   setAnnounceProgress]   = useState<{ sent: number; total: number } | null>(null);
   const [announceResult,     setAnnounceResult]     = useState<{ ok: boolean; text: string; errors?: string[] } | null>(null);
 
   // Restore theme from localStorage on mount
@@ -292,6 +293,8 @@ export default function AdminPage() {
     if (!announceSubject.trim() || !announceMessage.trim()) return;
     setAnnounceSending(true);
     setAnnounceResult(null);
+    setAnnounceProgress(null);
+
     const res = await fetch("/api/admin/announce", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -302,21 +305,59 @@ export default function AdminPage() {
         specific_email: announceRecipients === "specific" ? announceSpecific.trim() : undefined,
       }),
     });
-    setAnnounceSending(false);
-    if (res.ok) {
+
+    if (!res.ok) {
+      setAnnounceSending(false);
+      const d = (await res.json()) as { error?: string };
+      setAnnounceResult({ ok: false, text: d.error ?? "Failed to send" });
+      return;
+    }
+
+    // Single-recipient path returns plain JSON; bulk path streams NDJSON
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("ndjson")) {
+      setAnnounceSending(false);
       const d = (await res.json()) as { sent: number; total: number; email?: string; errors?: string[] };
-      const errNote = d.errors?.length ? ` (${d.errors.length} failed)` : "";
-      const text = d.email
-        ? `Email sent to ${d.email}.`
-        : `Sent to ${d.sent} of ${d.total} recipients${errNote}.`;
+      const text = d.email ? `Email sent to ${d.email}.` : `Sent to ${d.sent} of ${d.total} recipients.`;
       setAnnounceResult({ ok: d.sent > 0, text, errors: d.errors });
       setAnnounceSubject("");
       setAnnounceMessage("");
-      if (announceRecipients === "specific") setAnnounceSpecific("");
-    } else {
-      const d = (await res.json()) as { error?: string };
-      setAnnounceResult({ ok: false, text: d.error ?? "Failed to send" });
+      return;
     }
+
+    // Consume the NDJSON stream — each line is a progress update
+    const reader  = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const d = JSON.parse(line) as { sent: number; total: number; done: boolean; errors?: string[] };
+          setAnnounceProgress({ sent: d.sent, total: d.total });
+          if (d.done) {
+            setAnnounceSending(false);
+            setAnnounceProgress(null);
+            const errNote = d.errors?.length ? ` (${d.errors.length} failed)` : "";
+            setAnnounceResult({ ok: d.sent > 0, text: `Sent to ${d.sent} of ${d.total} recipients${errNote}.`, errors: d.errors });
+            setAnnounceSubject("");
+            setAnnounceMessage("");
+            if (announceRecipients === "specific") setAnnounceSpecific("");
+          }
+        } catch { /* malformed line — skip */ }
+      }
+    }
+
+    // Fallback if stream ended without a done:true frame
+    setAnnounceSending(false);
+    setAnnounceProgress(null);
   }
 
   const ThemePicker = () => (
@@ -801,7 +842,11 @@ export default function AdminPage() {
                 }
                 className="btn-gold px-5 py-2 rounded-lg text-xs font-semibold disabled:opacity-50"
               >
-                {announceSending ? "Sending…" : "Send Announcement"}
+                {announceSending
+                  ? announceProgress
+                    ? `Sending… ${announceProgress.sent}/${announceProgress.total}`
+                    : "Sending…"
+                  : "Send Announcement"}
               </button>
             </div>
 

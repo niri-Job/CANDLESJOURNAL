@@ -148,10 +148,9 @@ export async function sendAnnouncementEmail(
   });
 
   if (error) {
-    console.error("[email] sendAnnouncementEmail failed:", error);
-    throw new Error(
-      (error as { message?: string }).message ?? JSON.stringify(error)
-    );
+    const e = error as { message?: string; statusCode?: number; name?: string };
+    console.error("[email] sendAnnouncementEmail failed:", JSON.stringify(error));
+    throw new Error(`[${e.statusCode ?? "?"}] ${e.name ?? "ResendError"}: ${e.message ?? JSON.stringify(error)}`);
   }
 }
 

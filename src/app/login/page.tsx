@@ -179,11 +179,15 @@ export default function LoginPage() {
   // ── Logo ───────────────────────────────────────────────────────
   const Logo = () => (
     <div className="flex flex-col items-center mb-10">
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#F5C518] to-[#C9A227]
-                      flex items-center justify-center text-2xl font-bold text-[#0A0A0F] mb-4"
-           style={{ boxShadow: "0 0 32px rgba(245,197,24,0.30)" }}>
-        NI
-      </div>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-16 h-16 mb-4"
+           style={{ filter: "drop-shadow(0 0 16px rgba(245,197,24,0.30))" }}>
+        <rect width="100" height="100" fill="#0A0A0F" rx="18"/>
+        <path d="M50 36 Q40 36 35 42 Q30 48 33 54 Q30 60 35 64 Q40 68 45 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M50 36 Q60 36 65 42 Q70 48 67 54 Q70 60 65 64 Q60 68 55 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="50" y1="36" x2="50" y2="67" stroke="#C49A00" strokeWidth="0.8" strokeDasharray="2.5,2"/>
+        <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#F5C518" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
+      </svg>
       <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">NIRI</h1>
       {view === "auth" && (
         <p className="text-zinc-400 text-sm mt-1">

@@ -210,14 +210,19 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   }
 
   const Logo = ({ size = "md" }: { size?: "sm" | "md" }) => (
-    <div
-      className={`${size === "md" ? "w-8 h-8 text-sm" : "w-7 h-7 text-xs"} rounded-lg
-                  bg-gradient-to-br from-[#F5C518] to-[#C9A227]
-                  flex items-center justify-center font-bold text-[#0A0A0F] shrink-0`}
-      style={{ boxShadow: "0 0 16px rgba(245,197,24,0.30)" }}
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 100 100"
+      className={`${size === "md" ? "w-8 h-8" : "w-7 h-7"} shrink-0`}
+      style={{ filter: "drop-shadow(0 0 8px rgba(245,197,24,0.30))" }}
     >
-      NI
-    </div>
+      <rect width="100" height="100" fill="#0A0A0F" rx="18"/>
+      <path d="M50 36 Q40 36 35 42 Q30 48 33 54 Q30 60 35 64 Q40 68 45 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M50 36 Q60 36 65 42 Q70 48 67 54 Q70 60 65 64 Q60 68 55 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
+      <line x1="50" y1="36" x2="50" y2="67" stroke="#C49A00" strokeWidth="0.8" strokeDasharray="2.5,2"/>
+      <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#F5C518" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
+    </svg>
   );
 
   return (

@@ -538,13 +538,14 @@ export default function LandingPage() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "0.625rem" }}>
-          {/* Logo — swap "NI" div with <img src="/logo.png" alt="NIRI" height={32} /> when brand assets arrive */}
-          <div style={{
-            width: 32, height: 32, borderRadius: "8px",
-            background: "linear-gradient(135deg,#F5C518,#C9A227)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 800, color: "#0a0800", fontSize: "0.875rem",
-          }}>NI</div>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style={{ width: 32, height: 32, flexShrink: 0, filter: "drop-shadow(0 0 8px rgba(245,197,24,0.25))" }}>
+            <rect width="100" height="100" fill="#0A0A0F" rx="18"/>
+            <path d="M50 36 Q40 36 35 42 Q30 48 33 54 Q30 60 35 64 Q40 68 45 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
+            <path d="M50 36 Q60 36 65 42 Q70 48 67 54 Q70 60 65 64 Q60 68 55 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
+            <line x1="50" y1="36" x2="50" y2="67" stroke="#C49A00" strokeWidth="0.8" strokeDasharray="2.5,2"/>
+            <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#F5C518" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
+          </svg>
           <span style={{ fontWeight: 800, fontSize: "1.125rem", color: "var(--cj-text)", letterSpacing: "-0.01em" }}>NIRI</span>
         </Link>
 

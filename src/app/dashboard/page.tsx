@@ -1074,7 +1074,7 @@ export default function TradingJournal() {
                   Trial Expired
                 </div>
                 <h3 className="text-2xl font-bold text-zinc-100 mb-3">
-                  Your 30-day trial has ended
+                  Your 14-day trial has ended
                 </h3>
                 <p className="text-sm text-zinc-400 leading-relaxed mb-2 max-w-sm mx-auto">
                   Upgrade to Pro to continue using AI analysis, Market Intelligence, MT5 sync, and all other features.

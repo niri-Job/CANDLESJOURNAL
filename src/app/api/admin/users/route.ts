@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       !!p?.subscription_end &&
       new Date(p.subscription_end) > new Date();
     const trialEnd  = p?.created_at
-      ? new Date(new Date(p.created_at).getTime() + 30 * 86_400_000)
+      ? new Date(new Date(p.created_at).getTime() + 14 * 86_400_000)
       : null;
     const trialActive = !isPro && !!trialEnd && trialEnd > new Date();
     return {

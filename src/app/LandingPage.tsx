@@ -640,7 +640,7 @@ export default function LandingPage() {
               </div>
 
               <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                {["30-day free trial", "No credit card required", "MT5 sync in under 5 minutes"].map(t => (
+                {["14-day free trial", "No credit card required", "MT5 sync in under 5 minutes"].map(t => (
                   <span key={t} style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>• {t}</span>
                 ))}
               </div>
@@ -1220,7 +1220,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div style={{ textAlign: "center", marginTop: "2rem" }}>
-            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Try free for 30 days, upgrade when ready.</p>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Try free for 14 days, upgrade when ready.</p>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>
               <IcoLock />Secured by Paystack. Cards, bank transfer and USSD accepted.
             </p>
@@ -1350,9 +1350,9 @@ export default function LandingPage() {
             <FaqItem q="How does the coaching report work?"
               a="After each session, NIRI analyses your trade history and generates a report covering your best and worst trades, behavioral patterns such as revenge trading or early exits, and specific observations for the next session." />
             <FaqItem q="How does the free trial work?"
-              a="Every new account gets 30 days of full access to explore NIRI. No credit card required. After 30 days, upgrade to Pro for ₦15,000/month to keep your account active and all your data." />
+              a="Every new account gets 14 days of full access to explore NIRI. No credit card required. After 14 days, upgrade to Pro for ₦15,000/month to keep your account active and all your data." />
             <FaqItem q="Is it free to start?"
-              a="Yes. No credit card is required to create an account. You get a full 30-day free trial, then upgrade to Pro (₦15,000/month) when you're ready." />
+              a="Yes. No credit card is required to create an account. You get a full 14-day free trial, then upgrade to Pro (₦15,000/month) when you're ready." />
             <FaqItem q="Which brokers does NIRI support?"
               a="NIRI works with any broker that provides an MT5 platform. This includes Exness, ICMarkets, HFM, FBS, OctaFX, XM, Deriv and hundreds more." />
             <FaqItem q="Is my trading data secure?"

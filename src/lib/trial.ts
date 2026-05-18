@@ -3,9 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 // Developer account — always treated as Pro, bypasses all trial logic
 const DEV_USER_ID = "b9433d15-02e3-44ed-b66f-b4f51f22fac7";
 
-const TRIAL_DAYS = 30;
+const TRIAL_DAYS = 14;
 
-// Maximum AI uses per feature during the 30-day trial (one-time, never reset)
+// Maximum AI uses per feature during the 14-day trial (one-time, never reset)
 export const TRIAL_LIMITS = {
   ai_analyses:         3,  // /api/analyze   ~$0.03 total
   market_intelligence: 3,  // /api/intelligence ~$0.03 total
@@ -73,7 +73,7 @@ export async function checkTrialAccess(
     return {
       ok:         false,
       reason:     "expired",
-      message:    "Your 30-day free trial has ended. Upgrade to Pro to continue.",
+      message:    "Your 14-day free trial has ended. Upgrade to Pro to continue.",
       httpStatus: 403,
     };
   }

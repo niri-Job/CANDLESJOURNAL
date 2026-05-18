@@ -486,17 +486,44 @@ export default function SettingsPage() {
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">MT5 Sync</p>
 
-          {/* MT5 platform notice */}
-          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-3"
-               style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.2)" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5"
-                 strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+          {/* Quick-action buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {/* TODO: replace href with your actual YouTube tutorial URL */}
+            <a
+              href="https://youtube.com/@niritoday"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/>
+                <polygon fill="#0A0A0F" points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/>
+              </svg>
+              Watch Setup Video
+            </a>
+            <a
+              href="https://t.me/2349075040851"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+              style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", color: "#38bdf8" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.94 8.19-2 9.4c-.14.64-.53.8-.99.5l-2.75-2.03-1.33 1.28c-.15.14-.27.27-.55.27l.2-2.78 5.05-4.56c.22-.2-.05-.3-.34-.1L6.73 15.3l-2.7-.84c-.59-.19-.6-.59.12-.87l10.35-4c.49-.18.92.12.44 1.6z"/>
+              </svg>
+              Need help? Chat with us
+            </a>
+          </div>
+
+          {/* Platform notice — compact */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-4"
+               style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.18)" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2"
+                 strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
               <line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            <p className="text-xs text-indigo-300 leading-relaxed">
-              <span className="font-semibold">The NIRI EA requires MT5 on a Windows PC or Mac.</span>
-              {" "}If you trade on mobile, you can still use NIRI — just set up the EA on any desktop MT5 account connected to your broker.
+            <p className="text-xs text-indigo-300">
+              Requires <span className="font-semibold">MT5 on Windows or Mac</span> — mobile traders can use a desktop MT5 linked to your broker.
             </p>
           </div>
 
@@ -563,36 +590,28 @@ export default function SettingsPage() {
                 </div>
               ))}
 
-              {/* Installation steps — shown once when at least one token exists */}
+              {/* Installation guide — 3 steps */}
               <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
                   Installation guide
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-4">
                   {[
-                    { n: 1, icon: "📦", text: "Download NIRI_EA.ex5 using the button above" },
-                    { n: 2, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
-                    { n: 3, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://www.niri.live" },
-                    { n: 4, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
-                    { n: 5, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → paste your token above → OK" },
-                    { n: 6, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Full trade history syncs automatically." },
-                  ].map(({ n, icon, text }) => (
-                    <div key={n} className="flex items-start gap-3">
-                      <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
-                            style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
+                    { n: 1, title: "Download the EA file", desc: "Use the Download button above to get NIRI_EA.ex5." },
+                    { n: 2, title: "Install it in MT5", desc: "Paste the file in MT5's Experts folder (File → Open Data Folder → MQL5 → Experts) and restart MT5." },
+                    { n: 3, title: "Activate on a chart", desc: "Drag NIRI_EA onto any chart → Inputs tab → paste your token → enable \"Allow live trading\" → OK." },
+                  ].map(({ n, title, desc }) => (
+                    <div key={n} className="flex items-start gap-4">
+                      <span className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-sm font-bold"
+                            style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.25)" }}>
                         {n}
                       </span>
-                      <p className="text-xs text-zinc-400 leading-relaxed">
-                        <span className="mr-1">{icon}</span>{text}
-                      </p>
+                      <div className="pt-0.5">
+                        <p className="text-sm font-semibold text-zinc-200 mb-0.5">{title}</p>
+                        <p className="text-xs text-zinc-500 leading-relaxed">{desc}</p>
+                      </div>
                     </div>
                   ))}
-                </div>
-                <div className="mt-4 px-4 py-3 rounded-xl"
-                     style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                  <p className="text-xs text-emerald-400 font-semibold">
-                    Trades sync automatically — no manual action needed after setup.
-                  </p>
                 </div>
               </div>
             </div>
@@ -613,8 +632,8 @@ export default function SettingsPage() {
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed mb-4">
               {eaTokens.length > 0
-                ? "Connect an additional live MT5 account to sync its trades automatically."
-                : "Install the NIRI EA in MetaTrader 5. Trades sync automatically within seconds of closing — one file, one token, no configuration beyond that."}
+                ? "Connect an additional live MT5 account."
+                : "One file, one token — trades sync automatically within seconds of closing."}
             </p>
 
             {/* Live accounts only notice */}
@@ -630,34 +649,23 @@ export default function SettingsPage() {
               </p>
             </div>
 
-            {/* 8-step overview — only when no accounts connected yet */}
+            {/* 3-step overview — only when no accounts connected yet */}
             {eaTokens.length === 0 && (
-              <div className="mb-5 space-y-2">
-                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
-                  How it works — 8 steps
-                </p>
+              <div className="mb-5 space-y-4">
                 {[
-                  { n: 1, icon: "🔢", text: "Enter your live MT5 account number and broker server below", active: true },
-                  { n: 2, icon: "⚡", text: "Click \"Generate My EA Token\" — you'll get a token to copy", active: true },
-                  { n: 3, icon: "📦", text: "Download NIRI_EA.ex5 (one file — that's all you need)" },
-                  { n: 4, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5" },
-                  { n: 5, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest\" → add https://www.niri.live" },
-                  { n: 6, icon: "🔄", text: "Restart MT5, then find NIRI_EA in the Navigator panel (Ctrl+N)" },
-                  { n: 7, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → paste your token → OK" },
-                  { n: 8, icon: "✅", text: "Make sure \"Allow live trading\" is checked → OK. Full history syncs automatically." },
-                ].map(({ n, icon, text, active }) => (
-                  <div key={n} className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
-                          style={{
-                            background: active ? "rgba(245,197,24,0.15)" : "rgba(245,197,24,0.05)",
-                            color: active ? "var(--cj-gold)" : "#52525b",
-                            border: active ? "1px solid rgba(245,197,24,0.3)" : "1px solid #2a2415",
-                          }}>
+                  { n: 1, title: "Generate your token", desc: "Enter your live MT5 account number and broker server below, then tap Generate." },
+                  { n: 2, title: "Install the EA file", desc: "Download NIRI_EA.ex5 — paste it in MT5's Experts folder (File → Open Data Folder → MQL5 → Experts) and restart MT5." },
+                  { n: 3, title: "Activate on a chart", desc: "Drag NIRI_EA onto any chart → Inputs tab → paste your token → enable \"Allow live trading\" → OK. Trades sync instantly." },
+                ].map(({ n, title, desc }) => (
+                  <div key={n} className="flex items-start gap-4">
+                    <span className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-sm font-bold"
+                          style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.25)" }}>
                       {n}
                     </span>
-                    <p className={`text-xs leading-relaxed pt-0.5 ${active ? "text-zinc-300" : "text-zinc-600"}`}>
-                      <span className="mr-1">{icon}</span>{text}
-                    </p>
+                    <div className="pt-0.5">
+                      <p className="text-sm font-semibold text-zinc-200 mb-0.5">{title}</p>
+                      <p className="text-xs text-zinc-500 leading-relaxed">{desc}</p>
+                    </div>
                   </div>
                 ))}
               </div>

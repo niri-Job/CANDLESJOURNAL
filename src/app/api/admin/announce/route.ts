@@ -95,25 +95,51 @@ export async function POST(request: Request) {
     return NextResponse.json({ sent: 0, message: "No emails found for matching users" });
   }
 
-  // Send one at a time with 300ms gap — stays well under Resend's 5/second limit
+  // 3 concurrent sends + 200ms between groups ≈ ~3 emails/s, under Resend's 5/s limit.
+  // Check elapsed time before each group and return a partial result if we're close
+  // to Vercel's 10s function timeout so the endpoint always responds.
+  const BATCH      = 3;
+  const DELAY_MS   = 200;
+  const TIMEOUT_MS = 8_500; // bail out with partial result before Vercel hard-kills us
+
   let sent = 0;
   const errors: string[] = [];
+  const start = Date.now();
+  const subj  = subject.trim();
+  const body  = message.trim();
 
-  for (let i = 0; i < emails.length; i++) {
-    try {
-      await sendAnnouncementEmail(emails[i], subject.trim(), message.trim());
-      sent++;
-    } catch (err) {
-      errors.push(`${emails[i]}: ${err instanceof Error ? err.message : String(err)}`);
+  for (let i = 0; i < emails.length; i += BATCH) {
+    if (Date.now() - start > TIMEOUT_MS) {
+      return NextResponse.json({
+        sent,
+        total:   emails.length,
+        partial: true,
+        message: `Timed out — sent ${sent} of ${emails.length} emails before the 10 s limit.`,
+        errors:  errors.length > 0 ? errors : undefined,
+      });
     }
-    if (i < emails.length - 1) {
-      await new Promise((r) => setTimeout(r, 300));
+
+    const batch   = emails.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      batch.map((email) => sendAnnouncementEmail(email, subj, body))
+    );
+
+    results.forEach((r, idx) => {
+      if (r.status === "fulfilled") {
+        sent++;
+      } else {
+        errors.push(`${batch[idx]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+      }
+    });
+
+    if (i + BATCH < emails.length) {
+      await new Promise((r) => setTimeout(r, DELAY_MS));
     }
   }
 
   return NextResponse.json({
     sent,
-    total: emails.length,
+    total:  emails.length,
     errors: errors.length > 0 ? errors : undefined,
   });
 }

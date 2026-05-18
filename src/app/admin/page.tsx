@@ -507,7 +507,7 @@ export default function AdminPage() {
                             className="text-xs px-2 py-1 bg-amber-600/20 hover:bg-amber-600/40
                                        text-amber-400 rounded transition-colors disabled:opacity-50"
                           >
-                            +30d Trial
+                            +14d Trial
                           </button>
                         </div>
                       </td>

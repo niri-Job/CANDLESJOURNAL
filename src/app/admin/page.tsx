@@ -109,6 +109,13 @@ export default function AdminPage() {
   const [calResult,          setCalResult]          = useState<{ ok: boolean; text: string } | null>(null);
   const [aiUsage,            setAiUsage]            = useState<AiUsageData | null>(null);
 
+  const [ctStats,            setCtStats]            = useState<{
+    total_providers: number; total_subscriptions: number; copied_trades_today: number;
+    providers: { id: string; name: string; grade: string; win_rate: number; total_trades: number; total_subscribers: number; is_active: boolean; is_verified: boolean }[];
+  } | null>(null);
+  const [ctGrading,          setCtGrading]          = useState(false);
+  const [ctGradingResult,    setCtGradingResult]    = useState<string | null>(null);
+
   const [announceSubject,    setAnnounceSubject]    = useState("");
   const [announceMessage,    setAnnounceMessage]    = useState("");
   const [announceRecipients, setAnnounceRecipients] = useState<"all" | "pro" | "specific">("all");
@@ -131,11 +138,12 @@ export default function AdminPage() {
   }
 
   const loadDashboard = useCallback(async () => {
-    const [statsRes, usersRes, payoutsRes, aiUsageRes] = await Promise.all([
+    const [statsRes, usersRes, payoutsRes, aiUsageRes, ctRes] = await Promise.all([
       fetch("/api/admin/stats"),
       fetch("/api/admin/users"),
       fetch("/api/admin/payouts"),
       fetch("/api/admin/ai-usage"),
+      fetch("/api/copy-trading/grading"),
     ]);
 
     if (statsRes.status === 401) {
@@ -146,6 +154,7 @@ export default function AdminPage() {
     if (statsRes.ok) setStats((await statsRes.json()) as Stats);
     if (usersRes.ok) setUsers(((await usersRes.json()) as { users: AdminUser[] }).users ?? []);
     if (aiUsageRes.ok) setAiUsage((await aiUsageRes.json()) as AiUsageData);
+    if (ctRes.ok) setCtStats(await ctRes.json());
     if (payoutsRes.ok) {
       const d = (await payoutsRes.json()) as { payouts: Payout[]; in_payout_window: boolean };
       setPayouts(d.payouts ?? []);
@@ -931,6 +940,93 @@ export default function AdminPage() {
               <p className="text-xs text-[var(--cj-text-muted)] py-4 text-center">No active notifications</p>
             )}
           </div>
+        </section>
+
+        {/* Copy Trading */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider">
+              Copy Trading
+            </h2>
+            <button
+              onClick={async () => {
+                setCtGrading(true);
+                setCtGradingResult(null);
+                const res = await fetch("/api/copy-trading/grading", { method: "POST" });
+                const d = await res.json() as { ok?: boolean; updated?: number; error?: string };
+                setCtGradingResult(res.ok ? `Grades recalculated for ${d.updated} providers.` : (d.error ?? "Failed"));
+                setCtGrading(false);
+                const r = await fetch("/api/copy-trading/grading");
+                if (r.ok) setCtStats(await r.json());
+              }}
+              disabled={ctGrading}
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "var(--cj-gold)" }}
+            >
+              {ctGrading ? "Recalculating…" : "Recalculate Grades"}
+            </button>
+          </div>
+
+          {ctGradingResult && (
+            <p className="text-xs text-emerald-400 mb-3">{ctGradingResult}</p>
+          )}
+
+          {ctStats ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: "Total Providers",      value: ctStats.total_providers },
+                  { label: "Total Subscriptions",   value: ctStats.total_subscriptions },
+                  { label: "Copied Trades Today",   value: ctStats.copied_trades_today },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-[var(--cj-surface)] border border-[var(--cj-border)] rounded-xl p-4">
+                    <div className="text-[var(--cj-text-muted)] text-xs mb-1">{label}</div>
+                    <div className="text-2xl font-semibold">{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {ctStats.providers.length > 0 && (
+                <div className="overflow-x-auto rounded-xl border border-[var(--cj-border)]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--cj-border)] text-[var(--cj-text-muted)]">
+                        <th className="text-left px-4 py-3 font-medium">Provider</th>
+                        <th className="text-left px-4 py-3 font-medium">Grade</th>
+                        <th className="text-right px-4 py-3 font-medium">Win Rate</th>
+                        <th className="text-right px-4 py-3 font-medium">Trades</th>
+                        <th className="text-right px-4 py-3 font-medium">Subscribers</th>
+                        <th className="text-left px-4 py-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ctStats.providers.map((p) => (
+                        <tr key={p.id} className="border-b border-[var(--cj-border)]/50 hover:bg-[var(--cj-raised)]">
+                          <td className="px-4 py-3 text-[var(--cj-text)] text-xs font-medium">
+                            {p.name}
+                            {p.is_verified && <span className="ml-1 text-[var(--cj-gold)] text-[10px]">✓</span>}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-semibold capitalize" style={{ color: p.grade === "ungraded" ? "#6b7280" : "#F5C518" }}>
+                            {p.grade}
+                          </td>
+                          <td className="px-4 py-3 text-right text-xs text-emerald-400">{p.win_rate}%</td>
+                          <td className="px-4 py-3 text-right text-xs text-[var(--cj-text)]">{p.total_trades}</td>
+                          <td className="px-4 py-3 text-right text-xs text-[var(--cj-text)]">{p.total_subscribers}</td>
+                          <td className="px-4 py-3 text-xs">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${p.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-500/20 text-zinc-400"}`}>
+                              {p.is_active ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-[var(--cj-text-muted)] text-sm">No copy trading data</div>
+          )}
         </section>
       </div>
     </div>

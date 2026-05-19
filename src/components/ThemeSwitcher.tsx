@@ -5,9 +5,9 @@ import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 const THEMES = [
-  { key: "dark",     icon: "🌑", label: "Dark Gold" },
-  { key: "light",    icon: "☀️",  label: "Light"     },
-  { key: "midnight", icon: "🌙", label: "Midnight"  },
+  { key: "dark",    icon: "🌑", label: "Dark"    },
+  { key: "default", icon: "🌅", label: "Default" },
+  { key: "light",   icon: "☀️",  label: "Light"   },
 ] as const;
 
 type Theme = (typeof THEMES)[number]["key"];
@@ -20,7 +20,7 @@ export function ThemeSwitcher({ user }: { user: User | null }) {
   const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
-    const saved = (localStorage.getItem("cj_theme") as Theme | null) ?? "light";
+    const saved = (localStorage.getItem("cj_theme") as Theme | null) ?? "dark";
     setTheme(saved);
     applyTheme(saved);
   }, []);

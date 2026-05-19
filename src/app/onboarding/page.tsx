@@ -274,6 +274,7 @@ export default function OnboardingPage() {
           <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
         </svg>
         <span className="font-bold text-xl tracking-tight text-zinc-100">NIRI</span>
+        <span className="text-[10px] font-semibold tracking-widest" style={{ color: "var(--cj-gold-muted)" }}>Know Your Trading Edge</span>
       </div>
 
       {/* Step dots — 4 steps */}

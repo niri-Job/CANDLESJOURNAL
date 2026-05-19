@@ -16,8 +16,8 @@ function logo() {
         <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#F5C518" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
       </svg>
-      <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.12em;
-                  color:#8B6914;margin-top:6px;">NIRI</div>
+      <div style="font-size:0.75rem;font-weight:700;letter-spacing:0.12em;color:#8B6914;margin-top:6px;">NIRI</div>
+      <div style="font-size:0.625rem;font-weight:600;letter-spacing:0.15em;color:#5A4410;margin-top:3px;text-transform:uppercase;">Know Your Trading Edge</div>
     </div>`;
 }
 

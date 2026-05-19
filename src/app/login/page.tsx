@@ -189,6 +189,7 @@ export default function LoginPage() {
         <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
       </svg>
       <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">NIRI</h1>
+      <p className="text-xs font-semibold tracking-widest mt-1" style={{ color: "var(--cj-gold-muted)", letterSpacing: "0.1em" }}>Know Your Trading Edge</p>
       {view === "auth" && (
         <p className="text-zinc-400 text-sm mt-1">
           {mode === "login" ? "Welcome back. Sign in to continue." : "Create your free account."}

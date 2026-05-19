@@ -273,7 +273,10 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           ) : (
             <>
               <Logo size="md" />
-              <span className="font-semibold text-sm tracking-tight text-zinc-100 flex-1 whitespace-nowrap">NIRI</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm tracking-tight text-zinc-100 whitespace-nowrap">NIRI</div>
+                <div className="text-[9px] font-semibold tracking-widest whitespace-nowrap truncate" style={{ color: "var(--cj-gold-muted)" }}>Know Your Trading Edge</div>
+              </div>
               <NotificationBell />
               {/* Collapse toggle */}
               <button

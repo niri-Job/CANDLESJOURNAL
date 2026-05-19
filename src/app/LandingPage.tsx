@@ -266,17 +266,32 @@ function CheckItem({ text, dim }: { text: string; dim?: boolean }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+type LPTheme = "dark" | "default" | "light";
+
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [heroCard, setHeroCard] = useState(0);
   const [howStep, setHowStep] = useState(0);
+  const [theme, setTheme] = useState<LPTheme>("dark");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 48);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    const saved = (localStorage.getItem("cj_theme") ?? "dark") as LPTheme;
+    setTheme(saved);
+    document.documentElement.setAttribute("data-theme", saved);
+  }, []);
+
+  function setThemeAndSave(t: LPTheme) {
+    setTheme(t);
+    localStorage.setItem("cj_theme", t);
+    document.documentElement.setAttribute("data-theme", t);
+  }
 
   useEffect(() => {
     const id = setInterval(() => setHeroCard(c => (c + 1) % 3), 3600);
@@ -402,6 +417,44 @@ export default function LandingPage() {
         .card-hover { transition: transform 0.3s, box-shadow 0.3s; }
         .card-hover:hover { transform: translateY(-4px); box-shadow: 0 18px 44px rgba(245,197,24,0.12); }
         [data-theme="light"] .card-hover:hover { box-shadow: 0 12px 36px rgba(138,106,0,0.14); }
+
+        /* ── Default (warm cream) theme overrides ── */
+        [data-theme="default"] .shimmer-text {
+          background: linear-gradient(90deg,#8A6A00 0%,#B8920A 40%,#8A6A00 60%,#6A5000 100%);
+          background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text; animation: shimmer 3s linear infinite;
+        }
+        [data-theme="default"] .lp-nav-scrolled {
+          background: rgba(232,224,208,0.97) !important;
+          border-bottom-color: rgba(138,106,0,0.15) !important;
+          box-shadow: 0 2px 12px rgba(138,106,0,0.08) !important;
+        }
+        [data-theme="default"] .lp-mobile-menu { background: rgba(232,224,208,0.99) !important; }
+        [data-theme="default"] .lp-card {
+          background: linear-gradient(145deg, #EDE8DC, #E8E2D4) !important;
+          border-color: rgba(138,106,0,0.2) !important;
+          box-shadow: 0 2px 12px rgba(138,106,0,0.06) !important;
+        }
+        [data-theme="default"] .lp-surface { background: #EDE8DC !important; border-color: rgba(138,106,0,0.18) !important; }
+        [data-theme="default"] .lp-social-link { background: rgba(74,63,47,0.08) !important; border-color: rgba(74,63,47,0.18) !important; }
+        [data-theme="default"] .lp-social-link svg { stroke: #4A3F2F !important; }
+        [data-theme="default"] h1 { color: #1A1410 !important; }
+        [data-theme="default"] h2 { color: #1A1410 !important; }
+        [data-theme="default"] h3 { color: #1A1410 !important; }
+        [data-theme="default"] section:not(.lp-dark-bg) p { color: #1a1a1a !important; }
+        [data-theme="default"] section:not(.lp-dark-bg) li { color: #1a1a1a !important; }
+        [data-theme="default"] .lp-card p { color: #1a1a1a !important; }
+        [data-theme="default"] .lp-card div, [data-theme="default"] .lp-card span:not([class]) { color: #1a1a1a !important; }
+        [data-theme="default"] footer p, [data-theme="default"] footer span, [data-theme="default"] footer a { color: #333333 !important; }
+        [data-theme="default"] footer h4 { color: #1a1a1a !important; }
+        [data-theme="default"] .lp-dark-bg h1, [data-theme="default"] .lp-dark-bg h2, [data-theme="default"] .lp-dark-bg h3 { color: #FFFFFF !important; }
+        [data-theme="default"] .lp-dark-bg p { color: #CCCCCC !important; }
+        [data-theme="default"] .lp-step-active h3 { color: #FFFFFF !important; }
+        [data-theme="default"] section .lp-step-active p { color: #DDDDDD !important; }
+        [data-theme="default"] .nav-a { color: #3A2C18; }
+        [data-theme="default"] .nav-a:hover { color: #8A6A00; }
+        [data-theme="default"] .outline-btn { color: #8A6A00 !important; border-color: rgba(138,106,0,0.5) !important; }
+        [data-theme="default"] .outline-btn:hover { background: rgba(138,106,0,0.08) !important; border-color: #8A6A00 !important; }
 
         /* ── Light theme section / card overrides ── */
         [data-theme="light"] h1 { color: #1A1410 !important; }
@@ -554,6 +607,24 @@ export default function LandingPage() {
           <a href="#features" className="nav-a">Features</a>
           <a href="#pricing" className="nav-a">Pricing</a>
           <a href="#faq" className="nav-a">FAQ</a>
+          {/* Theme toggle */}
+          <div style={{ display: "flex", gap: "0.375rem" }}>
+            {([
+              { key: "dark" as LPTheme, title: "Dark", svg: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> },
+              { key: "default" as LPTheme, title: "Default (Warm)", svg: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg> },
+              { key: "light" as LPTheme, title: "Light", svg: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> },
+            ]).map(({ key, title, svg }) => (
+              <button key={key} title={title} onClick={() => setThemeAndSave(key)}
+                style={{
+                  width: 28, height: 28, borderRadius: "50%", cursor: "pointer",
+                  background: theme === key ? "rgba(245,197,24,0.15)" : "rgba(255,255,255,0.05)",
+                  border: `1px solid ${theme === key ? "rgba(245,197,24,0.5)" : "rgba(255,255,255,0.12)"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: theme === key ? "#F5C518" : "#888", transition: "all 0.2s",
+                }}
+              >{svg}</button>
+            ))}
+          </div>
           <Link href="/login" className="nav-a">Log in</Link>
           <Link href="/login">
             <button className="gold-btn" style={{ padding: "0.5rem 1.25rem", fontSize: "0.875rem" }}>
@@ -588,6 +659,22 @@ export default function LandingPage() {
             Start 30-Day Free Trial
           </button>
         </Link>
+        <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.5rem" }}>
+          {([
+            { key: "dark" as LPTheme, label: "Dark" },
+            { key: "default" as LPTheme, label: "Warm" },
+            { key: "light" as LPTheme, label: "Light" },
+          ]).map(({ key, label }) => (
+            <button key={key} onClick={() => { setThemeAndSave(key); closeMenu(); }}
+              style={{
+                flex: 1, padding: "0.5rem", borderRadius: "0.5rem", cursor: "pointer",
+                background: theme === key ? "rgba(245,197,24,0.15)" : "rgba(255,255,255,0.05)",
+                border: `1px solid ${theme === key ? "rgba(245,197,24,0.5)" : "rgba(255,255,255,0.1)"}`,
+                color: theme === key ? "#F5C518" : "#888", fontSize: "0.8125rem", fontWeight: 600,
+              }}
+            >{label}</button>
+          ))}
+        </div>
       </div>
 
       {/* ── HERO ────────────────────────────────────────────────────────────── */}
@@ -606,11 +693,15 @@ export default function LandingPage() {
                 background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.2)",
                 borderRadius: "2rem", padding: "0.375rem 1rem",
                 color: "var(--cj-gold)", fontSize: "0.8125rem", fontWeight: 600,
-                marginBottom: "1.75rem", letterSpacing: "0.05em",
+                marginBottom: "1rem", letterSpacing: "0.05em",
               }}>
                 <IcoTarget color="var(--cj-gold)" size={14} />
                 <span>Behavioral Trading Intelligence</span>
               </div>
+
+              <p style={{ color: "var(--cj-gold)", fontSize: "1.25rem", fontWeight: 800, marginBottom: "1.125rem", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                Know Your Trading Edge.
+              </p>
 
               <h1 style={{ fontSize: "clamp(2.5rem,5.5vw,3.5rem)", fontWeight: 900, lineHeight: 1.08, marginBottom: "1.375rem", letterSpacing: "-0.02em" }}>
                 <span style={{ color: "var(--cj-text)" }}>You&rsquo;re Not Losing</span>
@@ -624,7 +715,7 @@ export default function LandingPage() {
                 You&rsquo;re losing because of you.
               </p>
               <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", lineHeight: 1.8, marginBottom: "2.25rem", maxWidth: 480 }}>
-                NIRI syncs with MT5, analyses your trade history, and identifies the behavioral patterns behind your losses. Each session ends with a specific coaching report.
+                The first AI trading journal built for African traders. NIRI syncs with MT5, analyses your trade history, and identifies the behavioral patterns behind your losses. Each session ends with a specific coaching report.
               </p>
 
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
@@ -1164,6 +1255,54 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── BUILT FOR AFRICA ─────────────────────────────────────────────────── */}
+      <section className="lp-dark-bg" style={{ background: "linear-gradient(135deg,#0D0800 0%,#1A1000 50%,#0A0500 100%)", padding: "7rem 1.5rem", borderTop: "1px solid rgba(245,197,24,0.1)", borderBottom: "1px solid rgba(245,197,24,0.1)" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: "0.5rem",
+              background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.25)",
+              borderRadius: "2rem", padding: "0.375rem 1rem",
+              color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700,
+              marginBottom: "1.5rem", letterSpacing: "0.06em",
+            }}>
+              🌍 Built for Africa
+            </div>
+            <h2 style={{ fontSize: "clamp(1.875rem,4.5vw,3rem)", fontWeight: 900, color: "#FFFFFF", lineHeight: 1.1, marginBottom: "1rem", letterSpacing: "-0.02em" }}>
+              Built for African Traders.<br /><span className="shimmer-text">Finally.</span>
+            </h2>
+            <p style={{ color: "#CCCCCC", fontSize: "1.0625rem", lineHeight: 1.8, maxWidth: 560, margin: "0 auto" }}>
+              NIRI is the first AI-powered trading journal designed specifically for African traders. Priced in Naira. Built for the brokers you use. Understands your market.
+            </p>
+          </div>
+          <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1.25rem", marginBottom: "3rem" }}>
+            {[
+              { val: "1M+", label: "Nigerian Traders", sub: "Active MT5 accounts in Nigeria" },
+              { val: "₦15,000", label: "Per Month", sub: "Fraction of USD competitors" },
+              { val: "HFM, Exness, Deriv", label: "Top Brokers Supported", sub: "Works with all MT5 platforms" },
+              { val: "Naira", label: "Pricing", sub: "African support, African prices" },
+            ].map((s) => (
+              <div key={s.label} className="lp-card" style={{
+                background: "linear-gradient(145deg,rgba(245,197,24,0.06),rgba(245,197,24,0.02))",
+                border: "1px solid rgba(245,197,24,0.2)", borderRadius: "1.25rem", padding: "1.75rem",
+                textAlign: "center",
+              }}>
+                <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "1.375rem", marginBottom: "0.375rem", letterSpacing: "-0.02em" }}>{s.val}</div>
+                <div style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.9rem", marginBottom: "0.25rem" }}>{s.label}</div>
+                <div style={{ color: "#888888", fontSize: "0.8125rem", lineHeight: 1.4 }}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <Link href="/login">
+              <button className="gold-btn" style={{ padding: "0.9375rem 2.5rem", fontSize: "1rem" }}>
+                Start Free — No Credit Card Required
+              </button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── PRICING ──────────────────────────────────────────────────────────── */}
       <section id="pricing" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 70% 50% at 50% 50%, rgba(245,197,24,0.04) 0%, transparent 70%)" }}>
         <div style={{ maxWidth: 920, margin: "0 auto" }}>
@@ -1200,7 +1339,10 @@ export default function LandingPage() {
               <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0a0800", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
                 30-Day Free Trial — No Card Required
               </div>
-              <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Pro</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Pro</p>
+                <span style={{ background: "rgba(245,197,24,0.1)", border: "1px solid rgba(245,197,24,0.3)", color: "#F5C518", fontSize: "0.6875rem", fontWeight: 700, padding: "0.2rem 0.625rem", borderRadius: "2rem", letterSpacing: "0.06em" }}>🌍 Priced for Africa</span>
+              </div>
               <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Everything you need to improve as a trader</p>
               <div style={{ marginBottom: "1.75rem" }}>
                 <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦15,000</span>
@@ -1360,6 +1502,8 @@ export default function LandingPage() {
               a="Yes. All data is encrypted at rest and in transit. Your trading data is private and is never shared with third parties. You can export or delete your data at any time." />
             <FaqItem q="What if I trade on MT4?"
               a="NIRI is optimized for MT5. MT4 support is planned for a future release. MT4 trades can be logged manually in the meantime." />
+            <FaqItem q="Is NIRI available in my country?"
+              a="Yes — NIRI works for any MT5 trader worldwide. However, pricing is designed specifically for African traders at ₦15,000/month, making it accessible compared to USD-priced competitors. Traders from Nigeria, Ghana, Kenya, South Africa, and across Africa are our primary community." />
           </div>
         </div>
       </section>
@@ -1441,7 +1585,7 @@ export default function LandingPage() {
           </div>
           <div style={{ borderTop: "1px solid rgba(245,197,24,0.06)", paddingTop: "1.5rem", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
             <span style={{ color: "var(--cj-text-muted)", fontSize: "0.8125rem" }}>© 2026 NIRI. All rights reserved.</span>
-            <span style={{ color: "var(--cj-text-muted)", fontSize: "0.8125rem" }}>Built for African traders</span>
+            <span style={{ color: "var(--cj-text-muted)", fontSize: "0.8125rem" }}>Proudly built for African traders 🌍</span>
           </div>
         </div>
       </footer>

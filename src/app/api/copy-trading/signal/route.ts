@@ -173,39 +173,24 @@ export async function POST(request: Request) {
     }
   }
 
-  // On close: update copied trades for this ticket
-  if (action === "close" && ticket) {
-    const { data: openCopies } = await db
-      .from("copied_trades")
-      .select("id, subscription_id")
-      .eq("status", "pending")
-      .not("subscription_id", "is", null);
+  // On close: update all pending copied trades that belong to this provider's subscriptions
+  if (action === "close") {
+    const { data: providerSubs } = await db
+      .from("copy_subscriptions")
+      .select("id")
+      .eq("provider_id", provider.id);
 
-    if (openCopies && openCopies.length > 0) {
-      const subIds = openCopies.map((c: { subscription_id: string }) => c.subscription_id);
-      const { data: subs } = await db
-        .from("copy_subscriptions")
-        .select("id")
-        .eq("provider_id", provider.id)
-        .in("id", subIds);
-
-      if (subs && subs.length > 0) {
-        const matchingSubIds = subs.map((s: { id: string }) => s.id);
-        const matchingCopyIds = openCopies
-          .filter((c: { subscription_id: string }) => matchingSubIds.includes(c.subscription_id))
-          .map((c: { id: string }) => c.id);
-
-        if (matchingCopyIds.length > 0) {
-          await db.from("copied_trades")
-            .update({
-              close_price: close_price ? Number(close_price) : null,
-              pnl: pnl ? Number(pnl) : null,
-              status: "closed",
-              closed_at: new Date().toISOString(),
-            })
-            .in("id", matchingCopyIds);
-        }
-      }
+    if (providerSubs && providerSubs.length > 0) {
+      const subIds = providerSubs.map((s: { id: string }) => s.id);
+      await db.from("copied_trades")
+        .update({
+          close_price: close_price ? Number(close_price) : null,
+          pnl: pnl ? Number(pnl) : null,
+          status: "closed",
+          closed_at: new Date().toISOString(),
+        })
+        .eq("status", "pending")
+        .in("subscription_id", subIds);
     }
   }
 

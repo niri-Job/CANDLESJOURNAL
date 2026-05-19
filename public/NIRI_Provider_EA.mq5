@@ -162,11 +162,10 @@ void SendSignal(string action, int ticket, string symbol, string direction,
    body += "}";
 
    string headers = "Content-Type: application/json\r\nAuthorization: Bearer " + g_token;
-   char   postData[], responseData[];
+   uchar  postData[], responseData[];
    string responseHeaders;
 
    StringToCharArray(body, postData, 0, StringLen(body));
-   ArrayResize(postData, ArraySize(postData) - 1); // remove null terminator
 
    int statusCode = WebRequest("POST", SIGNAL_URL, headers, REQUEST_TIMEOUT,
                                postData, responseData, responseHeaders);

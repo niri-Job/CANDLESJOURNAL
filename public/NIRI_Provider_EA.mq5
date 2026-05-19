@@ -12,14 +12,16 @@
 //+------------------------------------------------------------------+
 #property copyright "NIRI Trading Journal"
 #property link      "https://niri.live"
-#property version   "1.00"
+#property version   "1.01"
 
 input string InpProviderToken = "";   // Your Provider Token from niri.live/copy-trading
 
 #define SIGNAL_URL      "https://niri.live/api/copy-trading/signal"
 #define REQUEST_TIMEOUT 15000
+#define HEARTBEAT_SEC   30    // heartbeat interval in seconds
 
-string g_token = "";
+string g_token    = "";
+bool   g_firstRun = true;   // survives chart changes; resets only on full EA removal
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -33,29 +35,40 @@ int OnInit()
 
    g_token = InpProviderToken;
 
-   Print("NIRI Provider EA v1.00 starting on account #",
-         IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)),
-         " (", AccountInfoString(ACCOUNT_SERVER), ")");
+   if(g_firstRun)
+     {
+      Print("NIRI Provider EA v1.01 active — account #",
+            IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)),
+            " (", AccountInfoString(ACCOUNT_SERVER), ")",
+            " — first heartbeat in ", HEARTBEAT_SEC, "s");
+      g_firstRun = false;
+     }
+   else
+     {
+      // Chart/timeframe change: timer is still alive, just log and continue
+      Print("NIRI Provider EA — chart change, continuing (timer kept)");
+     }
 
-   // Send heartbeat to confirm connection
-   SendSignal("heartbeat", 0, "", "", 0, 0, 0, 0, 0, 0,
-              AccountInfoDouble(ACCOUNT_BALANCE));
-
-   EventSetTimer(60); // heartbeat every 60s
+   EventSetTimer(HEARTBEAT_SEC);
    return INIT_SUCCEEDED;
   }
 
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
   {
+   if(reason == REASON_CHARTCHANGE)
+     {
+      // Timeframe/symbol switch: OnInit fires immediately after — keep timer alive
+      Print("NIRI Provider EA — timeframe/symbol change, reinitializing...");
+      return;
+     }
    EventKillTimer();
-   Print("NIRI Provider EA stopped. Reason: ", reason);
+   Print("NIRI Provider EA — stopped (reason=", reason, ")");
   }
 
 //+------------------------------------------------------------------+
 void OnTimer()
   {
-   // Periodic heartbeat keeps provider marked as active
    SendSignal("heartbeat", 0, "", "", 0, 0, 0, 0, 0, 0,
               AccountInfoDouble(ACCOUNT_BALANCE));
   }
@@ -172,13 +185,15 @@ void SendSignal(string action, int ticket, string symbol, string direction,
 
    if(statusCode == 200)
      {
-      if(action != "heartbeat")
-        Print("NIRI — Signal sent OK: action=", action, " ticket=", ticket);
+      if(action == "heartbeat")
+        Print("NIRI — Heartbeat OK | balance=", DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE), 2));
+      else
+        Print("NIRI — Signal OK: action=", action, " ticket=", ticket);
      }
    else
      {
       string resp = CharArrayToString(responseData);
-      Print("NIRI — Signal FAILED: action=", action, " HTTP=", statusCode,
+      Print("NIRI — FAILED: action=", action, " HTTP=", statusCode,
             " response=", StringLen(resp) > 0 ? resp : "(empty)");
      }
   }

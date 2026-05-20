@@ -585,7 +585,7 @@ export default function LandingPage() {
       <nav className={scrolled ? "lp-nav-scrolled" : ""} style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
         height: scrolled ? "56px" : "72px", padding: "0 1.5rem",
-        background: scrolled ? "rgba(8,6,0,0.97)" : "transparent",
+        background: scrolled ? "rgba(13,13,18,0.97)" : "transparent",
         backdropFilter: scrolled ? "blur(14px)" : "none",
         borderBottom: scrolled ? "1px solid rgba(212,160,23,0.12)" : "none",
         transition: "all 0.3s ease",
@@ -646,7 +646,7 @@ export default function LandingPage() {
       {/* Mobile drawer */}
       <div className="lp-mobile-menu" style={{
         position: "fixed", inset: 0, zIndex: 99,
-        background: "rgba(8,6,0,0.99)", padding: "5.5rem 2rem 2rem",
+        background: "rgba(13,13,18,0.99)", padding: "5.5rem 2rem 2rem",
         display: "flex", flexDirection: "column", gap: "1.75rem",
         transform: menuOpen ? "translateX(0)" : "translateX(100%)",
         transition: "transform 0.3s ease",
@@ -851,7 +851,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── DASHBOARD PREVIEW ───────────────────────────────────────────────── */}
-      <section className="lp-dark-bg" style={{ background: "#0A0A0F", padding: "5rem 1.5rem 6rem" }}>
+      <section className="lp-dark-bg" style={{ background: "radial-gradient(circle at top right, rgba(212,160,23,0.08) 0%, transparent 50%), #0d0d12", padding: "5rem 1.5rem 6rem" }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: "4rem", flexWrap: "wrap" }}>
 
           {/* Left copy */}
@@ -930,7 +930,7 @@ export default function LandingPage() {
           </div>
 
           <div className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Sound <span className="shimmer-text">Familiar?</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem" }}>Most traders know these problems exist. NIRI quantifies them.</p>
@@ -955,7 +955,7 @@ export default function LandingPage() {
                   borderRadius: "1rem", padding: "1.75rem",
                 }}>
                   <div style={{ marginBottom: "0.875rem" }}>{p.ico}</div>
-                  <h3 style={{ color: "#f0e6c8", fontWeight: 700, fontSize: "1.0625rem", marginBottom: "0.625rem" }}>{p.title}</h3>
+                  <h3 style={{ color: "#ffffff", fontWeight: 700, fontSize: "1.0625rem", marginBottom: "0.625rem" }}>{p.title}</h3>
                   <p style={{ color: "#AAAAAA", lineHeight: 1.75, fontSize: "0.9375rem" }}>{p.text}</p>
                 </div>
               );
@@ -971,7 +971,7 @@ export default function LandingPage() {
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(circle at bottom right, rgba(212,160,23,0.10) 0%, transparent 50%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           <div ref={howRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Up and Running in <span className="shimmer-text">3 Steps</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem" }}>Click each step to see what to expect</p>
@@ -995,7 +995,7 @@ export default function LandingPage() {
                   style={{
                     display: "flex", gap: "1.25rem", padding: "1.375rem 1.5rem",
                     borderRadius: "1rem", cursor: "pointer", transition: "all 0.25s ease",
-                    background: howStep === i ? "#1C1C2E" : "transparent",
+                    background: howStep === i ? "#1c1b2a" : "transparent",
                     border: howStep === i ? "1px solid rgba(212,160,23,0.40)" : "1px solid transparent",
                     boxShadow: howStep === i ? "0 8px 30px rgba(212,160,23,0.10)" : "none",
                   }}>
@@ -1017,8 +1017,8 @@ export default function LandingPage() {
 
             {/* Step mockup */}
             <div style={{
-              background: "#1C1C2E",
-              border: "1px solid rgba(212,160,23,0.25)", borderRadius: "1.25rem",
+              background: "#1c1b2a",
+              border: "1px solid rgba(212,160,23,0.3)", borderRadius: "1.25rem",
               overflow: "hidden", transition: "all 0.3s ease",
             }}>
               {howStep === 0 && (
@@ -1087,7 +1087,7 @@ export default function LandingPage() {
       <section id="ai-showcase" style={{ padding: "7rem 1.5rem", background: "radial-gradient(circle at top left, rgba(212,160,23,0.10) 0%, transparent 50%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 820, margin: "0 auto" }}>
           <div ref={aiRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
               NIRI Doesn&rsquo;t Just <span className="shimmer-text">Track Trades.</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
@@ -1096,7 +1096,7 @@ export default function LandingPage() {
           </div>
 
           <div className="lp-card" style={{
-            background: "linear-gradient(145deg,#1a1508,#0f0c04)",
+            background: "linear-gradient(145deg,#1c1b2a,#16151f)",
             border: "1px solid rgba(212,160,23,0.30)",
             borderRadius: "1.5rem", overflow: "hidden",
             boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 40px rgba(212,160,23,0.08)",
@@ -1126,7 +1126,7 @@ export default function LandingPage() {
                 <IcoTarget color="#d4a017" size={18} />
                 <span style={{ color: "#d4a017", fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em" }}>THIS WEEK&rsquo;S FOCUS</span>
               </div>
-              <p style={{ color: "#c0a060", fontWeight: 600, fontSize: "1rem" }}>One setup. One session. XAUUSD sells during the London open only.</p>
+              <p style={{ color: "#d4a017", fontWeight: 600, fontSize: "1rem" }}>One setup. One session. XAUUSD sells during the London open only.</p>
             </div>
           </div>
 
@@ -1147,7 +1147,7 @@ export default function LandingPage() {
       <section id="features" style={{ padding: "7rem 1.5rem", background: "radial-gradient(circle at bottom right, rgba(212,160,23,0.12) 0%, transparent 52%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div ref={featRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
               Stop Guessing. <span className="shimmer-text">Start Growing.</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 520, margin: "0 auto" }}>
@@ -1159,7 +1159,7 @@ export default function LandingPage() {
               const fRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
               return (
                 <div key={f.title} ref={fRef} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 60}ms`,
-                  background: "linear-gradient(145deg,#141108,#0c0a02)",
+                  background: "linear-gradient(145deg,#1c1b2a,#16151f)",
                   border: "1px solid rgba(212,160,23,0.30)",
                   borderRadius: "1rem", padding: "1.75rem",
                 }}>
@@ -1177,11 +1177,11 @@ export default function LandingPage() {
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(circle at top left, rgba(212,160,23,0.10) 0%, transparent 50%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
           <div ref={cmpRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
               Why Serious MT5 Traders <span className="shimmer-text">Choose NIRI</span>
             </h2>
           </div>
-          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#141108,#0c0a02)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
+          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#1c1b2a,#16151f)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
             <table className="cmp-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "rgba(212,160,23,0.08)" }}>
@@ -1213,14 +1213,14 @@ export default function LandingPage() {
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(circle at bottom right, rgba(212,160,23,0.10) 0%, transparent 50%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div ref={previewRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Built for Traders Serious About <span className="shimmer-text">Improvement</span>
             </h2>
           </div>
           <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.5rem" }}>
 
             {/* Dashboard */}
-            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1c1b2a,#16151f)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(212,160,23,0.06)", borderBottom: "1px solid rgba(212,160,23,0.12)" }}>
                 <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>DASHBOARD</span>
               </div>
@@ -1245,7 +1245,7 @@ export default function LandingPage() {
             </div>
 
             {/* Chart review */}
-            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1c1b2a,#16151f)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(212,160,23,0.06)", borderBottom: "1px solid rgba(212,160,23,0.12)" }}>
                 <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>CHART REVIEW</span>
               </div>
@@ -1269,7 +1269,7 @@ export default function LandingPage() {
             </div>
 
             {/* Psychology */}
-            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1a1508,#0f0c04)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#1c1b2a,#16151f)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
               <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(212,160,23,0.06)", borderBottom: "1px solid rgba(212,160,23,0.12)" }}>
                 <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>PSYCHOLOGY</span>
               </div>
@@ -1318,7 +1318,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── BUILT FOR AFRICA ─────────────────────────────────────────────────── */}
-      <section className="lp-dark-bg" style={{ background: "linear-gradient(135deg,#0D0800 0%,#1A1000 50%,#0A0500 100%)", padding: "7rem 1.5rem", borderTop: "1px solid rgba(212,160,23,0.12)", borderBottom: "1px solid rgba(212,160,23,0.12)" }}>
+      <section className="lp-dark-bg" style={{ background: "linear-gradient(135deg,#0d0d12 0%,#131228 50%,#0d0d12 100%)", padding: "7rem 1.5rem", borderTop: "1px solid rgba(212,160,23,0.20)", borderBottom: "1px solid rgba(212,160,23,0.20)" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <div style={{
@@ -1369,7 +1369,7 @@ export default function LandingPage() {
       <section id="pricing" style={{ padding: "7rem 1.5rem", background: "radial-gradient(circle at top left, rgba(212,160,23,0.12) 0%, transparent 52%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 920, margin: "0 auto" }}>
           <div ref={pricingRef} className="fade-up" style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.875rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
               Invest in Your <span className="shimmer-text">Trading Education</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 560, margin: "0 auto" }}>
@@ -1378,7 +1378,7 @@ export default function LandingPage() {
           </div>
           <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", maxWidth: 800, margin: "3rem auto 0" }}>
 
-            <div className="lp-card" style={{ background: "linear-gradient(145deg,#141108,#0c0a02)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.375rem", padding: "2.25rem" }}>
+            <div className="lp-card" style={{ background: "linear-gradient(145deg,#1c1b2a,#16151f)", border: "1px solid rgba(212,160,23,0.30)", borderRadius: "1.375rem", padding: "2.25rem" }}>
               <p style={{ color: "#AAAAAA", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Free</p>
               <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Start tracking with no credit card</p>
               <div style={{ marginBottom: "1.75rem" }}>
@@ -1397,7 +1397,7 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="lp-card" style={{ background: "linear-gradient(145deg,#1e1a06,#131000)", border: "2px solid #d4a017", borderRadius: "1.375rem", padding: "2.25rem", position: "relative", boxShadow: "0 0 50px rgba(212,160,23,0.12)" }}>
+            <div className="lp-card" style={{ background: "linear-gradient(145deg,#201e30,#16151f)", border: "2px solid #d4a017", borderRadius: "1.375rem", padding: "2.25rem", position: "relative", boxShadow: "0 0 50px rgba(212,160,23,0.12)" }}>
               <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#d4a017 0%,#f5c842 50%,#d4a017 100%)", color: "#0d0d12", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
                 30-Day Free Trial — No Card Required
               </div>
@@ -1437,7 +1437,7 @@ export default function LandingPage() {
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(circle at bottom right, rgba(212,160,23,0.10) 0%, transparent 50%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div ref={testRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Traders Who Stopped <span className="shimmer-text">Guessing</span>
             </h2>
           </div>
@@ -1454,7 +1454,7 @@ export default function LandingPage() {
               const tRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
               return (
                 <div key={t.name} ref={tRef} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 100}ms`,
-                  background: "linear-gradient(145deg,#141108,#0c0a02)",
+                  background: "linear-gradient(145deg,#1c1b2a,#16151f)",
                   border: "1px solid rgba(212,160,23,0.30)",
                   borderRadius: "1.25rem", padding: "2rem",
                 }}>
@@ -1495,7 +1495,7 @@ export default function LandingPage() {
                 <IcoGlobe color="#d4a017" />
                 <span>Deriv MT5 Traders</span>
               </div>
-              <h2 style={{ fontSize: "clamp(1.625rem,3.5vw,2.375rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "1rem", lineHeight: 1.2 }}>
+              <h2 style={{ fontSize: "clamp(1.625rem,3.5vw,2.375rem)", fontWeight: 800, color: "#ffffff", marginBottom: "1rem", lineHeight: 1.2 }}>
                 Trade Synthetic Indices on <span className="shimmer-text">Deriv?</span>
               </h2>
               <p style={{ color: "var(--cj-text)", fontSize: "1rem", lineHeight: 1.8, marginBottom: "1.5rem" }}>
@@ -1526,12 +1526,12 @@ export default function LandingPage() {
                 { label: "Pattern detection", value: "Revenge trading after Crash 500 losses" },
               ].map(item => (
                 <div key={item.label} className="lp-card" style={{
-                  background: "linear-gradient(145deg,#1a1508,#0f0c04)",
+                  background: "linear-gradient(145deg,#1c1b2a,#16151f)",
                   border: "1px solid rgba(212,160,23,0.12)",
                   borderRadius: "0.875rem", padding: "1rem 1.25rem",
                 }}>
                   <p style={{ color: "#AAAAAA", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>{item.label}</p>
-                  <p style={{ color: "#E0C060", fontSize: "0.9rem", fontWeight: 600 }}>{item.value}</p>
+                  <p style={{ color: "#d4a017", fontSize: "0.9rem", fontWeight: 600 }}>{item.value}</p>
                 </div>
               ))}
             </div>
@@ -1543,11 +1543,11 @@ export default function LandingPage() {
       <section id="faq" style={{ padding: "7rem 1.5rem", background: "radial-gradient(circle at top left, rgba(212,160,23,0.10) 0%, transparent 50%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 740, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#f0e6c8", marginBottom: "0.75rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Frequently Asked <span className="shimmer-text">Questions</span>
             </h2>
           </div>
-          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#0f0c04,#080600)", border: "1px solid rgba(212,160,23,0.12)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
+          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#16151f,#12111c)", border: "1px solid rgba(212,160,23,0.12)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
             <FaqItem q="How is NIRI different from TradeZella?"
               a="NIRI is built specifically for MT5 traders and costs 70% less (₦15,000/month compared to $29–$49/month). NIRI also includes features TradeZella does not: emotion tracking per trade, trade visualization on a live chart, a dedicated Psychology report tab, and a referral earnings program." />
             <FaqItem q="Do I need to manually import my trades?"
@@ -1573,7 +1573,7 @@ export default function LandingPage() {
       {/* ── FINAL CTA ────────────────────────────────────────────────────────── */}
       <section style={{ padding: "8rem 1.5rem", background: "radial-gradient(circle at bottom right, rgba(212,160,23,0.12) 0%, transparent 52%), var(--cj-bg)", position: "relative" }}>
         <div ref={ctaRef} className="fade-up" style={{ maxWidth: 660, margin: "0 auto", textAlign: "center" }}>
-          <h2 style={{ fontSize: "clamp(2rem,5.5vw,3.25rem)", fontWeight: 900, color: "#f0e6c8", lineHeight: 1.1, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
+          <h2 style={{ fontSize: "clamp(2rem,5.5vw,3.25rem)", fontWeight: 900, color: "#ffffff", lineHeight: 1.1, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
             Stop Repeating the<br />Same Mistakes.
           </h2>
           <p style={{ color: "var(--cj-text)", fontSize: "1.0625rem", lineHeight: 1.8, marginBottom: "2.5rem", maxWidth: 500, margin: "0 auto 2.5rem" }}>

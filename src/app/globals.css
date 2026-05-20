@@ -20,17 +20,17 @@
   --color-zinc-100: #FFFFFF;   /* primary text — pure white          */
   --color-zinc-50:  #F5F0FF;
 
-  /* ── Orange fire spectrum — primary accent ── */
-  --color-blue-900: #1A0500;
-  --color-blue-800: #380C00;
-  --color-blue-700: #6A2000;
-  --color-blue-600: #CC4400;   /* deep orange — bg-blue-600 buttons  */
-  --color-blue-500: #FF6B00;   /* primary orange                     */
-  --color-blue-400: #FF8C00;   /* hover/light orange                 */
-  --color-blue-300: #FFB060;
-  --color-blue-200: #FFD0A0;
-  --color-blue-100: #FFEEDD;
-  --color-blue-50:  #FFF5EE;
+  /* ── Bright gold spectrum — primary accent ── */
+  --color-blue-900: #0A0700;
+  --color-blue-800: #1F1400;
+  --color-blue-700: #3D2D00;
+  --color-blue-600: #C49A00;   /* deep gold — bg-blue-600 buttons    */
+  --color-blue-500: #F5C518;   /* primary gold                       */
+  --color-blue-400: #FFD740;   /* hover/light gold                   */
+  --color-blue-300: #FFE080;
+  --color-blue-200: #FFF0C0;
+  --color-blue-100: #FFFAE0;
+  --color-blue-50:  #FFFDF0;
 
   /* ── Positive green ── */
   --color-green-400:   #4ade80;
@@ -47,30 +47,30 @@
   --color-red-400:  #f87171;
 }
 
-/* ─── NIRI semantic tokens — cinematic orange × purple ──────────────────── */
+/* ─── NIRI semantic tokens — cinematic gold × purple ────────────────────── */
 :root {
   --cj-bg:           #06000E;          /* deep void background                */
   --cj-surface:      #0C0018;          /* cards, panels                       */
   --cj-raised:       #120022;          /* inputs, tooltips, elevated          */
   --cj-border:       #1A0035;          /* default border                      */
-  --cj-border-light: rgba(255,107,0,0.12);  /* subtle orange border           */
+  --cj-border-light: rgba(245,197,24,0.12);  /* subtle gold border            */
   --cj-text:         #FFFFFF;           /* primary text — pure white           */
   --cj-text-muted:   #9080B8;          /* cool purple-white muted             */
-  --cj-gold:         #FF6B00;          /* orange — primary accent             */
-  --cj-gold-deep:    #CC4400;          /* deep orange                         */
-  --cj-gold-muted:   #6A2000;          /* subtle orange — labels              */
-  --cj-gold-glow:    rgba(255,107,0,0.20);   /* orange ambient glow           */
+  --cj-gold:         #F5C518;          /* bright gold — primary accent        */
+  --cj-gold-deep:    #C49A00;          /* deep gold                           */
+  --cj-gold-muted:   #7A5A14;          /* subtle gold — labels                */
+  --cj-gold-glow:    rgba(245,197,24,0.22);  /* gold ambient glow             */
   --cj-sidebar-bg:   #04000A;          /* sidebar void                        */
+  --cj-sidebar-gradient: radial-gradient(ellipse 200% 30% at 50% 0%, rgba(245,197,24,0.15) 0%, rgba(139,53,255,0.10) 40%, transparent 65%), linear-gradient(180deg, var(--cj-bg) 0%, var(--cj-sidebar-bg) 100%);
   --cj-positive:     #4ade80;          /* profit / win                        */
   --cj-negative:     #f87171;          /* loss / drawdown                     */
   /* ── Purple atmosphere ── */
   --cj-purple:       #8B35FF;
   --cj-purple-glow:  rgba(139,53,255,0.18);
-  --cj-pink:         #FF3080;
   /* ── Gradients ── */
-  --cj-gradient-gold: linear-gradient(135deg, #FF6B00 0%, #FF3080 50%, #8B35FF 100%);
-  --cj-gradient-cta:  linear-gradient(135deg, #FF6B00 0%, #E02060 100%);
-  --cj-card-border:  rgba(255,107,0,0.22);
+  --cj-gradient-gold: linear-gradient(135deg, #F5C518 0%, #8B35FF 100%);
+  --cj-gradient-cta:  linear-gradient(135deg, #F5C518 0%, #8B35FF 100%);
+  --cj-card-border:  rgba(245,197,24,0.22);
 }
 
 /* ── Explicit dark theme (mirrors :root) ── */
@@ -79,22 +79,22 @@
   --cj-surface:      #0C0018;
   --cj-raised:       #120022;
   --cj-border:       #1A0035;
-  --cj-border-light: rgba(255,107,0,0.12);
+  --cj-border-light: rgba(245,197,24,0.12);
   --cj-text:         #FFFFFF;
   --cj-text-muted:   #9080B8;
-  --cj-gold:         #FF6B00;
-  --cj-gold-deep:    #CC4400;
-  --cj-gold-muted:   #6A2000;
-  --cj-gold-glow:    rgba(255,107,0,0.20);
+  --cj-gold:         #F5C518;
+  --cj-gold-deep:    #C49A00;
+  --cj-gold-muted:   #7A5A14;
+  --cj-gold-glow:    rgba(245,197,24,0.22);
   --cj-sidebar-bg:   #04000A;
+  --cj-sidebar-gradient: radial-gradient(ellipse 200% 30% at 50% 0%, rgba(245,197,24,0.15) 0%, rgba(139,53,255,0.10) 40%, transparent 65%), linear-gradient(180deg, var(--cj-bg) 0%, var(--cj-sidebar-bg) 100%);
   --cj-positive:     #4ade80;
   --cj-negative:     #f87171;
   --cj-purple:       #8B35FF;
   --cj-purple-glow:  rgba(139,53,255,0.18);
-  --cj-pink:         #FF3080;
-  --cj-gradient-gold: linear-gradient(135deg, #FF6B00 0%, #FF3080 50%, #8B35FF 100%);
-  --cj-gradient-cta:  linear-gradient(135deg, #FF6B00 0%, #E02060 100%);
-  --cj-card-border:  rgba(255,107,0,0.22);
+  --cj-gradient-gold: linear-gradient(135deg, #F5C518 0%, #8B35FF 100%);
+  --cj-gradient-cta:  linear-gradient(135deg, #F5C518 0%, #8B35FF 100%);
+  --cj-card-border:  rgba(245,197,24,0.22);
 }
 
 
@@ -185,9 +185,9 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: 0 0 0 2px var(--cj-gold-glow), 0 0 0 3px rgba(139,53,255,0.08);
   }
 
-  /* Primary cinematic gradient button — orange × pink × purple */
+  /* Primary cinematic gradient button — gold × purple */
   .btn-gold {
-    background: linear-gradient(135deg, #FF6B00 0%, #E02060 55%, #7B2FFF 100%);
+    background: linear-gradient(135deg, #F5C518 0%, #8B35FF 100%);
     color: #FFFFFF;
     font-weight: 700;
     transition: filter 0.15s, transform 0.1s;
@@ -196,7 +196,7 @@ h1, h2, h3, h4, h5, h6 {
 
   .btn-gold:hover:not(:disabled) {
     filter: brightness(1.08);
-    box-shadow: 0 8px 32px rgba(255,107,0,0.45), 0 4px 20px rgba(139,53,255,0.25);
+    box-shadow: 0 8px 32px rgba(245,197,24,0.45), 0 4px 20px rgba(139,53,255,0.25);
   }
 
   .btn-gold:active:not(:disabled) {
@@ -208,11 +208,11 @@ h1, h2, h3, h4, h5, h6 {
     cursor: not-allowed;
   }
 
-  /* Section divider — tri-color cinematic gradient */
+  /* Section divider — gold × purple gradient */
   .gold-divider {
     height: 1px;
     width: 100%;
-    background: linear-gradient(90deg, transparent 0%, #FF6B00 20%, #FF3080 45%, #8B35FF 70%, #FF3080 85%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, #F5C518 30%, #8B35FF 65%, #F5C518 85%, transparent 100%);
     border: none;
     outline: none;
     flex-shrink: 0;
@@ -241,6 +241,8 @@ h1, h2, h3, h4, h5, h6 {
   --cj-gold-deep:    #9A7208;
   --cj-gold-muted:   #7A5A06;
   --cj-gold-glow:    rgba(184,134,11,0.18);
+  --cj-sidebar-bg:   #E8E0D0;          /* same as bg — flat sidebar     */
+  --cj-sidebar-gradient: var(--cj-surface); /* flat card surface, no dark fade */
 
   /* Zinc scale inverted for light background */
   --color-zinc-100: #1A1410;
@@ -267,11 +269,11 @@ h1, h2, h3, h4, h5, h6 {
   background: radial-gradient(ellipse at top, #D8CEBB 0%, #E8E0D0 65%);
 }
 
-/* Cinematic button → warm gold in light mode */
+/* Gold × purple button in light mode */
 [data-theme="light"] .btn-gold {
-  background: linear-gradient(135deg, #B8860B 0%, #E0A820 55%, #B8860B 100%);
-  color: #1A1410;
-  text-shadow: none;
+  background: linear-gradient(135deg, #B8860B 0%, #7B2FFF 100%);
+  color: #FFFFFF;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
 }
 
 [data-theme="light"] .bg-card-warm {

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 
 // ─── SVG icon wrapper ─────────────────────────────────────────────────────────
-function Ico({ children, size = 24, color = "#FF6B00", style }: {
+function Ico({ children, size = 24, color = "#F5C518", style }: {
   children: React.ReactNode; size?: number; color?: string; style?: React.CSSProperties;
 }) {
   return (
@@ -149,23 +149,23 @@ const IcoStar = ({ color }: { color?: string }) => (
 );
 // Social SVGs
 const IcoTwitterX = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.5" strokeLinecap="round">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round">
     <path d="M4 4l16 16M20 4 4 20"/>
   </svg>
 );
 const IcoTelegram = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <line x1="22" y1="2" x2="11" y2="13"/>
     <polygon points="22 2 15 22 11 13 2 9 22 2"/>
   </svg>
 );
 const IcoWhatsapp = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
   </svg>
 );
 const IcoLock = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }}>
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }}>
     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
   </svg>
@@ -219,7 +219,7 @@ function useCountUp(target: number, suffix = "", duration = 1800) {
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ borderBottom: "1px solid rgba(255,107,0,0.12)" }}>
+    <div style={{ borderBottom: "1px solid rgba(245,197,24,0.12)" }}>
       <button onClick={() => setOpen(!open)} style={{
         width: "100%", textAlign: "left", padding: "1.375rem 0",
         background: "none", border: "none", cursor: "pointer",
@@ -227,7 +227,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         color: "var(--cj-text)", fontSize: "1rem", fontWeight: 600, gap: "1rem",
       }}>
         <span>{q}</span>
-        <span style={{ color: "#FF6B00", fontSize: "1.375rem", flexShrink: 0, transition: "transform 0.25s", transform: open ? "rotate(45deg)" : "none" }}>+</span>
+        <span style={{ color: "#F5C518", fontSize: "1.375rem", flexShrink: 0, transition: "transform 0.25s", transform: open ? "rotate(45deg)" : "none" }}>+</span>
       </button>
       <div style={{
         maxHeight: open ? "24rem" : "0", overflow: "hidden",
@@ -242,11 +242,11 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 function CmpRow({ label, niri, other, highlight }: { label: string; niri: string; other: string; highlight?: boolean }) {
   return (
     <tr style={{ background: highlight ? "rgba(255,140,0,0.05)" : "transparent" }}>
-      <td style={{ padding: "0.875rem 1rem", color: "var(--cj-text-muted)", fontSize: "0.9rem", borderBottom: "1px solid rgba(255,107,0,0.10)" }}>{label}</td>
-      <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(255,107,0,0.10)", borderLeft: "2px solid rgba(255,107,0,0.35)" }}>
+      <td style={{ padding: "0.875rem 1rem", color: "var(--cj-text-muted)", fontSize: "0.9rem", borderBottom: "1px solid rgba(245,197,24,0.10)" }}>{label}</td>
+      <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(245,197,24,0.10)", borderLeft: "2px solid rgba(245,197,24,0.35)" }}>
         <span style={{ color: "var(--cj-gold)", fontWeight: 700, fontSize: "0.9rem" }}>{niri}</span>
       </td>
-      <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(255,107,0,0.10)" }}>
+      <td style={{ padding: "0.875rem 1rem", textAlign: "center", borderBottom: "1px solid rgba(245,197,24,0.10)" }}>
         <span style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem" }}>{other}</span>
       </td>
     </tr>
@@ -257,7 +257,7 @@ function CmpRow({ label, niri, other, highlight }: { label: string; niri: string
 function CheckItem({ text, dim }: { text: string; dim?: boolean }) {
   return (
     <div style={{ display: "flex", gap: "0.625rem", alignItems: "flex-start", marginBottom: "0.75rem" }}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
         <polyline points="20 6 9 17 4 12"/>
       </svg>
       <span style={{ color: dim ? "var(--cj-text-muted)" : "var(--cj-text)", fontSize: "0.9375rem", lineHeight: 1.5 }}>{text}</span>
@@ -322,8 +322,8 @@ export default function LandingPage() {
       text: "You lose 73% of trades placed after 2 consecutive losses. Revenge trading costs you $340 per month on average.",
     },
     {
-      accent: "#FF6B00",
-      icon: <IcoLightbulb color="#FF6B00" />,
+      accent: "#F5C518",
+      icon: <IcoLightbulb color="#F5C518" />,
       label: "Behavioral Insight",
       text: "You close winning trades 40% too early. Holding to your take profit would add $890 to your monthly result.",
     },
@@ -371,9 +371,9 @@ export default function LandingPage() {
           100% { background-position:  200% center; }
         }
         @keyframes pulseGold {
-          0%   { box-shadow: 0 0 0 0 rgba(255,107,0,0.55); }
-          70%  { box-shadow: 0 0 0 16px rgba(255,107,0,0); }
-          100% { box-shadow: 0 0 0 0 rgba(255,107,0,0); }
+          0%   { box-shadow: 0 0 0 0 rgba(245,197,24,0.55); }
+          70%  { box-shadow: 0 0 0 16px rgba(245,197,24,0); }
+          100% { box-shadow: 0 0 0 0 rgba(245,197,24,0); }
         }
         @keyframes float {
           0%,100% { transform: translateY(0); }
@@ -381,7 +381,7 @@ export default function LandingPage() {
         }
 
         .shimmer-text {
-          background: linear-gradient(90deg,#FF6B00 0%,#FF3080 35%,#8B35FF 65%,#FF3080 82%,#FF6B00 100%);
+          background: linear-gradient(90deg,#F5C518 0%,#8B35FF 50%,#F5C518 100%);
           background-size: 200% auto;
           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -395,27 +395,27 @@ export default function LandingPage() {
           animation: shimmer 3s linear infinite;
         }
         .gold-btn {
-          background: linear-gradient(135deg,#FF6B00 0%,#E02060 55%,#7B2FFF 100%);
+          background: linear-gradient(135deg,#F5C518 0%,#8B35FF 100%);
           color: #FFFFFF; border: none; border-radius: 0.5rem;
           font-weight: 700; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.35);
           transition: transform 0.2s, box-shadow 0.2s;
         }
-        .gold-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(255,107,0,0.50), 0 4px 20px rgba(139,53,255,0.30); }
+        .gold-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(245,197,24,0.50), 0 4px 20px rgba(139,53,255,0.30); }
         .outline-btn {
-          background: transparent; color: #FF6B00;
-          border: 1.5px solid rgba(255,107,0,0.50);
+          background: transparent; color: #F5C518;
+          border: 1.5px solid rgba(245,197,24,0.50);
           border-radius: 0.5rem; font-weight: 600; cursor: pointer;
           transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
         }
-        .outline-btn:hover { background: rgba(255,107,0,0.08); border-color: #FF6B00; box-shadow: 0 0 20px rgba(255,107,0,0.15); }
+        .outline-btn:hover { background: rgba(245,197,24,0.08); border-color: #F5C518; box-shadow: 0 0 20px rgba(245,197,24,0.15); }
         [data-theme="light"] .outline-btn { color: #8A6A00 !important; border-color: rgba(138,106,0,0.5) !important; }
         [data-theme="light"] .outline-btn:hover { background: rgba(138,106,0,0.08) !important; border-color: #8A6A00 !important; }
         .nav-a { color: #9080B8; font-size: 0.9375rem; text-decoration: none; transition: color 0.2s; font-weight: 500; }
-        .nav-a:hover { color: #FF6B00; }
+        .nav-a:hover { color: #F5C518; }
         [data-theme="light"] .nav-a { color: #3A2C18; }
         [data-theme="light"] .nav-a:hover { color: #8A6A00; }
         .card-hover { transition: transform 0.3s, box-shadow 0.3s; }
-        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 50px rgba(255,107,0,0.22), 0 8px 30px rgba(139,53,255,0.12), 0 0 0 1px rgba(255,107,0,0.18); }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 20px 50px rgba(245,197,24,0.22), 0 8px 30px rgba(139,53,255,0.12), 0 0 0 1px rgba(245,197,24,0.18); }
         [data-theme="light"] .card-hover:hover { box-shadow: 0 12px 36px rgba(138,106,0,0.14); }
 
         [data-theme="light"] .shimmer-text {
@@ -554,18 +554,18 @@ export default function LandingPage() {
         height: scrolled ? "56px" : "72px", padding: "0 1.5rem",
         background: scrolled ? "rgba(6,0,14,0.97)" : "transparent",
         backdropFilter: scrolled ? "blur(14px)" : "none",
-        borderBottom: scrolled ? "1px solid rgba(255,107,0,0.12)" : "none",
+        borderBottom: scrolled ? "1px solid rgba(245,197,24,0.12)" : "none",
         transition: "all 0.3s ease",
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "0.625rem" }}>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style={{ width: 32, height: 32, flexShrink: 0, filter: "drop-shadow(0 0 8px rgba(255,107,0,0.30))" }}>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style={{ width: 32, height: 32, flexShrink: 0, filter: "drop-shadow(0 0 8px rgba(245,197,24,0.30))" }}>
             <rect width="100" height="100" fill="#06000E" rx="18"/>
             <path d="M50 36 Q40 36 35 42 Q30 48 33 54 Q30 60 35 64 Q40 68 45 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
             <path d="M50 36 Q60 36 65 42 Q70 48 67 54 Q70 60 65 64 Q60 68 55 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
             <line x1="50" y1="36" x2="50" y2="67" stroke="#C49A00" strokeWidth="0.8" strokeDasharray="2.5,2"/>
-            <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#FF6B00" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="68" cy="50" r="2.5" fill="#FF6B00"/>
+            <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#F5C518" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
           </svg>
           <span style={{ fontWeight: 800, fontSize: "1.125rem", color: "var(--cj-text)", letterSpacing: "-0.01em" }}>NIRI</span>
         </Link>
@@ -584,10 +584,10 @@ export default function LandingPage() {
               <button key={key} title={title} onClick={() => setThemeAndSave(key)}
                 style={{
                   width: 28, height: 28, borderRadius: "50%", cursor: "pointer",
-                  background: theme === key ? "rgba(255,107,0,0.30)" : "rgba(255,255,255,0.05)",
-                  border: `1px solid ${theme === key ? "rgba(255,107,0,0.55)" : "rgba(255,255,255,0.12)"}`,
+                  background: theme === key ? "rgba(245,197,24,0.30)" : "rgba(255,255,255,0.05)",
+                  border: `1px solid ${theme === key ? "rgba(245,197,24,0.55)" : "rgba(255,255,255,0.12)"}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  color: theme === key ? "#FF6B00" : "#888", transition: "all 0.2s",
+                  color: theme === key ? "#F5C518" : "#888", transition: "all 0.2s",
                 }}
               >{svg}</button>
             ))}
@@ -603,9 +603,9 @@ export default function LandingPage() {
         <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}
           style={{ background: "none", border: "none", cursor: "pointer", display: "none", flexDirection: "column", gap: 5, padding: "0.5rem" }}
           aria-label="Toggle menu">
-          <div style={{ width: 22, height: 2, background: "#FF6B00", borderRadius: 2, transition: "transform 0.2s", transform: menuOpen ? "rotate(45deg) translate(5px,5px)" : "none" }} />
-          <div style={{ width: 22, height: 2, background: "#FF6B00", borderRadius: 2, opacity: menuOpen ? 0 : 1, transition: "opacity 0.2s" }} />
-          <div style={{ width: 22, height: 2, background: "#FF6B00", borderRadius: 2, transition: "transform 0.2s", transform: menuOpen ? "rotate(-45deg) translate(5px,-5px)" : "none" }} />
+          <div style={{ width: 22, height: 2, background: "#F5C518", borderRadius: 2, transition: "transform 0.2s", transform: menuOpen ? "rotate(45deg) translate(5px,5px)" : "none" }} />
+          <div style={{ width: 22, height: 2, background: "#F5C518", borderRadius: 2, opacity: menuOpen ? 0 : 1, transition: "opacity 0.2s" }} />
+          <div style={{ width: 22, height: 2, background: "#F5C518", borderRadius: 2, transition: "transform 0.2s", transform: menuOpen ? "rotate(-45deg) translate(5px,-5px)" : "none" }} />
         </button>
       </nav>
 
@@ -634,9 +634,9 @@ export default function LandingPage() {
             <button key={key} onClick={() => { setThemeAndSave(key); closeMenu(); }}
               style={{
                 flex: 1, padding: "0.5rem", borderRadius: "0.5rem", cursor: "pointer",
-                background: theme === key ? "rgba(255,107,0,0.30)" : "rgba(255,255,255,0.05)",
-                border: `1px solid ${theme === key ? "rgba(255,107,0,0.55)" : "rgba(255,255,255,0.1)"}`,
-                color: theme === key ? "#FF6B00" : "#888", fontSize: "0.8125rem", fontWeight: 600,
+                background: theme === key ? "rgba(245,197,24,0.30)" : "rgba(255,255,255,0.05)",
+                border: `1px solid ${theme === key ? "rgba(245,197,24,0.55)" : "rgba(255,255,255,0.1)"}`,
+                color: theme === key ? "#F5C518" : "#888", fontSize: "0.8125rem", fontWeight: 600,
               }}
             >{label}</button>
           ))}
@@ -647,9 +647,9 @@ export default function LandingPage() {
       <section style={{
         minHeight: "100vh", paddingTop: "80px",
         background: [
-          "radial-gradient(ellipse 145% 95% at -8% 108%, rgba(255,107,0,0.60) 0%, rgba(255,48,128,0.25) 30%, transparent 62%)",
+          "radial-gradient(ellipse 145% 95% at -8% 108%, rgba(245,197,24,0.60) 0%, rgba(245,197,24,0.25) 30%, transparent 62%)",
           "radial-gradient(ellipse 90% 70% at 108% 3%, rgba(139,53,255,0.55) 0%, rgba(139,53,255,0.18) 42%, transparent 70%)",
-          "radial-gradient(ellipse 55% 45% at 55% 55%, rgba(255,48,128,0.07) 0%, transparent 65%)",
+          "radial-gradient(ellipse 55% 45% at 55% 55%, rgba(245,197,24,0.07) 0%, transparent 65%)",
           "var(--cj-bg)",
         ].join(", "),
         display: "flex", alignItems: "center",
@@ -662,7 +662,7 @@ export default function LandingPage() {
             <div style={{ flex: "1 1 500px", maxWidth: 580 }}>
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: "0.625rem",
-                background: "rgba(255,107,0,0.10)", border: "1px solid rgba(255,107,0,0.25)",
+                background: "rgba(245,197,24,0.10)", border: "1px solid rgba(245,197,24,0.25)",
                 borderRadius: "2rem", padding: "0.375rem 1rem",
                 color: "var(--cj-gold)", fontSize: "0.8125rem", fontWeight: 600,
                 marginBottom: "1rem", letterSpacing: "0.05em",
@@ -715,7 +715,7 @@ export default function LandingPage() {
               {/* Cinematic reflection glow — orange + purple */}
               <div style={{
                 position: "absolute", bottom: -40, left: "5%", right: "5%", height: 80,
-                background: "radial-gradient(ellipse at 40% 50%, rgba(255,107,0,0.55) 0%, rgba(255,48,128,0.25) 40%, transparent 75%)",
+                background: "radial-gradient(ellipse at 40% 50%, rgba(245,197,24,0.55) 0%, rgba(245,197,24,0.25) 40%, transparent 75%)",
                 filter: "blur(22px)", pointerEvents: "none",
               }} />
               <div style={{
@@ -725,15 +725,15 @@ export default function LandingPage() {
               }} />
               <div style={{
                 background: "linear-gradient(145deg,#0C0018,#07000F)",
-                border: "1px solid rgba(255,107,0,0.30)",
+                border: "1px solid rgba(245,197,24,0.30)",
                 borderRadius: "1.25rem", overflow: "hidden",
-                boxShadow: "0 0 0 1px rgba(255,107,0,0.08), 0 32px 80px rgba(0,0,0,0.85), 0 0 80px rgba(255,107,0,0.20), 0 0 120px rgba(139,53,255,0.12)",
+                boxShadow: "0 0 0 1px rgba(245,197,24,0.08), 0 32px 80px rgba(0,0,0,0.85), 0 0 80px rgba(245,197,24,0.20), 0 0 120px rgba(139,53,255,0.12)",
                 transform: "perspective(1200px) rotateY(-4deg) rotateX(1.5deg)",
                 animation: "float 5s ease-in-out infinite",
               }}>
                 {/* Cinema header bar — orange → pink → purple */}
                 <div style={{
-                  background: "linear-gradient(135deg, #FF6B00 0%, #E02060 55%, #7B2FFF 100%)",
+                  background: "linear-gradient(135deg, #F5C518 0%, #8B35FF 100%)",
                   padding: "10px 16px",
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                 }}>
@@ -741,9 +741,9 @@ export default function LandingPage() {
                   <span style={{ color: "#FFFFFF", fontSize: "0.7rem", fontWeight: 700, opacity: 0.85, textShadow: "0 1px 2px rgba(0,0,0,0.4)" }}>● LIVE</span>
                 </div>
                 {/* Stats row */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", padding: "1rem", borderBottom: "1px solid rgba(255,107,0,0.08)" }}>
-                  {([["P&L", "+$2,840", "#4ade80"], ["Win Rate", "67%", "#FF6B00"], ["Trades", "247", "#ffffff"]] as const).map(([l, v, c]) => (
-                    <div key={l} style={{ textAlign: "center", padding: "0.625rem 0.25rem", background: "rgba(255,107,0,0.04)", borderRadius: "0.5rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", padding: "1rem", borderBottom: "1px solid rgba(245,197,24,0.08)" }}>
+                  {([["P&L", "+$2,840", "#4ade80"], ["Win Rate", "67%", "#F5C518"], ["Trades", "247", "#ffffff"]] as const).map(([l, v, c]) => (
+                    <div key={l} style={{ textAlign: "center", padding: "0.625rem 0.25rem", background: "rgba(245,197,24,0.04)", borderRadius: "0.5rem" }}>
                       <div className="pnl-counter" style={{ color: c, fontWeight: 900, fontSize: "1.0625rem", lineHeight: 1 }}>{v}</div>
                       <div style={{ color: "#a0a0b0", fontSize: "0.6rem", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>{l}</div>
                     </div>
@@ -755,13 +755,13 @@ export default function LandingPage() {
                   <svg viewBox="0 0 300 58" style={{ width: "100%", height: 58 }} preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#FF6B00" stopOpacity="0.35"/>
-                        <stop offset="60%" stopColor="#FF3080" stopOpacity="0.12"/>
+                        <stop offset="0%" stopColor="#F5C518" stopOpacity="0.35"/>
+                        <stop offset="60%" stopColor="#8B35FF" stopOpacity="0.12"/>
                         <stop offset="100%" stopColor="#8B35FF" stopOpacity="0"/>
                       </linearGradient>
                       <linearGradient id="eqStroke" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#FF6B00"/>
-                        <stop offset="50%" stopColor="#FF3080"/>
+                        <stop offset="0%" stopColor="#F5C518"/>
+                        <stop offset="50%" stopColor="#8B35FF"/>
                         <stop offset="100%" stopColor="#8B35FF"/>
                       </linearGradient>
                     </defs>
@@ -780,7 +780,7 @@ export default function LandingPage() {
                     <div key={idx} className={`trade-row-${idx + 1}`} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: "0.4rem 0",
-                      borderBottom: idx < 2 ? "1px solid rgba(255,107,0,0.07)" : "none",
+                      borderBottom: idx < 2 ? "1px solid rgba(245,197,24,0.07)" : "none",
                     }}>
                       <span style={{ color: "#ffffff", fontWeight: 700, fontSize: "0.8125rem" }}>{t.pair}</span>
                       <span style={{ color: "#a0a0b0", fontSize: "0.75rem" }}>{t.type}</span>
@@ -791,12 +791,12 @@ export default function LandingPage() {
                 {/* AI insight badge */}
                 <div style={{
                   margin: "0 0.875rem 0.875rem",
-                  background: "rgba(255,107,0,0.07)", border: "1px solid rgba(255,107,0,0.2)",
+                  background: "rgba(245,197,24,0.07)", border: "1px solid rgba(245,197,24,0.2)",
                   borderRadius: "0.625rem", padding: "0.625rem 0.875rem",
                   display: "flex", alignItems: "center", gap: "0.5rem",
                 }}>
                   <span style={{ fontSize: "0.75rem", flexShrink: 0 }}>⚡</span>
-                  <span style={{ color: "#FF6B00", fontSize: "0.725rem", fontWeight: 600, lineHeight: 1.4 }}>AI: XAUUSD London session — your edge at 78% win rate</span>
+                  <span style={{ color: "#F5C518", fontSize: "0.725rem", fontWeight: 600, lineHeight: 1.4 }}>AI: XAUUSD London session — your edge at 78% win rate</span>
                 </div>
               </div>
             </div>
@@ -806,7 +806,7 @@ export default function LandingPage() {
 
       {/* ── FOMO SOCIAL PROOF STRIP ─────────────────────────────────────────── */}
       <div className="gold-divider" />
-      <div style={{ background: "linear-gradient(90deg,rgba(255,107,0,0.10) 0%,rgba(255,48,128,0.06) 35%,rgba(139,53,255,0.08) 65%,rgba(255,107,0,0.10) 100%)", padding: "1.25rem 1.5rem" }}>
+      <div style={{ background: "linear-gradient(90deg,rgba(245,197,24,0.10) 0%,rgba(245,197,24,0.06) 35%,rgba(139,53,255,0.08) 65%,rgba(245,197,24,0.10) 100%)", padding: "1.25rem 1.5rem" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "2rem" }}>
           {[
             { val: "87%", label: "of retail traders lose money — most don't know why" },
@@ -814,21 +814,21 @@ export default function LandingPage() {
             { val: "5 min", label: "to connect your MT5 and see your first report" },
           ].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
-              <span style={{ color: "#FF6B00", fontWeight: 900, fontSize: "1.5rem", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>{s.val}</span>
+              <span style={{ color: "#F5C518", fontWeight: 900, fontSize: "1.5rem", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}>{s.val}</span>
               <span style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", lineHeight: 1.4, maxWidth: 200 }}>{s.label}</span>
-              {i < 2 && <span style={{ color: "rgba(255,107,0,0.25)", fontSize: "1.5rem", display: "block" }}>|</span>}
+              {i < 2 && <span style={{ color: "rgba(245,197,24,0.25)", fontSize: "1.5rem", display: "block" }}>|</span>}
             </div>
           ))}
         </div>
       </div>
 
       {/* ── DASHBOARD PREVIEW ───────────────────────────────────────────────── */}
-      <section style={{ background: "radial-gradient(ellipse 70% 60% at 100% 0%, rgba(139,53,255,0.18) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 0% 100%, rgba(255,107,0,0.12) 0%, transparent 55%), var(--cj-bg)", padding: "5rem 1.5rem 6rem" }}>
+      <section style={{ background: "radial-gradient(ellipse 70% 60% at 100% 0%, rgba(139,53,255,0.18) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 0% 100%, rgba(245,197,24,0.12) 0%, transparent 55%), var(--cj-bg)", padding: "5rem 1.5rem 6rem" }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: "4rem", flexWrap: "wrap" }}>
 
           {/* Left copy */}
           <div style={{ flex: "1 1 320px", maxWidth: 460 }}>
-            <p style={{ color: "#FF6B00", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
+            <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
               Your dashboard, automated
             </p>
             <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "var(--cj-text)", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
@@ -843,7 +843,7 @@ export default function LandingPage() {
               "Discipline Score tracks behavioral consistency week by week",
             ].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.875rem" }}>
-                <span style={{ color: "#FF6B00", fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
+                <span style={{ color: "#F5C518", fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
                 <p style={{ color: "var(--cj-text)", fontSize: "0.9375rem", lineHeight: 1.6, margin: 0 }}>{f}</p>
               </div>
             ))}
@@ -869,7 +869,7 @@ export default function LandingPage() {
                 width: "100%",
                 borderRadius: 14,
                 display: "block",
-                boxShadow: "0 0 0 1px rgba(255,107,0,0.30), 0 32px 80px rgba(0,0,0,0.7), 0 0 60px rgba(255,107,0,0.30)",
+                boxShadow: "0 0 0 1px rgba(245,197,24,0.30), 0 32px 80px rgba(0,0,0,0.7), 0 0 60px rgba(245,197,24,0.30)",
                 transform: "perspective(1100px) rotateY(-4deg) rotateX(1deg)",
               }}
             />
@@ -878,12 +878,12 @@ export default function LandingPage() {
       </section>
 
       {/* ── PAIN ────────────────────────────────────────────────────────────── */}
-      <section id="why" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(255,107,0,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section id="why" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
           {/* Brutal truth callout */}
           <div className="fade-up" ref={painRef} style={{
-            background: "linear-gradient(135deg,rgba(224,85,85,0.06) 0%,rgba(255,107,0,0.06) 100%)",
+            background: "linear-gradient(135deg,rgba(224,85,85,0.06) 0%,rgba(245,197,24,0.06) 100%)",
             border: "1px solid rgba(224,85,85,0.2)", borderRadius: "1.25rem",
             padding: "2.25rem 2.5rem", marginBottom: "4rem",
             textAlign: "center",
@@ -911,18 +911,18 @@ export default function LandingPage() {
             {[
               { ico: <IcoRepeat color="#e05555" />, title: "You repeat the same mistakes",
                 text: "Most traders know their problem areas but lack the data to confirm them. NIRI tracks every behavioral pattern across your full trade history.", accent: "#e05555" },
-              { ico: <IcoTrendDown color="#CC4400" />, title: "Your results are inconsistent",
-                text: "Profitable weeks followed by losing weeks with no clear explanation. NIRI finds the variables, whether session, pair, emotion or timing, that explain the difference.", accent: "#CC4400" },
+              { ico: <IcoTrendDown color="#C49A00" />, title: "Your results are inconsistent",
+                text: "Profitable weeks followed by losing weeks with no clear explanation. NIRI finds the variables, whether session, pair, emotion or timing, that explain the difference.", accent: "#C49A00" },
               { ico: <IcoClock color="#e05555" />, title: "Trade review takes too long",
                 text: "Manually reviewing trades in spreadsheets or screenshots is slow and inconsistent. NIRI automates the process and structures the data for you.", accent: "#e05555" },
-              { ico: <IcoHelpCircle color="#CC4400" />, title: "You do not know which setups work",
-                text: "Trading multiple strategies without performance data for each one. NIRI segments results by setup type so you can see which approaches are profitable.", accent: "#CC4400" },
+              { ico: <IcoHelpCircle color="#C49A00" />, title: "You do not know which setups work",
+                text: "Trading multiple strategies without performance data for each one. NIRI segments results by setup type so you can see which approaches are profitable.", accent: "#C49A00" },
             ].map((p, i) => {
               const ref = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
               return (
                 <div key={p.title} ref={ref} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 80}ms`,
                   background: "linear-gradient(145deg,#080010,#06000E)",
-                  border: "1px solid rgba(255,107,0,0.10)",
+                  border: "1px solid rgba(245,197,24,0.10)",
                   borderLeft: `3px solid ${p.accent}60`,
                   borderRadius: "1rem", padding: "1.75rem",
                 }}>
@@ -940,7 +940,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── HOW NIRI WORKS — Interactive ────────────────────────────────────── */}
-      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(255,107,0,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
           <div ref={howRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
@@ -968,13 +968,13 @@ export default function LandingPage() {
                     display: "flex", gap: "1.25rem", padding: "1.375rem 1.5rem",
                     borderRadius: "1rem", cursor: "pointer", transition: "all 0.25s ease",
                     background: howStep === i ? "#1c1b2a" : "transparent",
-                    border: howStep === i ? "1px solid rgba(255,107,0,0.40)" : "1px solid transparent",
-                    boxShadow: howStep === i ? "0 8px 30px rgba(255,107,0,0.10)" : "none",
+                    border: howStep === i ? "1px solid rgba(245,197,24,0.40)" : "1px solid transparent",
+                    boxShadow: howStep === i ? "0 8px 30px rgba(245,197,24,0.10)" : "none",
                   }}>
                   <div style={{
                     width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
-                    background: howStep === i ? "linear-gradient(135deg,#FF6B00 0%,#FF8C00 50%,#FF6B00 100%)" : "rgba(255,107,0,0.10)",
-                    border: howStep === i ? "none" : "1px solid rgba(255,107,0,0.25)",
+                    background: howStep === i ? "linear-gradient(135deg,#C49A00 0%,#F5C518 100%)" : "rgba(245,197,24,0.10)",
+                    border: howStep === i ? "none" : "1px solid rgba(245,197,24,0.25)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontWeight: 800, color: howStep === i ? "#FFFFFF" : "var(--cj-text-muted)",
                     fontSize: "0.875rem", transition: "all 0.25s ease",
@@ -990,7 +990,7 @@ export default function LandingPage() {
             {/* Step mockup */}
             <div style={{
               background: "#1c1b2a",
-              border: "1px solid rgba(255,107,0,0.3)", borderRadius: "1.25rem",
+              border: "1px solid rgba(245,197,24,0.3)", borderRadius: "1.25rem",
               overflow: "hidden", transition: "all 0.3s ease",
             }}>
               {howStep === 0 && (
@@ -1012,8 +1012,8 @@ export default function LandingPage() {
                   {[
                     { label: "Revenge Trade Detection", pct: 78, col: "#e05555" },
                     { label: "Session Win Rate: London", pct: 68, col: "#4a9e4a" },
-                    { label: "XAUUSD Edge Score", pct: 82, col: "#FF6B00" },
-                    { label: "TP Discipline", pct: 45, col: "#CC4400" },
+                    { label: "XAUUSD Edge Score", pct: 82, col: "#F5C518" },
+                    { label: "TP Discipline", pct: 45, col: "#C49A00" },
                   ].map((item) => (
                     <div key={item.label} style={{ marginBottom: "1rem" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
@@ -1029,7 +1029,7 @@ export default function LandingPage() {
               )}
               {howStep === 2 && (
                 <div>
-                  <div style={{ background: "linear-gradient(135deg,#FF6B00 0%,#E02060 55%,#7B2FFF 100%)", padding: "0.875rem 1.5rem", display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ background: "linear-gradient(135deg,#F5C518 0%,#8B35FF 100%)", padding: "0.875rem 1.5rem", display: "flex", justifyContent: "space-between" }}>
                     <span style={{ fontWeight: 800, color: "#FFFFFF", fontSize: "0.8125rem", letterSpacing: "0.06em" }}>THIS SESSION&rsquo;S REPORT</span>
                     <span style={{ color: "#FFFFFF", fontSize: "0.75rem", opacity: 0.7 }}>May 13, 2026</span>
                   </div>
@@ -1037,9 +1037,9 @@ export default function LandingPage() {
                     {[
                       { ico: "✓", col: "#4a9e4a", label: "BEST TRADE", text: "XAUUSD SELL during London. +$184. Waited for confirmation." },
                       { ico: "✕", col: "#e05555", label: "STOP DOING", text: "Trading GBPUSD after 2 consecutive losses. Win rate drops to 12%." },
-                      { ico: "→", col: "#FF6B00", label: "FOCUS NEXT", text: "XAUUSD London session only. Your 78% win rate edge is here." },
+                      { ico: "→", col: "#F5C518", label: "FOCUS NEXT", text: "XAUUSD London session only. Your 78% win rate edge is here." },
                     ].map((row) => (
-                      <div key={row.label} style={{ display: "flex", gap: "0.875rem", marginBottom: "1rem", paddingBottom: "1rem", borderBottom: "1px solid rgba(255,107,0,0.08)" }}>
+                      <div key={row.label} style={{ display: "flex", gap: "0.875rem", marginBottom: "1rem", paddingBottom: "1rem", borderBottom: "1px solid rgba(245,197,24,0.08)" }}>
                         <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${row.col}20`, border: `1px solid ${row.col}40`, display: "flex", alignItems: "center", justifyContent: "center", color: row.col, fontWeight: 700, fontSize: "0.75rem", flexShrink: 0 }}>{row.ico}</div>
                         <div>
                           <div style={{ color: row.col, fontWeight: 700, fontSize: "0.7rem", letterSpacing: "0.08em", marginBottom: "0.2rem" }}>{row.label}</div>
@@ -1056,7 +1056,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── COACHING REPORT SHOWCASE ──────────────────────────────────────────── */}
-      <section id="ai-showcase" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(255,107,0,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section id="ai-showcase" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 820, margin: "0 auto" }}>
           <div ref={aiRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
@@ -1069,11 +1069,11 @@ export default function LandingPage() {
 
           <div className="lp-card" style={{
             background: "linear-gradient(145deg,#0C0018,#07000F)",
-            border: "1px solid rgba(255,107,0,0.30)",
+            border: "1px solid rgba(245,197,24,0.30)",
             borderRadius: "1.5rem", overflow: "hidden",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 40px rgba(255,107,0,0.08)",
+            boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 40px rgba(245,197,24,0.08)",
           }}>
-            <div style={{ background: "linear-gradient(135deg,#FF6B00 0%,#E02060 55%,#7B2FFF 100%)", padding: "1rem 1.75rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ background: "linear-gradient(135deg,#F5C518 0%,#8B35FF 100%)", padding: "1rem 1.75rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontWeight: 800, color: "#FFFFFF", fontSize: "0.9375rem", letterSpacing: "0.06em" }}>COACHING REPORT</span>
               <span style={{ color: "#FFFFFF", fontSize: "0.8125rem", opacity: 0.7 }}>Week of April 28, 2026</span>
             </div>
@@ -1084,7 +1084,7 @@ export default function LandingPage() {
                 { ico: <IcoStopOctagon color="#e05555" />, label: "STOP DOING",  color: "#e05555", text: "Trading after 2 consecutive losses. Win rate drops from 67% to 18% in this state." },
                 { ico: <IcoCheckCircle color="#4a9e4a" />, label: "START DOING", color: "#4a9e4a", text: "XAUUSD trades during the London session. 78% win rate against your overall 34%." },
               ].map((row) => (
-                <div key={row.label} style={{ padding: "1.5rem 1.75rem", borderBottom: "1px solid rgba(255,107,0,0.10)", borderRight: "1px solid rgba(255,107,0,0.10)" }}>
+                <div key={row.label} style={{ padding: "1.5rem 1.75rem", borderBottom: "1px solid rgba(245,197,24,0.10)", borderRight: "1px solid rgba(245,197,24,0.10)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.625rem" }}>
                     {row.ico}
                     <span style={{ color: row.color, fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em" }}>{row.label}</span>
@@ -1093,12 +1093,12 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-            <div style={{ padding: "1.5rem 1.75rem", background: "rgba(255,107,0,0.06)", borderTop: "1px solid rgba(255,107,0,0.12)" }}>
+            <div style={{ padding: "1.5rem 1.75rem", background: "rgba(245,197,24,0.06)", borderTop: "1px solid rgba(245,197,24,0.12)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.625rem" }}>
-                <IcoTarget color="#FF6B00" size={18} />
-                <span style={{ color: "#FF6B00", fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em" }}>THIS WEEK&rsquo;S FOCUS</span>
+                <IcoTarget color="#F5C518" size={18} />
+                <span style={{ color: "#F5C518", fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em" }}>THIS WEEK&rsquo;S FOCUS</span>
               </div>
-              <p style={{ color: "#FF6B00", fontWeight: 600, fontSize: "1rem" }}>One setup. One session. XAUUSD sells during the London open only.</p>
+              <p style={{ color: "#F5C518", fontWeight: 600, fontSize: "1rem" }}>One setup. One session. XAUUSD sells during the London open only.</p>
             </div>
           </div>
 
@@ -1116,7 +1116,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FEATURES ────────────────────────────────────────────────────────── */}
-      <section id="features" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(255,107,0,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section id="features" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div ref={featRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
@@ -1132,11 +1132,11 @@ export default function LandingPage() {
               return (
                 <div key={f.title} ref={fRef} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 60}ms`,
                   background: "linear-gradient(145deg,#0C0018,#07000F)",
-                  border: "1px solid rgba(255,107,0,0.30)",
+                  border: "1px solid rgba(245,197,24,0.30)",
                   borderRadius: "1rem", padding: "1.75rem",
                 }}>
                   <div style={{ marginBottom: "0.875rem" }}>{f.ico}</div>
-                  <h3 style={{ color: "#FF6B00", fontWeight: 700, fontSize: "1rem", marginBottom: "0.5rem", lineHeight: 1.4 }}>{f.title}</h3>
+                  <h3 style={{ color: "#F5C518", fontWeight: 700, fontSize: "1rem", marginBottom: "0.5rem", lineHeight: 1.4 }}>{f.title}</h3>
                   <p style={{ color: "#AAAAAA", lineHeight: 1.75, margin: 0, fontSize: "0.9rem" }}>{f.desc}</p>
                 </div>
               );
@@ -1146,19 +1146,19 @@ export default function LandingPage() {
       </section>
 
       {/* ── COMPARISON ──────────────────────────────────────────────────────── */}
-      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(255,107,0,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
           <div ref={cmpRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
               Why Serious MT5 Traders <span className="shimmer-text">Choose NIRI</span>
             </h2>
           </div>
-          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(255,107,0,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
+          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(245,197,24,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
             <table className="cmp-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ background: "linear-gradient(90deg,rgba(255,107,0,0.10) 0%,rgba(139,53,255,0.08) 100%)" }}>
+                <tr style={{ background: "linear-gradient(90deg,rgba(245,197,24,0.10) 0%,rgba(139,53,255,0.08) 100%)" }}>
                   <th style={{ padding: "1rem 1rem", textAlign: "left", color: "#AAAAAA", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.06em" }}>FEATURE</th>
-                  <th style={{ padding: "1rem 1rem", textAlign: "center", color: "#FF6B00", fontSize: "0.9375rem", fontWeight: 800, borderLeft: "2px solid rgba(255,107,0,0.35)" }}>NIRI</th>
+                  <th style={{ padding: "1rem 1rem", textAlign: "center", color: "#F5C518", fontSize: "0.9375rem", fontWeight: 800, borderLeft: "2px solid rgba(245,197,24,0.35)" }}>NIRI</th>
                   <th style={{ padding: "1rem 1rem", textAlign: "center", color: "#888888", fontSize: "0.8125rem", fontWeight: 600 }}>TradeZella</th>
                 </tr>
               </thead>
@@ -1175,14 +1175,14 @@ export default function LandingPage() {
               </tbody>
             </table>
           </div>
-          <p style={{ textAlign: "center", color: "#FF6B00", fontWeight: 800, fontSize: "1.25rem", marginTop: "2rem" }}>
+          <p style={{ textAlign: "center", color: "#F5C518", fontWeight: 800, fontSize: "1.25rem", marginTop: "2rem" }}>
             Same capability. A fraction of the price.
           </p>
         </div>
       </section>
 
       {/* ── APP PREVIEW ─────────────────────────────────────────────────────── */}
-      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(255,107,0,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div ref={previewRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
@@ -1192,25 +1192,25 @@ export default function LandingPage() {
           <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.5rem" }}>
 
             {/* Dashboard */}
-            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(255,107,0,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
-              <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(255,107,0,0.06)", borderBottom: "1px solid rgba(255,107,0,0.12)" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(245,197,24,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
+              <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.06)", borderBottom: "1px solid rgba(245,197,24,0.12)" }}>
                 <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>DASHBOARD</span>
               </div>
               <div style={{ padding: "1.25rem" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.625rem", marginBottom: "1rem" }}>
-                  {[["P&L","$2,840","+18%","#4a9e4a"],["Win Rate","67%","up 4%","#FF6B00"],["Rank","Gold","Top 12%","#CC4400"]].map(([l,v,s,c]) => (
-                    <div key={l} style={{ background: "rgba(255,107,0,0.06)", borderRadius: "0.625rem", padding: "0.625rem 0.5rem", textAlign: "center" }}>
+                  {[["P&L","$2,840","+18%","#4a9e4a"],["Win Rate","67%","up 4%","#F5C518"],["Rank","Gold","Top 12%","#C49A00"]].map(([l,v,s,c]) => (
+                    <div key={l} style={{ background: "rgba(245,197,24,0.06)", borderRadius: "0.625rem", padding: "0.625rem 0.5rem", textAlign: "center" }}>
                       <div style={{ color: c as string, fontWeight: 700, fontSize: "1rem" }}>{v}</div>
                       <div style={{ color: "#888888", fontSize: "0.625rem", marginTop: 2 }}>{l}</div>
                       <div style={{ color: c as string, fontSize: "0.625rem" }}>{s}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ background: "rgba(255,107,0,0.06)", borderRadius: "0.75rem", height: 64, overflow: "hidden" }}>
+                <div style={{ background: "rgba(245,197,24,0.06)", borderRadius: "0.75rem", height: 64, overflow: "hidden" }}>
                   <svg viewBox="0 0 260 64" style={{ width: "100%", height: "100%" }} preserveAspectRatio="none">
                     <defs>
-                      <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FF6B00" stopOpacity="0.30"/><stop offset="70%" stopColor="#FF3080" stopOpacity="0.10"/><stop offset="100%" stopColor="#8B35FF" stopOpacity="0"/></linearGradient>
-                      <linearGradient id="g1s" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#FF6B00"/><stop offset="55%" stopColor="#FF3080"/><stop offset="100%" stopColor="#8B35FF"/></linearGradient>
+                      <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F5C518" stopOpacity="0.30"/><stop offset="70%" stopColor="#8B35FF" stopOpacity="0.10"/><stop offset="100%" stopColor="#8B35FF" stopOpacity="0"/></linearGradient>
+                      <linearGradient id="g1s" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#F5C518"/><stop offset="55%" stopColor="#8B35FF"/><stop offset="100%" stopColor="#8B35FF"/></linearGradient>
                     </defs>
                     <path d="M0,52 L40,46 L80,38 L120,32 L160,24 L200,18 L260,8" fill="none" stroke="url(#g1s)" strokeWidth="2"/>
                     <path d="M0,52 L40,46 L80,38 L120,32 L160,24 L200,18 L260,8 L260,64 L0,64Z" fill="url(#g1)"/>
@@ -1220,8 +1220,8 @@ export default function LandingPage() {
             </div>
 
             {/* Chart review */}
-            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(255,107,0,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
-              <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(255,107,0,0.06)", borderBottom: "1px solid rgba(255,107,0,0.12)" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(245,197,24,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
+              <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.06)", borderBottom: "1px solid rgba(245,197,24,0.12)" }}>
                 <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>CHART REVIEW</span>
               </div>
               <div style={{ padding: "1.25rem" }}>
@@ -1232,10 +1232,10 @@ export default function LandingPage() {
                         fill={i%3===0?"rgba(224,85,85,0.5)":"rgba(74,158,74,0.5)"} rx="1"/>
                     ))}
                     <line x1="0" y1="55" x2="260" y2="55" stroke="#4a9e4a" strokeWidth="1.5" strokeDasharray="5,3"/>
-                    <line x1="0" y1="30" x2="260" y2="30" stroke="#FF6B00" strokeWidth="1.5" strokeDasharray="5,3"/>
+                    <line x1="0" y1="30" x2="260" y2="30" stroke="#F5C518" strokeWidth="1.5" strokeDasharray="5,3"/>
                   </svg>
                   <div style={{ position: "absolute", top: 4, right: 8, fontSize: "0.625rem", color: "#4a9e4a" }}>ENTRY</div>
-                  <div style={{ position: "absolute", top: 22, right: 8, fontSize: "0.625rem", color: "#FF6B00" }}>EXIT</div>
+                  <div style={{ position: "absolute", top: 22, right: 8, fontSize: "0.625rem", color: "#F5C518" }}>EXIT</div>
                 </div>
                 <div style={{ background: "rgba(74,158,74,0.08)", border: "1px solid rgba(74,158,74,0.2)", borderRadius: "0.625rem", padding: "0.625rem 0.875rem" }}>
                   <span style={{ color: "#4a9e4a", fontWeight: 700, fontSize: "0.875rem" }}>XAUUSD SELL  +$96.12</span>
@@ -1244,12 +1244,12 @@ export default function LandingPage() {
             </div>
 
             {/* Psychology */}
-            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(255,107,0,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
-              <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(255,107,0,0.06)", borderBottom: "1px solid rgba(255,107,0,0.12)" }}>
+            <div className="card-hover lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(245,197,24,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
+              <div style={{ padding: "1rem 1rem 0.5rem", background: "rgba(245,197,24,0.06)", borderBottom: "1px solid rgba(245,197,24,0.12)" }}>
                 <span style={{ color: "#AAAAAA", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em" }}>PSYCHOLOGY</span>
               </div>
               <div style={{ padding: "1.25rem" }}>
-                {[["CONFIDENT","68%","#4a9e4a",68],["REVENGE","22%","#e05555",22],["FEARFUL","48%","#CC4400",48]].map(([em,pct,col,w]) => (
+                {[["CONFIDENT","68%","#4a9e4a",68],["REVENGE","22%","#e05555",22],["FEARFUL","48%","#C49A00",48]].map(([em,pct,col,w]) => (
                   <div key={em as string} style={{ marginBottom: "0.875rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
                       <span style={{ color: "#AAAAAA", fontSize: "0.75rem" }}>{em} trades</span>
@@ -1268,24 +1268,24 @@ export default function LandingPage() {
 
       {/* ── STATS ────────────────────────────────────────────────────────────── */}
       <div className="gold-divider" />
-      <section style={{ padding: "5rem 1.5rem", background: "radial-gradient(circle at bottom left, rgba(255,107,0,0.10) 0%, transparent 50%), var(--cj-bg)" }}>
+      <section style={{ padding: "5rem 1.5rem", background: "radial-gradient(circle at bottom left, rgba(245,197,24,0.10) 0%, transparent 50%), var(--cj-bg)" }}>
 
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1.5rem" }}>
             <div ref={stat1.ref} style={{ textAlign: "center" }}>
-              <div style={{ color: "#FF6B00", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat1.val}</div>
+              <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat1.val}</div>
               <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Trades Analysed</div>
             </div>
             <div ref={stat2.ref} style={{ textAlign: "center" }}>
-              <div style={{ color: "#FF6B00", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat2.val}</div>
+              <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat2.val}</div>
               <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Active Traders</div>
             </div>
             <div ref={stat3.ref} style={{ textAlign: "center" }}>
-              <div style={{ color: "#FF6B00", fontWeight: 900, fontSize: "2.5rem" }}>{stat3.val}</div>
+              <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>{stat3.val}</div>
               <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Report Types</div>
             </div>
             <div ref={stat4.ref} style={{ textAlign: "center" }}>
-              <div style={{ color: "#FF6B00", fontWeight: 900, fontSize: "2.5rem" }}>${stat4.val}</div>
+              <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>${stat4.val}</div>
               <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Starting Price / mo</div>
             </div>
           </div>
@@ -1293,14 +1293,14 @@ export default function LandingPage() {
       </section>
 
       {/* ── BUILT FOR AFRICA ─────────────────────────────────────────────────── */}
-      <section className="lp-dark-bg" style={{ background: "linear-gradient(135deg, #06000E 0%, #0D0020 40%, #06000E 100%)", padding: "7rem 1.5rem", borderTop: "1px solid rgba(255,107,0,0.25)", borderBottom: "1px solid rgba(255,107,0,0.25)", position: "relative", overflow: "hidden" }}>
+      <section className="lp-dark-bg" style={{ background: "linear-gradient(135deg, #06000E 0%, #0D0020 40%, #06000E 100%)", padding: "7rem 1.5rem", borderTop: "1px solid rgba(245,197,24,0.25)", borderBottom: "1px solid rgba(245,197,24,0.25)", position: "relative", overflow: "hidden" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: "0.5rem",
-              background: "rgba(255,107,0,0.10)", border: "1px solid rgba(255,107,0,0.30)",
+              background: "rgba(245,197,24,0.10)", border: "1px solid rgba(245,197,24,0.30)",
               borderRadius: "2rem", padding: "0.375rem 1rem",
-              color: "#FF6B00", fontSize: "0.8125rem", fontWeight: 700,
+              color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700,
               marginBottom: "1.5rem", letterSpacing: "0.06em",
             }}>
               🌍 Built for Africa
@@ -1320,12 +1320,12 @@ export default function LandingPage() {
               { val: "Naira", label: "Pricing", sub: "African support, African prices" },
             ].map((s) => (
               <div key={s.label} className="lp-card" style={{
-                background: "linear-gradient(145deg,rgba(255,107,0,0.08),rgba(139,53,255,0.05))",
-                border: "1px solid rgba(255,107,0,0.25)", borderRadius: "1.25rem", padding: "1.75rem",
+                background: "linear-gradient(145deg,rgba(245,197,24,0.08),rgba(139,53,255,0.05))",
+                border: "1px solid rgba(245,197,24,0.25)", borderRadius: "1.25rem", padding: "1.75rem",
                 backdropFilter: "blur(10px)",
                 textAlign: "center",
               }}>
-                <div style={{ color: "#FF6B00", fontWeight: 900, fontSize: "1.375rem", marginBottom: "0.375rem", letterSpacing: "-0.02em" }}>{s.val}</div>
+                <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "1.375rem", marginBottom: "0.375rem", letterSpacing: "-0.02em" }}>{s.val}</div>
                 <div style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.9rem", marginBottom: "0.25rem" }}>{s.label}</div>
                 <div style={{ color: "#888888", fontSize: "0.8125rem", lineHeight: 1.4 }}>{s.sub}</div>
               </div>
@@ -1342,7 +1342,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── PRICING ──────────────────────────────────────────────────────────── */}
-      <section id="pricing" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(255,107,0,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section id="pricing" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 920, margin: "0 auto" }}>
           <div ref={pricingRef} className="fade-up" style={{ textAlign: "center", marginBottom: "1.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
@@ -1354,7 +1354,7 @@ export default function LandingPage() {
           </div>
           <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", maxWidth: 800, margin: "3rem auto 0" }}>
 
-            <div className="lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(255,107,0,0.30)", borderRadius: "1.375rem", padding: "2.25rem" }}>
+            <div className="lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(245,197,24,0.30)", borderRadius: "1.375rem", padding: "2.25rem" }}>
               <p style={{ color: "#AAAAAA", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Free</p>
               <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Start tracking with no credit card</p>
               <div style={{ marginBottom: "1.75rem" }}>
@@ -1373,13 +1373,13 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="lp-card" style={{ background: "linear-gradient(145deg,#160028,#0C0018)", border: "2px solid #FF6B00", borderRadius: "1.375rem", padding: "2.25rem", position: "relative", boxShadow: "0 0 60px rgba(255,107,0,0.18), 0 0 80px rgba(139,53,255,0.10), inset 0 0 30px rgba(255,107,0,0.04)" }}>
-              <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#FF6B00 0%,#E02060 55%,#7B2FFF 100%)", color: "#FFFFFF", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>
+            <div className="lp-card" style={{ background: "linear-gradient(145deg,#160028,#0C0018)", border: "2px solid #F5C518", borderRadius: "1.375rem", padding: "2.25rem", position: "relative", boxShadow: "0 0 60px rgba(245,197,24,0.18), 0 0 80px rgba(139,53,255,0.10), inset 0 0 30px rgba(245,197,24,0.04)" }}>
+              <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#F5C518 0%,#8B35FF 100%)", color: "#FFFFFF", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>
                 30-Day Free Trial — No Card Required
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                <p style={{ color: "#FF6B00", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Pro</p>
-                <span style={{ background: "rgba(255,107,0,0.12)", border: "1px solid rgba(255,107,0,0.35)", color: "#FF6B00", fontSize: "0.6875rem", fontWeight: 700, padding: "0.2rem 0.625rem", borderRadius: "2rem", letterSpacing: "0.06em" }}>🌍 Priced for Africa</span>
+                <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Pro</p>
+                <span style={{ background: "rgba(245,197,24,0.12)", border: "1px solid rgba(245,197,24,0.35)", color: "#F5C518", fontSize: "0.6875rem", fontWeight: 700, padding: "0.2rem 0.625rem", borderRadius: "2rem", letterSpacing: "0.06em" }}>🌍 Priced for Africa</span>
               </div>
               <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Everything you need to improve as a trader</p>
               <div style={{ marginBottom: "1.75rem" }}>
@@ -1410,7 +1410,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────────── */}
-      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(255,107,0,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div ref={testRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
@@ -1431,21 +1431,21 @@ export default function LandingPage() {
               return (
                 <div key={t.name} ref={tRef} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 100}ms`,
                   background: "linear-gradient(145deg,#0C0018,#07000F)",
-                  border: "1px solid rgba(255,107,0,0.30)",
+                  border: "1px solid rgba(245,197,24,0.30)",
                   borderRadius: "1.25rem", padding: "2rem",
                 }}>
                   <div style={{ display: "flex", gap: 2, marginBottom: "1rem" }}>
-                    {[1,2,3,4,5].map(s => <IcoStar key={s} color="#FF6B00" />)}
+                    {[1,2,3,4,5].map(s => <IcoStar key={s} color="#F5C518" />)}
                   </div>
                   <p style={{ color: "#CCCCCC", lineHeight: 1.8, fontStyle: "italic", marginBottom: "1.5rem", fontSize: "0.9375rem" }}>&ldquo;{t.text}&rdquo;</p>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#FF6B00 0%,#FF8C00 50%,#FF6B00 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#FFFFFF", fontSize: "1rem", flexShrink: 0 }}>{t.name[0]}</div>
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#C49A00 0%,#F5C518 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#FFFFFF", fontSize: "1rem", flexShrink: 0 }}>{t.name[0]}</div>
                     <div>
                       <div style={{ color: "var(--cj-text)", fontWeight: 700, fontSize: "0.875rem" }}>{t.name}</div>
                       <div style={{ color: "#888888", fontSize: "0.8125rem" }}>{t.location}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: 2 }}>
-                        <IcoAward color="#CC4400" size={12} />
-                        <span style={{ color: "#CC4400", fontSize: "0.75rem" }}>{t.badge}</span>
+                        <IcoAward color="#C49A00" size={12} />
+                        <span style={{ color: "#C49A00", fontSize: "0.75rem" }}>{t.badge}</span>
                       </div>
                     </div>
                   </div>
@@ -1457,18 +1457,18 @@ export default function LandingPage() {
       </section>
 
       {/* ── DERIV TRADERS ────────────────────────────────────────────────────── */}
-      <section style={{ padding: "5rem 1.5rem", background: "radial-gradient(circle at top right, rgba(255,107,0,0.10) 0%, transparent 50%), var(--cj-bg)", position: "relative" }}>
+      <section style={{ padding: "5rem 1.5rem", background: "radial-gradient(circle at top right, rgba(245,197,24,0.10) 0%, transparent 50%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", alignItems: "center" }} className="grid-2">
             <div>
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: "0.5rem",
-                background: "rgba(255,107,0,0.10)", border: "1px solid rgba(255,107,0,0.25)",
+                background: "rgba(245,197,24,0.10)", border: "1px solid rgba(245,197,24,0.25)",
                 borderRadius: "2rem", padding: "0.3rem 0.875rem",
-                color: "#FF6B00", fontSize: "0.75rem", fontWeight: 700,
+                color: "#F5C518", fontSize: "0.75rem", fontWeight: 700,
                 marginBottom: "1.5rem", letterSpacing: "0.05em",
               }}>
-                <IcoGlobe color="#FF6B00" />
+                <IcoGlobe color="#F5C518" />
                 <span>Deriv MT5 Traders</span>
               </div>
               <h2 style={{ fontSize: "clamp(1.625rem,3.5vw,2.375rem)", fontWeight: 800, color: "#ffffff", marginBottom: "1rem", lineHeight: 1.2 }}>
@@ -1482,7 +1482,7 @@ export default function LandingPage() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "2rem" }}>
                 {["Volatility 10/25/50/75/100", "Boom 500 & 1000", "Crash 500 & 1000", "Step Index", "Jump Indices"].map(t => (
                   <span key={t} style={{
-                    background: "rgba(255,107,0,0.08)", border: "1px solid rgba(255,107,0,0.30)",
+                    background: "rgba(245,197,24,0.08)", border: "1px solid rgba(245,197,24,0.30)",
                     borderRadius: "0.375rem", padding: "0.25rem 0.625rem",
                     color: "var(--cj-text)", fontSize: "0.8125rem",
                   }}>{t}</span>
@@ -1503,11 +1503,11 @@ export default function LandingPage() {
               ].map(item => (
                 <div key={item.label} className="lp-card" style={{
                   background: "linear-gradient(145deg,#0C0018,#07000F)",
-                  border: "1px solid rgba(255,107,0,0.12)",
+                  border: "1px solid rgba(245,197,24,0.12)",
                   borderRadius: "0.875rem", padding: "1rem 1.25rem",
                 }}>
                   <p style={{ color: "#AAAAAA", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.25rem" }}>{item.label}</p>
-                  <p style={{ color: "#FF6B00", fontSize: "0.9rem", fontWeight: 600 }}>{item.value}</p>
+                  <p style={{ color: "#F5C518", fontSize: "0.9rem", fontWeight: 600 }}>{item.value}</p>
                 </div>
               ))}
             </div>
@@ -1516,14 +1516,14 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────────────── */}
-      <section id="faq" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(255,107,0,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section id="faq" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 740, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Frequently Asked <span className="shimmer-text">Questions</span>
             </h2>
           </div>
-          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#16151f,#12111c)", border: "1px solid rgba(255,107,0,0.12)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
+          <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#16151f,#12111c)", border: "1px solid rgba(245,197,24,0.12)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
             <FaqItem q="How is NIRI different from TradeZella?"
               a="NIRI is built specifically for MT5 traders and costs 70% less (₦15,000/month compared to $29–$49/month). NIRI also includes features TradeZella does not: emotion tracking per trade, trade visualization on a live chart, a dedicated Psychology report tab, and a referral earnings program." />
             <FaqItem q="Do I need to manually import my trades?"
@@ -1547,7 +1547,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FINAL CTA ────────────────────────────────────────────────────────── */}
-      <section style={{ padding: "8rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(255,107,0,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+      <section style={{ padding: "8rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div ref={ctaRef} className="fade-up" style={{ maxWidth: 660, margin: "0 auto", textAlign: "center" }}>
           <h2 style={{ fontSize: "clamp(2rem,5.5vw,3.25rem)", fontWeight: 900, color: "#ffffff", lineHeight: 1.1, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
             Stop Repeating the<br />Same Mistakes.
@@ -1570,7 +1570,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────────────────── */}
-      <footer style={{ background: "var(--cj-surface)", borderTop: "1px solid rgba(255,107,0,0.10)", padding: "3.5rem 1.5rem 2rem" }}>
+      <footer style={{ background: "var(--cj-surface)", borderTop: "1px solid rgba(245,197,24,0.10)", padding: "3.5rem 1.5rem 2rem" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
           <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "2.5rem", marginBottom: "3rem" }}>
             <div>
@@ -1580,8 +1580,8 @@ export default function LandingPage() {
                   <path d="M50 36 Q40 36 35 42 Q30 48 33 54 Q30 60 35 64 Q40 68 45 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
                   <path d="M50 36 Q60 36 65 42 Q70 48 67 54 Q70 60 65 64 Q60 68 55 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
                   <line x1="50" y1="36" x2="50" y2="67" stroke="#C49A00" strokeWidth="0.8" strokeDasharray="2.5,2"/>
-                  <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#FF6B00" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="68" cy="50" r="2.5" fill="#FF6B00"/>
+                  <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#F5C518" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
                 </svg>
                 <span style={{ fontWeight: 800, color: "var(--cj-text)", fontSize: "1rem", letterSpacing: "-0.01em" }}>NIRI</span>
               </div>
@@ -1594,9 +1594,9 @@ export default function LandingPage() {
                   { ico: <IcoTelegram />, label: "Telegram" },
                   { ico: <IcoWhatsapp />, label: "WhatsApp" },
                 ].map(({ ico, label }) => (
-                  <a key={label} href="#" aria-label={label} className="lp-social-link" style={{ width: 32, height: 32, borderRadius: "8px", background: "rgba(255,107,0,0.10)", border: "1px solid rgba(255,107,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", transition: "background 0.2s" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,107,0,0.30)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,107,0,0.10)")}
+                  <a key={label} href="#" aria-label={label} className="lp-social-link" style={{ width: 32, height: 32, borderRadius: "8px", background: "rgba(245,197,24,0.10)", border: "1px solid rgba(245,197,24,0.12)", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", transition: "background 0.2s" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(245,197,24,0.30)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "rgba(245,197,24,0.10)")}
                   >{ico}</a>
                 ))}
               </div>
@@ -1627,7 +1627,7 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
-          <div style={{ borderTop: "1px solid rgba(255,107,0,0.08)", paddingTop: "1.5rem", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+          <div style={{ borderTop: "1px solid rgba(245,197,24,0.08)", paddingTop: "1.5rem", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
             <span style={{ color: "var(--cj-text-muted)", fontSize: "0.8125rem" }}>© 2026 NIRI. All rights reserved.</span>
             <span style={{ color: "var(--cj-text-muted)", fontSize: "0.8125rem" }}>Proudly built for African traders 🌍</span>
           </div>

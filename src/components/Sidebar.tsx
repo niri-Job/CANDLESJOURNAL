@@ -144,7 +144,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                           ${isCollapsed ? "justify-center w-10 h-10 mx-auto" : "gap-3 px-3 py-2.5 text-sm"}
                           ${active
                             ? "bg-[var(--cj-gold)] text-[var(--cj-bg)]"
-                            : "text-zinc-400 hover:text-zinc-100 hover:bg-[var(--cj-raised)]"
+                            : "text-[var(--cj-text-muted)] hover:text-[var(--cj-text)] hover:bg-[var(--cj-raised)]"
                           }`}
             >
               <span className="shrink-0">{icon}</span>
@@ -153,7 +153,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                   {label}
                   {isCopy && (
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: "rgba(255,107,0,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(255,107,0,0.25)" }}>
+                          style={{ background: "rgba(245,197,24,0.10)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.25)" }}>
                       BETA
                     </span>
                   )}
@@ -183,7 +183,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           <button
             onClick={onSignOutClick}
             title="Sign out"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-600 hover:text-rose-400 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--cj-text-muted)] hover:text-rose-400 transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -198,17 +198,17 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
       <div className="px-4 py-4 space-y-3"
            style={{ borderTop: "1px solid var(--cj-gold-muted)" }}>
         {user && (
-          <p className="text-[11px] text-zinc-500 truncate">{user.email}</p>
+          <p className="text-[11px] text-[var(--cj-text-muted)] truncate">{user.email}</p>
         )}
         <ThemeSwitcher user={user} />
 
         {isPaid ? (
           <div className="flex items-center gap-2 py-0.5">
             <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(212,160,23,0.10)", border: "1px solid rgba(255,107,0,0.25)", color: "var(--cj-gold)" }}>
+                  style={{ background: "rgba(245,197,24,0.10)", border: "1px solid rgba(245,197,24,0.25)", color: "var(--cj-gold)" }}>
               {plan.toUpperCase()}
             </span>
-            <Link href="/pricing" className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors">
+            <Link href="/pricing" className="text-[10px] text-[var(--cj-text-muted)] hover:text-[var(--cj-text)] transition-colors">
               Manage
             </Link>
           </div>
@@ -223,7 +223,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
 
         <button
           onClick={onSignOutClick}
-          className="text-xs text-zinc-500 hover:text-rose-400 transition-colors"
+          className="text-xs text-[var(--cj-text-muted)] hover:text-rose-400 transition-colors"
         >
           Sign out
         </button>
@@ -254,13 +254,13 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         className="hidden md:flex flex-col fixed inset-y-0 left-0 z-20 overflow-hidden"
         style={{
           width: sidebarWidth,
-          background: "radial-gradient(ellipse 200% 30% at 50% 0%, rgba(255,107,0,0.18) 0%, rgba(139,53,255,0.10) 40%, transparent 65%), linear-gradient(180deg, var(--cj-bg) 0%, var(--cj-sidebar-bg) 100%)",
+          background: "var(--cj-sidebar-gradient)",
           borderRight: "1px solid var(--cj-border)",
           transition: "width 0.2s ease",
         }}
       >
-        {/* Cinematic accent line — orange → pink → purple */}
-        <div className="h-[2px] w-full shrink-0" style={{ background: "linear-gradient(to right, #FF6B00, #FF3080, #8B35FF, transparent)" }} />
+        {/* Cinematic accent line — gold → purple */}
+        <div className="h-[2px] w-full shrink-0" style={{ background: "linear-gradient(to right, var(--cj-gold), #8B35FF, transparent)" }} />
 
         <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "gap-3 px-5"}`}
              style={{ borderBottom: "1px solid var(--cj-border)" }}>
@@ -272,7 +272,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             <>
               <Logo size="md" />
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm tracking-tight text-zinc-100 whitespace-nowrap">NIRI</div>
+                <div className="font-semibold text-sm tracking-tight text-[var(--cj-text)] whitespace-nowrap">NIRI</div>
                 <div className="text-[9px] font-semibold tracking-widest whitespace-nowrap truncate" style={{ color: "var(--cj-gold-muted)" }}>Know Your Trading Edge</div>
               </div>
               <NotificationBell />
@@ -280,7 +280,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
               <button
                 onClick={toggleCollapse}
                 title="Collapse sidebar"
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[var(--cj-text-muted)] hover:text-[var(--cj-text)] transition-colors shrink-0"
                 style={{ border: "1px solid var(--cj-border)" }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -307,7 +307,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
            style={{ background: "var(--cj-bg)", borderBottom: "1px solid var(--cj-border)" }}>
         <div className="flex items-center gap-2.5">
           <Logo size="sm" />
-          <span className="font-semibold text-sm tracking-tight text-zinc-100">NIRI</span>
+          <span className="font-semibold text-sm tracking-tight text-[var(--cj-text)]">NIRI</span>
         </div>
         <div className="flex items-center gap-2">
           <NotificationBell />
@@ -413,7 +413,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
               : "var(--cj-surface)",
             border: "1.5px solid var(--cj-gold)",
             color: supportOpen ? "var(--cj-bg)" : "var(--cj-gold)",
-            boxShadow: "0 0 24px rgba(212,160,23,0.20)",
+            boxShadow: "0 0 24px rgba(245,197,24,0.22)",
           }}
         >
           {supportOpen ? (
@@ -436,14 +436,14 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         >
           <aside
             className="absolute inset-y-0 left-0 w-[240px] flex flex-col"
-            style={{ background: "radial-gradient(ellipse 200% 25% at 50% 0%, rgba(255,107,0,0.15) 0%, rgba(139,53,255,0.08) 45%, transparent 65%), var(--cj-bg)", borderRight: "1px solid var(--cj-border)" }}
+            style={{ background: "var(--cj-sidebar-gradient)", borderRight: "1px solid var(--cj-border)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="h-[2px] w-full" style={{ background: "linear-gradient(to right, var(--cj-gold), var(--cj-gold-deep), transparent)" }} />
+            <div className="h-[2px] w-full" style={{ background: "linear-gradient(to right, var(--cj-gold), #8B35FF, transparent)" }} />
             <div className="flex items-center gap-2.5 px-5 h-14 shrink-0"
                  style={{ borderBottom: "1px solid var(--cj-border)" }}>
               <Logo size="sm" />
-              <span className="font-semibold text-sm tracking-tight text-zinc-100">NIRI</span>
+              <span className="font-semibold text-sm tracking-tight text-[var(--cj-text)]">NIRI</span>
             </div>
 
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">

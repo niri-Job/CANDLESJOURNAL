@@ -266,7 +266,7 @@ function CheckItem({ text, dim }: { text: string; dim?: boolean }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-type LPTheme = "dark" | "default" | "light";
+type LPTheme = "dark" | "midnight" | "light";
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -418,44 +418,11 @@ export default function LandingPage() {
         .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 50px rgba(212,160,23,0.18); }
         [data-theme="light"] .card-hover:hover { box-shadow: 0 12px 36px rgba(138,106,0,0.14); }
 
-        /* ── Default (warm cream) theme overrides ── */
-        [data-theme="default"] .shimmer-text,
         [data-theme="light"] .shimmer-text {
           background: linear-gradient(90deg,#8A6A00 0%,#B8920A 40%,#8A6A00 60%,#6A5000 100%);
           background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
           background-clip: text; animation: shimmer 3s linear infinite;
         }
-        [data-theme="default"] .lp-nav-scrolled {
-          background: rgba(232,224,208,0.97) !important;
-          border-bottom-color: rgba(138,106,0,0.15) !important;
-          box-shadow: 0 2px 12px rgba(138,106,0,0.08) !important;
-        }
-        [data-theme="default"] .lp-mobile-menu { background: rgba(232,224,208,0.99) !important; }
-        [data-theme="default"] .lp-card {
-          background: linear-gradient(145deg, #EDE8DC, #E8E2D4) !important;
-          border-color: rgba(138,106,0,0.2) !important;
-          box-shadow: 0 2px 12px rgba(138,106,0,0.06) !important;
-        }
-        [data-theme="default"] .lp-surface { background: #EDE8DC !important; border-color: rgba(138,106,0,0.18) !important; }
-        [data-theme="default"] .lp-social-link { background: rgba(74,63,47,0.08) !important; border-color: rgba(74,63,47,0.18) !important; }
-        [data-theme="default"] .lp-social-link svg { stroke: #4A3F2F !important; }
-        [data-theme="default"] h1 { color: #1A1410 !important; }
-        [data-theme="default"] h2 { color: #1A1410 !important; }
-        [data-theme="default"] h3 { color: #1A1410 !important; }
-        [data-theme="default"] section:not(.lp-dark-bg) p { color: #1a1a1a !important; }
-        [data-theme="default"] section:not(.lp-dark-bg) li { color: #1a1a1a !important; }
-        [data-theme="default"] .lp-card p { color: #1a1a1a !important; }
-        [data-theme="default"] .lp-card div, [data-theme="default"] .lp-card span:not([class]) { color: #1a1a1a !important; }
-        [data-theme="default"] footer p, [data-theme="default"] footer span, [data-theme="default"] footer a { color: #333333 !important; }
-        [data-theme="default"] footer h4 { color: #1a1a1a !important; }
-        [data-theme="default"] .lp-dark-bg h1, [data-theme="default"] .lp-dark-bg h2, [data-theme="default"] .lp-dark-bg h3 { color: #FFFFFF !important; }
-        [data-theme="default"] .lp-dark-bg p { color: #CCCCCC !important; }
-        [data-theme="default"] .lp-step-active h3 { color: #FFFFFF !important; }
-        [data-theme="default"] section .lp-step-active p { color: #DDDDDD !important; }
-        [data-theme="default"] .nav-a { color: #3A2C18; }
-        [data-theme="default"] .nav-a:hover { color: #8A6A00; }
-        [data-theme="default"] .outline-btn { color: #8A6A00 !important; border-color: rgba(138,106,0,0.5) !important; }
-        [data-theme="default"] .outline-btn:hover { background: rgba(138,106,0,0.08) !important; border-color: #8A6A00 !important; }
 
         /* ── Light theme section / card overrides ── */
         [data-theme="light"] h1 { color: #1A1410 !important; }
@@ -612,7 +579,7 @@ export default function LandingPage() {
           <div style={{ display: "flex", gap: "0.375rem" }}>
             {([
               { key: "dark" as LPTheme, title: "Dark", svg: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> },
-              { key: "default" as LPTheme, title: "Default (Warm)", svg: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg> },
+              { key: "midnight" as LPTheme, title: "Midnight", svg: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg> },
               { key: "light" as LPTheme, title: "Light", svg: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> },
             ]).map(({ key, title, svg }) => (
               <button key={key} title={title} onClick={() => setThemeAndSave(key)}
@@ -663,7 +630,7 @@ export default function LandingPage() {
         <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.5rem" }}>
           {([
             { key: "dark" as LPTheme, label: "Dark" },
-            { key: "default" as LPTheme, label: "Warm" },
+            { key: "midnight" as LPTheme, label: "Midnight" },
             { key: "light" as LPTheme, label: "Light" },
           ]).map(({ key, label }) => (
             <button key={key} onClick={() => { setThemeAndSave(key); closeMenu(); }}

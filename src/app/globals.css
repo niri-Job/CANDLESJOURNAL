@@ -87,20 +87,6 @@
   --cj-card-border:  rgba(212,160,23,0.3);
 }
 
-/* ── Default theme (warm cream/beige) ── */
-[data-theme="default"] {
-  --cj-bg:           #F5F0E8;
-  --cj-surface:      #EDE8DC;
-  --cj-raised:       #E8E2D6;
-  --cj-border:       rgba(138,106,0,0.20);
-  --cj-border-light: rgba(138,106,0,0.12);
-  --cj-text:         #1A1A1A;
-  --cj-text-muted:   #6B5B3E;
-  --cj-gold:         #C49A00;
-  --cj-gold-deep:    #A07D00;
-  --cj-gold-muted:   #7A5A0A;
-  --cj-gold-glow:    rgba(196,154,0,0.12);
-}
 
 /* ── Light theme (clean white) ── */
 [data-theme="light"] {

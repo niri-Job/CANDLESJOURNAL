@@ -273,7 +273,7 @@ export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [heroCard, setHeroCard] = useState(0);
   const [howStep, setHowStep] = useState(0);
-  const [theme, setTheme] = useState<LPTheme>("dark");
+  const [theme, setTheme] = useState<LPTheme>("light");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 48);
@@ -282,7 +282,7 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    const saved = (localStorage.getItem("cj_theme") ?? "dark") as LPTheme;
+    const saved = (localStorage.getItem("cj_theme") ?? "light") as LPTheme;
     setTheme(saved);
     document.documentElement.setAttribute("data-theme", saved);
   }, []);
@@ -823,7 +823,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── DASHBOARD PREVIEW ───────────────────────────────────────────────── */}
-      <section className="lp-dark-bg" style={{ background: "radial-gradient(ellipse 70% 60% at 100% 0%, rgba(139,53,255,0.18) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 0% 100%, rgba(255,107,0,0.12) 0%, transparent 55%), var(--cj-bg)", padding: "5rem 1.5rem 6rem" }}>
+      <section style={{ background: "radial-gradient(ellipse 70% 60% at 100% 0%, rgba(139,53,255,0.18) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 0% 100%, rgba(255,107,0,0.12) 0%, transparent 55%), var(--cj-bg)", padding: "5rem 1.5rem 6rem" }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", alignItems: "center", gap: "4rem", flexWrap: "wrap" }}>
 
           {/* Left copy */}
@@ -831,10 +831,10 @@ export default function LandingPage() {
             <p style={{ color: "#FF6B00", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
               Your dashboard, automated
             </p>
-            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "#FFFFFF", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
+            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "var(--cj-text)", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
               Everything you need<br />to improve, <span className="shimmer-text">in one place.</span>
             </h2>
-            <p style={{ color: "#CCCCCC", fontSize: "1rem", lineHeight: 1.75, marginBottom: "2rem" }}>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", lineHeight: 1.75, marginBottom: "2rem" }}>
               Trade journal, equity curve, AI analysis and discipline score — all synced automatically from MT5 in minutes.
             </p>
             {[
@@ -844,7 +844,7 @@ export default function LandingPage() {
             ].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.875rem" }}>
                 <span style={{ color: "#FF6B00", fontWeight: 700, flexShrink: 0, marginTop: 2 }}>→</span>
-                <p style={{ color: "#FFFFFF", fontSize: "0.9375rem", lineHeight: 1.6, margin: 0 }}>{f}</p>
+                <p style={{ color: "var(--cj-text)", fontSize: "0.9375rem", lineHeight: 1.6, margin: 0 }}>{f}</p>
               </div>
             ))}
             <div style={{ marginTop: "2.25rem" }}>
@@ -853,7 +853,7 @@ export default function LandingPage() {
                   See Your Dashboard →
                 </button>
               </Link>
-              <p style={{ color: "#888888", fontSize: "0.8125rem", marginTop: "0.875rem" }}>
+              <p style={{ color: "var(--cj-text-muted)", fontSize: "0.8125rem", marginTop: "0.875rem" }}>
                 Connect MT5 in under 5 minutes. No card required.
               </p>
             </div>
@@ -1575,8 +1575,14 @@ export default function LandingPage() {
           <div className="footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "2.5rem", marginBottom: "3rem" }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "0.75rem" }}>
-                {/* Logo placeholder — swap with <img src="/logo.png"> when brand assets arrive */}
-                <div style={{ width: 28, height: 28, borderRadius: "7px", background: "linear-gradient(135deg,#FF6B00 0%,#FF8C00 50%,#FF6B00 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#FFFFFF", fontSize: "0.75rem" }}>NI</div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style={{ width: 28, height: 28, flexShrink: 0 }}>
+                  <rect width="100" height="100" fill="#06000E" rx="18"/>
+                  <path d="M50 36 Q40 36 35 42 Q30 48 33 54 Q30 60 35 64 Q40 68 45 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
+                  <path d="M50 36 Q60 36 65 42 Q70 48 67 54 Q70 60 65 64 Q60 68 55 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="50" y1="36" x2="50" y2="67" stroke="#C49A00" strokeWidth="0.8" strokeDasharray="2.5,2"/>
+                  <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#FF6B00" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="68" cy="50" r="2.5" fill="#FF6B00"/>
+                </svg>
                 <span style={{ fontWeight: 800, color: "var(--cj-text)", fontSize: "1rem", letterSpacing: "-0.01em" }}>NIRI</span>
               </div>
               <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", lineHeight: 1.65, maxWidth: 220 }}>

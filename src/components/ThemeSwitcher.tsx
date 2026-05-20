@@ -16,12 +16,12 @@ function applyTheme(t: Theme) {
 }
 
 export function ThemeSwitcher({ user }: { user: User | null }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
     const raw = localStorage.getItem("cj_theme");
     // migrate removed themes to "dark"
-    const saved = (raw === "default" || raw === "midnight" ? "dark" : raw ?? "dark") as Theme;
+    const saved = (raw === "default" || raw === "midnight" ? "dark" : raw ?? "light") as Theme;
     setTheme(saved);
     applyTheme(saved);
   }, []);

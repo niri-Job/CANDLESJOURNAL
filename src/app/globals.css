@@ -63,6 +63,8 @@
   --cj-sidebar-bg:   #0f0e1a;          /* sidebar background           */
   --cj-positive:     #4ade80;          /* profit / win                 */
   --cj-negative:     #f87171;          /* loss / drawdown              */
+  --cj-gradient-gold: linear-gradient(135deg, #d4a017 0%, #f5c842 50%, #d4a017 100%);
+  --cj-card-border:  rgba(212,160,23,0.3);
 }
 
 /* ── Explicit dark theme (mirrors :root) ── */
@@ -81,6 +83,8 @@
   --cj-sidebar-bg:   #0f0e1a;
   --cj-positive:     #4ade80;
   --cj-negative:     #f87171;
+  --cj-gradient-gold: linear-gradient(135deg, #d4a017 0%, #f5c842 50%, #d4a017 100%);
+  --cj-card-border:  rgba(212,160,23,0.3);
 }
 
 /* ── Default theme (warm cream/beige) ── */
@@ -187,7 +191,7 @@ h1, h2, h3, h4, h5, h6 {
 
   /* Primary gold-gradient button */
   .btn-gold {
-    background: linear-gradient(135deg, #d4a017, #b8860b);
+    background: linear-gradient(135deg, #d4a017 0%, #f5c842 50%, #d4a017 100%);
     color: #0d0d12;
     font-weight: 700;
     transition: filter 0.15s, transform 0.1s;
@@ -204,6 +208,16 @@ h1, h2, h3, h4, h5, h6 {
   .btn-gold:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  /* Section divider — thin gold gradient line */
+  .gold-divider {
+    height: 1px;
+    width: 100%;
+    background: linear-gradient(90deg, transparent 0%, var(--cj-gold) 25%, #f5c842 50%, var(--cj-gold) 75%, transparent 100%);
+    border: none;
+    outline: none;
+    flex-shrink: 0;
   }
 
   /* Section card header — gold-muted label */

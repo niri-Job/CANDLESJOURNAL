@@ -254,7 +254,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         className="hidden md:flex flex-col fixed inset-y-0 left-0 z-20 overflow-hidden"
         style={{
           width: sidebarWidth,
-          background: "linear-gradient(180deg, var(--cj-bg) 0%, var(--cj-sidebar-bg) 100%)",
+          background: "radial-gradient(ellipse 200% 25% at 50% 0%, rgba(212,160,23,0.15) 0%, transparent 55%), linear-gradient(180deg, var(--cj-bg) 0%, var(--cj-sidebar-bg) 100%)",
           borderRight: "1px solid var(--cj-border)",
           transition: "width 0.2s ease",
         }}
@@ -436,7 +436,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         >
           <aside
             className="absolute inset-y-0 left-0 w-[240px] flex flex-col"
-            style={{ background: "var(--cj-bg)", borderRight: "1px solid var(--cj-border)" }}
+            style={{ background: "radial-gradient(ellipse 200% 20% at 50% 0%, rgba(212,160,23,0.12) 0%, transparent 55%), var(--cj-bg)", borderRight: "1px solid var(--cj-border)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-[2px] w-full" style={{ background: "linear-gradient(to right, var(--cj-gold), var(--cj-gold-deep), transparent)" }} />

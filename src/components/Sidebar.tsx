@@ -143,9 +143,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
               className={`flex items-center rounded-xl font-medium transition-all relative group
                           ${isCollapsed ? "justify-center w-10 h-10 mx-auto" : "gap-3 px-3 py-2.5 text-sm"}
                           ${active
-                            ? isCollapsed
-                              ? "bg-[var(--cj-gold-glow)] text-[var(--cj-gold)]"
-                              : "bg-[var(--cj-gold-glow)] border-l-[3px] border-l-[var(--cj-gold)] text-[var(--cj-gold)] pl-[10px]"
+                            ? "bg-[var(--cj-gold)] text-[var(--cj-bg)]"
                             : "text-zinc-400 hover:text-zinc-100 hover:bg-[var(--cj-raised)]"
                           }`}
             >
@@ -155,7 +153,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                   {label}
                   {isCopy && (
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: "rgba(245,197,24,0.15)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.3)" }}>
+                          style={{ background: "rgba(212,160,23,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(212,160,23,0.25)" }}>
                       BETA
                     </span>
                   )}
@@ -207,7 +205,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         {isPaid ? (
           <div className="flex items-center gap-2 py-0.5">
             <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(245,197,24,0.1)", border: "1px solid rgba(245,197,24,0.3)", color: "var(--cj-gold)" }}>
+                  style={{ background: "rgba(212,160,23,0.10)", border: "1px solid rgba(212,160,23,0.25)", color: "var(--cj-gold)" }}>
               {plan.toUpperCase()}
             </span>
             <Link href="/pricing" className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors">
@@ -238,14 +236,14 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 100 100"
       className={`${size === "md" ? "w-8 h-8" : "w-7 h-7"} shrink-0`}
-      style={{ filter: "drop-shadow(0 0 8px rgba(245,197,24,0.30))" }}
+      style={{ filter: "drop-shadow(0 0 8px rgba(212,160,23,0.30))" }}
     >
-      <rect width="100" height="100" fill="#0A0A0F" rx="18"/>
-      <path d="M50 36 Q40 36 35 42 Q30 48 33 54 Q30 60 35 64 Q40 68 45 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
-      <path d="M50 36 Q60 36 65 42 Q70 48 67 54 Q70 60 65 64 Q60 68 55 67 L50 67" fill="none" stroke="#C49A00" strokeWidth="1.8" strokeLinecap="round"/>
-      <line x1="50" y1="36" x2="50" y2="67" stroke="#C49A00" strokeWidth="0.8" strokeDasharray="2.5,2"/>
-      <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="#F5C518" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="68" cy="50" r="2.5" fill="#F5C518"/>
+      <rect width="100" height="100" fill="var(--cj-bg)" rx="18"/>
+      <path d="M50 36 Q40 36 35 42 Q30 48 33 54 Q30 60 35 64 Q40 68 45 67 L50 67" fill="none" stroke="var(--cj-gold-deep)" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M50 36 Q60 36 65 42 Q70 48 67 54 Q70 60 65 64 Q60 68 55 67 L50 67" fill="none" stroke="var(--cj-gold-deep)" strokeWidth="1.8" strokeLinecap="round"/>
+      <line x1="50" y1="36" x2="50" y2="67" stroke="var(--cj-gold-deep)" strokeWidth="0.8" strokeDasharray="2.5,2"/>
+      <path d="M52 54 L56 47 L60 56 L64 44 L68 50" fill="none" stroke="var(--cj-gold)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="68" cy="50" r="2.5" fill="var(--cj-gold)"/>
     </svg>
   );
 
@@ -262,7 +260,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         }}
       >
         {/* Gold gradient top accent line */}
-        <div className="h-[2px] w-full bg-gradient-to-r from-[#F5C518] via-[#C9A227] to-transparent shrink-0" />
+        <div className="h-[2px] w-full shrink-0" style={{ background: "linear-gradient(to right, var(--cj-gold), var(--cj-gold-deep), transparent)" }} />
 
         <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "gap-3 px-5"}`}
              style={{ borderBottom: "1px solid var(--cj-border)" }}>
@@ -411,11 +409,11 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
           style={{
             background: supportOpen
-              ? "linear-gradient(135deg,#F5C518,#C9A227)"
+              ? "linear-gradient(135deg,var(--cj-gold),var(--cj-gold-deep))"
               : "var(--cj-surface)",
             border: "1.5px solid var(--cj-gold)",
-            color: supportOpen ? "#0A0A0F" : "var(--cj-gold)",
-            boxShadow: "0 0 24px rgba(245,197,24,0.25)",
+            color: supportOpen ? "var(--cj-bg)" : "var(--cj-gold)",
+            boxShadow: "0 0 24px rgba(212,160,23,0.20)",
           }}
         >
           {supportOpen ? (
@@ -441,7 +439,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             style={{ background: "var(--cj-bg)", borderRight: "1px solid var(--cj-border)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="h-[2px] w-full bg-gradient-to-r from-[#F5C518] via-[#C9A227] to-transparent" />
+            <div className="h-[2px] w-full" style={{ background: "linear-gradient(to right, var(--cj-gold), var(--cj-gold-deep), transparent)" }} />
             <div className="flex items-center gap-2.5 px-5 h-14 shrink-0"
                  style={{ borderBottom: "1px solid var(--cj-border)" }}>
               <Logo size="sm" />

@@ -7,38 +7,44 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @theme {
-  /* ── Dark purple-ink zinc scale — softer on eyes ── */
+  /* ── Dark purple-ink zinc scale ── */
   --color-zinc-950: #0d0d12;   /* page background               */
   --color-zinc-900: #13121c;   /* inputs, raised elements       */
   --color-zinc-800: #1e1d2e;   /* borders, dividers             */
   --color-zinc-700: #2a2840;   /* lighter borders, inputs       */
   --color-zinc-600: #55557a;   /* very muted text               */
   --color-zinc-500: #88889a;   /* section labels                */
-  --color-zinc-400: #9090b0;   /* tertiary / placeholder text   */
-  --color-zinc-300: #b0b0cc;   /* secondary text                */
-  --color-zinc-200: #c8c8e0;
-  --color-zinc-100: #e8e8f0;   /* primary text — soft off-white */
-  --color-zinc-50:  #f0f0f8;
+  --color-zinc-400: #a0a0b0;   /* tertiary / placeholder text   */
+  --color-zinc-300: #b8b8cc;   /* secondary text                */
+  --color-zinc-200: #d0d0e0;
+  --color-zinc-100: #ffffff;   /* primary text — pure white     */
+  --color-zinc-50:  #f8f8ff;
 
-  /* ── Muted gold replaces blue throughout ── */
+  /* ── Real gold (not yellow) replaces blue throughout ── */
   --color-blue-900: #1a1200;
   --color-blue-800: #2a1e00;
-  --color-blue-700: #9a7818;
-  --color-blue-600: #c49a20;   /* deep gold — bg-blue-600 buttons   */
-  --color-blue-500: #f0c040;   /* primary gold — warmer, softer     */
-  --color-blue-400: #f5ce60;   /* light gold — text-blue-400        */
-  --color-blue-300: #f8dc88;
-  --color-blue-200: #fbe9a8;
-  --color-blue-100: #fdf4d6;
-  --color-blue-50:  #fefbe9;
+  --color-blue-700: #7a6010;
+  --color-blue-600: #b8860b;   /* deep gold — bg-blue-600 buttons   */
+  --color-blue-500: #d4a017;   /* primary gold — real gold, not yellow */
+  --color-blue-400: #e0b030;   /* hover/light gold                  */
+  --color-blue-300: #eec060;
+  --color-blue-200: #f5d888;
+  --color-blue-100: #fbedb8;
+  --color-blue-50:  #fdf6e0;
 
-  /* ── Softened red/rose — less aggressive ── */
-  --color-rose-600: #c43050;
-  --color-rose-500: #d84060;
-  --color-rose-400: #e06878;
-  --color-red-600:  #c43030;
-  --color-red-500:  #d84040;
-  --color-red-400:  #e06060;
+  /* ── Positive green ── */
+  --color-green-400:   #4ade80;
+  --color-green-500:   #22c55e;
+  --color-emerald-400: #4ade80;
+  --color-emerald-500: #22c55e;
+
+  /* ── Loss red — readable but not harsh ── */
+  --color-rose-600: #dc2626;
+  --color-rose-500: #ef4444;
+  --color-rose-400: #f87171;
+  --color-red-600:  #dc2626;
+  --color-red-500:  #ef4444;
+  --color-red-400:  #f87171;
 }
 
 /* ─── NIRI semantic tokens (used with var(--cj-*)) ──────────────────────── */
@@ -48,13 +54,15 @@
   --cj-raised:       #13121c;          /* inputs, tooltips, elevated   */
   --cj-border:       #1e1d2e;          /* default border               */
   --cj-border-light: rgba(255,255,255,0.08);  /* subtle light border   */
-  --cj-text:         #e8e8f0;          /* primary text — soft off-white */
-  --cj-text-muted:   #8080a0;          /* secondary text               */
-  --cj-gold:         #f0c040;          /* gold — warmer, less harsh    */
-  --cj-gold-deep:    #c49a20;          /* deeper gold                  */
-  --cj-gold-muted:   #8a7220;          /* subtle gold — labels         */
-  --cj-gold-glow:    rgba(240,192,64,0.12);   /* gold ambient glow     */
+  --cj-text:         #ffffff;           /* primary text — pure white    */
+  --cj-text-muted:   #a0a0b0;          /* secondary text               */
+  --cj-gold:         #d4a017;          /* real gold, not yellow        */
+  --cj-gold-deep:    #b8860b;          /* deeper gold                  */
+  --cj-gold-muted:   #7a6010;          /* subtle gold — labels         */
+  --cj-gold-glow:    rgba(212,160,23,0.15);   /* gold ambient glow     */
   --cj-sidebar-bg:   #0f0e1a;          /* sidebar background           */
+  --cj-positive:     #4ade80;          /* profit / win                 */
+  --cj-negative:     #f87171;          /* loss / drawdown              */
 }
 
 /* ── Explicit dark theme (mirrors :root) ── */
@@ -64,13 +72,15 @@
   --cj-raised:       #13121c;
   --cj-border:       #1e1d2e;
   --cj-border-light: rgba(255,255,255,0.08);
-  --cj-text:         #e8e8f0;
-  --cj-text-muted:   #8080a0;
-  --cj-gold:         #f0c040;
-  --cj-gold-deep:    #c49a20;
-  --cj-gold-muted:   #8a7220;
-  --cj-gold-glow:    rgba(240,192,64,0.12);
+  --cj-text:         #ffffff;
+  --cj-text-muted:   #a0a0b0;
+  --cj-gold:         #d4a017;
+  --cj-gold-deep:    #b8860b;
+  --cj-gold-muted:   #7a6010;
+  --cj-gold-glow:    rgba(212,160,23,0.15);
   --cj-sidebar-bg:   #0f0e1a;
+  --cj-positive:     #4ade80;
+  --cj-negative:     #f87171;
 }
 
 /* ── Default theme (warm cream/beige) ── */
@@ -134,12 +144,12 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Dashboard stat cards with warm gradient */
 .bg-card-warm {
-  background: linear-gradient(145deg, #16151f 0%, #1a1830 100%);
+  background: linear-gradient(145deg, #16151f 0%, #1c1b2a 100%);
 }
 
 /* Performance badge / highlight sections */
 .bg-perf-badge {
-  background: linear-gradient(135deg, #1a1830 0%, #16151f 100%);
+  background: linear-gradient(135deg, #1c1b2a 0%, #16151f 100%);
 }
 
 /* ─── Reusable utility classes ────────────────────────────────────────────── */
@@ -177,7 +187,7 @@ h1, h2, h3, h4, h5, h6 {
 
   /* Primary gold-gradient button */
   .btn-gold {
-    background: linear-gradient(135deg, #f0c040, #c49a20);
+    background: linear-gradient(135deg, #d4a017, #b8860b);
     color: #0d0d12;
     font-weight: 700;
     transition: filter 0.15s, transform 0.1s;

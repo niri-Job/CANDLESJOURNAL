@@ -218,7 +218,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           <button
             onClick={() => setUpgradeOpen(true)}
             className="block w-full text-center text-xs font-bold py-2 rounded-xl transition-all hover:opacity-90"
-            style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+            style={{ background: "linear-gradient(135deg,var(--cj-gold),var(--cj-gold-deep))", color: "var(--cj-bg)" }}>
             Upgrade to Pro
           </button>
         )}
@@ -256,7 +256,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         className="hidden md:flex flex-col fixed inset-y-0 left-0 z-20 overflow-hidden"
         style={{
           width: sidebarWidth,
-          background: "linear-gradient(180deg, var(--cj-bg) 0%, #120D00 100%)",
+          background: "linear-gradient(180deg, var(--cj-bg) 0%, var(--cj-sidebar-bg) 100%)",
           borderRight: "1px solid var(--cj-border)",
           transition: "width 0.2s ease",
         }}

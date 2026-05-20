@@ -5,9 +5,8 @@ import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 const THEMES = [
-  { key: "dark",     icon: "🌑", label: "Dark"     },
-  { key: "midnight", icon: "🌌", label: "Midnight"  },
-  { key: "light",    icon: "☀️",  label: "Light"    },
+  { key: "dark",  icon: "🌑", label: "Dark"  },
+  { key: "light", icon: "☀️",  label: "Light" },
 ] as const;
 
 type Theme = (typeof THEMES)[number]["key"];
@@ -21,8 +20,8 @@ export function ThemeSwitcher({ user }: { user: User | null }) {
 
   useEffect(() => {
     const raw = localStorage.getItem("cj_theme");
-    // "default" was the old warm-cream theme — migrate it to "dark"
-    const saved = (raw === "default" ? "dark" : raw ?? "dark") as Theme;
+    // migrate removed themes to "dark"
+    const saved = (raw === "default" || raw === "midnight" ? "dark" : raw ?? "dark") as Theme;
     setTheme(saved);
     applyTheme(saved);
   }, []);

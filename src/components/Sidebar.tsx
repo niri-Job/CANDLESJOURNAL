@@ -153,7 +153,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                   {label}
                   {isCopy && (
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: "rgba(212,160,23,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(212,160,23,0.25)" }}>
+                          style={{ background: "rgba(255,107,0,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(255,107,0,0.25)" }}>
                       BETA
                     </span>
                   )}
@@ -205,7 +205,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         {isPaid ? (
           <div className="flex items-center gap-2 py-0.5">
             <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(212,160,23,0.10)", border: "1px solid rgba(212,160,23,0.25)", color: "var(--cj-gold)" }}>
+                  style={{ background: "rgba(212,160,23,0.10)", border: "1px solid rgba(255,107,0,0.25)", color: "var(--cj-gold)" }}>
               {plan.toUpperCase()}
             </span>
             <Link href="/pricing" className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors">
@@ -254,13 +254,13 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         className="hidden md:flex flex-col fixed inset-y-0 left-0 z-20 overflow-hidden"
         style={{
           width: sidebarWidth,
-          background: "radial-gradient(ellipse 200% 25% at 50% 0%, rgba(212,160,23,0.15) 0%, transparent 55%), linear-gradient(180deg, var(--cj-bg) 0%, var(--cj-sidebar-bg) 100%)",
+          background: "radial-gradient(ellipse 200% 30% at 50% 0%, rgba(255,107,0,0.18) 0%, rgba(139,53,255,0.10) 40%, transparent 65%), linear-gradient(180deg, var(--cj-bg) 0%, var(--cj-sidebar-bg) 100%)",
           borderRight: "1px solid var(--cj-border)",
           transition: "width 0.2s ease",
         }}
       >
-        {/* Gold gradient top accent line */}
-        <div className="h-[2px] w-full shrink-0" style={{ background: "linear-gradient(to right, var(--cj-gold), var(--cj-gold-deep), transparent)" }} />
+        {/* Cinematic accent line — orange → pink → purple */}
+        <div className="h-[2px] w-full shrink-0" style={{ background: "linear-gradient(to right, #FF6B00, #FF3080, #8B35FF, transparent)" }} />
 
         <div className={`flex items-center h-16 shrink-0 ${collapsed ? "justify-center px-2" : "gap-3 px-5"}`}
              style={{ borderBottom: "1px solid var(--cj-border)" }}>
@@ -436,7 +436,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         >
           <aside
             className="absolute inset-y-0 left-0 w-[240px] flex flex-col"
-            style={{ background: "radial-gradient(ellipse 200% 20% at 50% 0%, rgba(212,160,23,0.12) 0%, transparent 55%), var(--cj-bg)", borderRight: "1px solid var(--cj-border)" }}
+            style={{ background: "radial-gradient(ellipse 200% 25% at 50% 0%, rgba(255,107,0,0.15) 0%, rgba(139,53,255,0.08) 45%, transparent 65%), var(--cj-bg)", borderRight: "1px solid var(--cj-border)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="h-[2px] w-full" style={{ background: "linear-gradient(to right, var(--cj-gold), var(--cj-gold-deep), transparent)" }} />

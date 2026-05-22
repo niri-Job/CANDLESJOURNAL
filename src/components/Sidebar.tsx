@@ -94,6 +94,11 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
     } catch {}
   }, []);
 
+  // Keep CSS variable in sync so pages expand to fill space
+  useEffect(() => {
+    document.documentElement.style.setProperty("--sidebar-w", collapsed ? "64px" : "240px");
+  }, [collapsed]);
+
   function toggleCollapse() {
     const next = !collapsed;
     setCollapsed(next);

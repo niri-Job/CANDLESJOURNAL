@@ -109,23 +109,6 @@ function EquityTooltip({ active, payload, label }: {
   );
 }
 
-function WinTooltip({ active, payload, label }: {
-  active?: boolean;
-  payload?: { value: number; payload: { total: number } }[];
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
-      <p className="text-zinc-300 font-mono font-semibold mb-1">{label}</p>
-      <p className={`font-mono ${payload[0].value >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
-        {payload[0].value}% win rate
-      </p>
-      <p className="text-zinc-500 mt-0.5">{payload[0].payload.total} trades</p>
-    </div>
-  );
-}
-
 // ─── Analysis Report ──────────────────────────────────────────────────────────
 function AnalysisReport({ text }: { text: string }) {
   const sections = text.split(/^## /m).filter(Boolean);
@@ -178,22 +161,37 @@ function EquityCurveChart({ data }: { data: { date: string; value: number }[] })
 // ─── Win Rate by Pair ─────────────────────────────────────────────────────────
 function WinRateChart({ data }: { data: { pair: string; winRate: number; total: number }[] }) {
   if (data.length === 0) {
-    return <div className="flex items-center justify-center h-full text-zinc-600 text-sm">No pair data yet</div>;
+    return <div className="flex items-center justify-center py-8 text-zinc-600 text-sm">No pair data yet</div>;
   }
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 6, right: 12, left: 0, bottom: 0 }} barSize={22}>
-        <XAxis dataKey="pair" tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} />
-        <YAxis domain={[0, 100]} tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false}
-          tickFormatter={(v) => `${v}%`} width={40} />
-        <Tooltip content={<WinTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-        <Bar dataKey="winRate" shape={(props: unknown) => {
-          const p = props as { x: number; y: number; width: number; height: number; winRate: number };
-          return <rect x={p.x} y={p.y} width={p.width} height={p.height} rx={4}
-            fill={p.winRate >= 50 ? "#34d399" : "#f87171"} fillOpacity={0.75} />;
-        }} />
-      </BarChart>
-    </ResponsiveContainer>
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+      {data.map((d) => {
+        const win = d.winRate >= 50;
+        return (
+          <div key={d.pair} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span style={{ width: 80, fontSize: "0.75rem", fontWeight: 600, color: "var(--cj-text-muted)", flexShrink: 0, fontFamily: "monospace" }}>
+              {d.pair.replace("M", "")}
+            </span>
+            <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--cj-raised)", overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${d.winRate}%`,
+                borderRadius: 4,
+                background: win ? "#34d399" : "#f87171",
+                opacity: 0.85,
+                transition: "width 0.4s ease",
+              }} />
+            </div>
+            <span style={{ width: 38, textAlign: "right", fontSize: "0.8125rem", fontWeight: 700, color: win ? "#34d399" : "#f87171", flexShrink: 0 }}>
+              {d.winRate.toFixed(0)}%
+            </span>
+            <span style={{ width: 32, textAlign: "right", fontSize: "0.6875rem", color: "var(--cj-text-muted)", flexShrink: 0 }}>
+              {d.total}t
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1265,9 +1263,7 @@ export default function TradingJournal() {
 
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
             <p className="card-label mb-4">Win Rate by Pair</p>
-            <div style={{ height: 200 }}>
-              <WinRateChart data={pairWinRateData} />
-            </div>
+            <WinRateChart data={pairWinRateData} />
           </div>
 
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">

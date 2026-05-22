@@ -47,6 +47,17 @@
   --color-red-400:  #f87171;
 }
 
+/* ─── Sidebar width token — updated by Sidebar.tsx via JS ───────────────── */
+:root {
+  --sidebar-w: 240px;
+}
+@media (min-width: 768px) {
+  .md\:ml-\[240px\] {
+    margin-left: var(--sidebar-w, 240px);
+    transition: margin-left 0.2s ease;
+  }
+}
+
 /* ─── NIRI semantic tokens — cinematic gold × purple ────────────────────── */
 :root {
   --cj-bg:           #06000E;          /* deep void background                */

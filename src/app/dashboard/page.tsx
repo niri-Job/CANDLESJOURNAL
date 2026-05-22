@@ -333,26 +333,28 @@ function CalendarHeatmap({ dailyData, trades }: {
 
           return (
             <div key={i}
-              className={`h-[76px] rounded-lg flex flex-col p-2 select-none
+              className={`h-[76px] rounded-lg flex flex-col p-1.5 select-none overflow-hidden
                           ${entry ? "cursor-pointer" : "cursor-default"}
                           ${isToday ? "outline outline-2 outline-[var(--cj-gold)] outline-offset-[-2px]" : ""}
-                          ${isSel ? "ring-2 ring-white ring-offset-1 ring-offset-transparent" : ""}`}
+                          ${isSel ? "ring-2 ring-[var(--cj-text)] ring-offset-1 ring-offset-transparent" : ""}`}
               style={{ background: bg, border }}
               onClick={() => entry ? setSelected(isSel ? null : ds) : undefined}
             >
-              {/* Day number — always dark/bold so it's readable */}
+              {/* Day number */}
               <span className={`text-[11px] font-semibold leading-none
-                                ${entry ? "text-white/80" : "text-[var(--cj-text-muted)]"}`}>
+                                ${entry ? "text-[var(--cj-text)]" : "text-[var(--cj-text-muted)]"}`}>
                 {day}
               </span>
 
-              {/* PnL + trade count — white on colored cell, always crisp */}
+              {/* PnL + trade count — color adapts to theme */}
               {entry && (
-                <div className="mt-auto flex flex-col gap-[3px]">
-                  <span className="text-[12px] font-mono font-extrabold leading-none text-white drop-shadow-sm">
+                <div className="mt-auto flex flex-col gap-[2px] overflow-hidden">
+                  <span className="text-[10px] font-mono font-extrabold leading-none whitespace-nowrap overflow-hidden"
+                        style={{ color: "var(--cj-text)" }}>
                     {fmt(parseFloat(entry.pnl.toFixed(2)))}
                   </span>
-                  <span className="text-[10px] font-medium leading-none text-white/70">
+                  <span className="text-[9px] font-medium leading-none whitespace-nowrap"
+                        style={{ color: "var(--cj-text-muted)" }}>
                     {entry.count} trade{entry.count !== 1 ? "s" : ""}
                   </span>
                 </div>

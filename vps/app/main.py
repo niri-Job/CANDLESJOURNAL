@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -17,7 +18,14 @@ from mt5_manager import MT5Manager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+_raw_secret = os.getenv("SUPABASE_JWT_SECRET", "")
+# Supabase signs JWTs with the raw bytes of the base64-encoded secret
+try:
+    padded = _raw_secret + "=" * (-len(_raw_secret) % 4)
+    SUPABASE_JWT_KEY: bytes | str = base64.b64decode(padded)
+except Exception:
+    SUPABASE_JWT_KEY = _raw_secret
+
 SYNC_INTERVAL = int(os.getenv("SYNC_INTERVAL", "60"))
 
 manager: MT5Manager | None = None
@@ -28,7 +36,7 @@ def verify_token(creds: HTTPAuthorizationCredentials = Security(security)) -> st
     try:
         payload = jwt.decode(
             creds.credentials,
-            SUPABASE_JWT_SECRET,
+            SUPABASE_JWT_KEY,
             algorithms=["HS256"],
             options={"verify_aud": False},
         )
@@ -37,6 +45,7 @@ def verify_token(creds: HTTPAuthorizationCredentials = Security(security)) -> st
             raise HTTPException(status_code=401, detail="Invalid token: no sub")
         return user_id
     except JWTError as e:
+        logger.warning("JWT verify failed: %s", e)
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
 
 

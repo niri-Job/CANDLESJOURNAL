@@ -1,0 +1,10 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.0
+python-jose[cryptography]==3.3.0
+cryptography==43.0.3
+httpx==0.27.2
+supabase==2.10.0
+mt5linux==0.1.7
+pyzmq==26.2.0
+aiosqlite==0.20.0
+python-dotenv==1.0.1

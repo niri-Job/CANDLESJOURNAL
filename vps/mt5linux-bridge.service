@@ -1,0 +1,18 @@
+[Unit]
+Description=mt5linux ZMQ Bridge (Wine Python <-> Linux Python)
+After=mt5-terminal.service
+Requires=mt5-terminal.service
+
+[Service]
+Type=simple
+User=niri
+Environment=DISPLAY=:99
+Environment=WINEPREFIX=/home/niri/.wine-mt5
+Environment=WINEARCH=win64
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/wine /home/niri/.wine-mt5/drive_c/Python39/python.exe -m mt5linux --host localhost --port 28888
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

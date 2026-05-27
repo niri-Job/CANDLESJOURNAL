@@ -1,0 +1,16 @@
+[Unit]
+Description=NIRI Sync API (FastAPI + MT5 sync worker)
+After=network.target mt5linux-bridge.service
+Requires=mt5linux-bridge.service
+
+[Service]
+Type=simple
+User=niri
+WorkingDirectory=/opt/niri-sync
+EnvironmentFile=/opt/niri-sync/.env
+ExecStart=/opt/niri-sync/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -109,11 +109,11 @@
 }
 
 
-/* ── Light theme (kept for colour tokens but bg forced dark) ── */
+/* ── Light theme ── */
 [data-theme="light"] {
-  --cj-bg:           #0d0d12;
-  --cj-surface:      #16151f;
-  --cj-raised:       #1e1d2a;
+  --cj-bg:           #FFFFFF;
+  --cj-surface:      #F8F8F8;
+  --cj-raised:       #F2F2F2;
   --cj-border:       rgba(0,0,0,0.10);
   --cj-border-light: rgba(0,0,0,0.06);
   --cj-text:         #1A1A1A;
@@ -122,14 +122,17 @@
   --cj-gold-deep:    #A07D00;
   --cj-gold-muted:   #7A5A0A;
   --cj-gold-glow:    rgba(196,154,0,0.10);
-}
-
-html {
-  background-color: #0d0d12;
+  --cj-sidebar-bg:   #F0F0F0;
+  --cj-positive:     #16a34a;
+  --cj-negative:     #dc2626;
+  --cj-purple:       #7C3AED;
+  --cj-purple-glow:  rgba(124,58,237,0.12);
+  --cj-card-border:  rgba(196,154,0,0.20);
+  --cj-sidebar-gradient: linear-gradient(180deg, #F8F8F8 0%, #F0F0F0 100%);
 }
 
 body {
-  background-color: #0d0d12 !important;
+  background-color: var(--cj-bg);
   color: var(--cj-text);
   font-family: var(--font-inter), var(--font-dm-sans), system-ui, sans-serif;
   font-size: 16px;
@@ -243,11 +246,6 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Light mode body — force dark background even if theme token is "light" */
-[data-theme="light"] body {
-  background-color: #0d0d12 !important;
-  color: var(--cj-text);
-}
 
 /* ─── Midnight theme — ultra-deep purple atmosphere ──────────────────────────── */
 [data-theme="midnight"] {

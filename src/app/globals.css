@@ -111,6 +111,7 @@
 
 /* ── Light theme ── */
 [data-theme="light"] {
+  /* ── Semantic tokens ── */
   --cj-bg:           #FFFFFF;
   --cj-surface:      #F8F8F8;
   --cj-raised:       #F2F2F2;
@@ -129,6 +130,29 @@
   --cj-purple-glow:  rgba(124,58,237,0.12);
   --cj-card-border:  rgba(196,154,0,0.20);
   --cj-sidebar-gradient: linear-gradient(180deg, #F8F8F8 0%, #F0F0F0 100%);
+
+  /* ── Zinc scale — inverted so text-zinc-100 = dark text on light bg ── */
+  --color-zinc-950: #F8F7FF;
+  --color-zinc-900: #F0EEF8;
+  --color-zinc-800: #E2DFF2;
+  --color-zinc-700: #BBBBCC;
+  --color-zinc-600: #888899;
+  --color-zinc-500: #666677;
+  --color-zinc-400: #555566;
+  --color-zinc-300: #444455;
+  --color-zinc-200: #2A2A3A;
+  --color-zinc-100: #1A1A2E;
+  --color-zinc-50:  #FFFFFF;
+
+  /* ── Greens/reds darker so they read on light card backgrounds ── */
+  --color-emerald-400: #059669;
+  --color-emerald-500: #047857;
+  --color-green-400:   #059669;
+  --color-green-500:   #047857;
+  --color-rose-400:    #dc2626;
+  --color-rose-500:    #b91c1c;
+  --color-red-400:     #dc2626;
+  --color-red-500:     #b91c1c;
 }
 
 body {

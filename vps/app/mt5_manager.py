@@ -397,22 +397,24 @@ class MT5Manager:
                 deals_raw = []
 
             now = datetime.now(timezone.utc)
+            account_sig = f"{login}_{server}"
             trades = []
             for d in deals_raw:
                 deal_type = d.get("type")
                 if deal_type not in (0, 1):
                     continue
                 trades.append({
-                    "user_id":       user_id,
-                    "mt5_deal_id":   str(d["ticket"]),
-                    "date":          datetime.fromtimestamp(d["time"], tz=timezone.utc).isoformat(),
-                    "pair":          d.get("symbol", ""),
-                    "direction":     DEAL_TYPE_MAP.get(deal_type, "buy"),
-                    "lot":           float(d.get("volume", 0)),
-                    "entry":         float(d.get("price", 0)),
-                    "exit_price":    float(d.get("price", 0)),
-                    "pnl":           float(d.get("profit", 0)),
-                    "account_label": login,
+                    "user_id":           user_id,
+                    "mt5_deal_id":       str(d["ticket"]),
+                    "date":              datetime.fromtimestamp(d["time"], tz=timezone.utc).isoformat(),
+                    "pair":              d.get("symbol", ""),
+                    "direction":         DEAL_TYPE_MAP.get(deal_type, "buy"),
+                    "lot":               float(d.get("volume", 0)),
+                    "entry":             float(d.get("price", 0)),
+                    "exit_price":        float(d.get("price", 0)),
+                    "pnl":               float(d.get("profit", 0)),
+                    "account_label":     login,
+                    "account_signature": account_sig,
                 })
 
             if trades:
@@ -426,14 +428,44 @@ class MT5Manager:
                 if new_trades:
                     self.supabase.table("trades").insert(new_trades).execute()
 
+            # Backfill account_signature on existing trades that lack it
+            self.supabase.table("trades")\
+                .update({"account_signature": account_sig})\
+                .eq("user_id", user_id)\
+                .eq("account_label", login)\
+                .is_("account_signature", "null")\
+                .execute()
+
+            currency = account_data.get("currency") or "USD"
+            balance  = float(account_data.get("balance", 0.0))
+            acc_name = account_data.get("name") or ""
+
             self.supabase.table("mt5_connections").update({
                 "status":           "connected",
                 "last_synced_at":   now.isoformat(),
                 "sync_error":       None,
-                "account_name":     account_data.get("name") or "",
-                "account_currency": account_data.get("currency") or "USD",
-                "account_balance":  float(account_data.get("balance", 0.0)),
+                "account_name":     acc_name,
+                "account_currency": currency,
+                "account_balance":  balance,
             }).eq("user_id", user_id).eq("mt5_login", login).execute()
+
+            # Keep trading_accounts in sync so the Dashboard account switcher works
+            self.supabase.table("trading_accounts").upsert({
+                "user_id":            user_id,
+                "account_signature":  account_sig,
+                "account_login":      login,
+                "account_server":     server,
+                "account_label":      login,
+                "account_currency":   currency,
+                "current_balance":    balance,
+                "account_type":       "real",
+                "sync_method":        "mt5_direct",
+                "sync_status":        "connected",
+                "last_synced_at":     now.isoformat(),
+                "sync_error":         None,
+                "is_verified":        True,
+                "verification_status": "verified_direct",
+            }, {"onConflict": "user_id,account_signature"}).execute()
 
             logger.info("Synced %d trades for login %s", len(trades), login)
 

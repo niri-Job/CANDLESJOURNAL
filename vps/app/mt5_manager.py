@@ -465,7 +465,7 @@ class MT5Manager:
                 "sync_error":         None,
                 "is_verified":        True,
                 "verification_status": "verified_direct",
-            }, {"onConflict": "user_id,account_signature"}).execute()
+            }).execute()
 
             logger.info("Synced %d trades for login %s", len(trades), login)
 

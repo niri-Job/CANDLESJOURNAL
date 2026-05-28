@@ -8,26 +8,6 @@ import type { User } from "@supabase/supabase-js";
 
 interface SubState { status: string; end: string | null; }
 
-interface TradingAccount {
-  id: string;
-  account_signature: string;
-  account_label: string | null;
-  broker_name: string | null;
-  account_login: string | null;
-  account_server: string | null;
-  account_currency: string;
-  account_type: string;
-  is_cent: boolean;
-  current_balance: number | null;
-  last_synced_at: string | null;
-  sync_method: string | null;
-  sync_status: string | null;
-  sync_error: string | null;
-  platform: string | null;
-  verification_status: string | null;
-  is_verified: boolean;
-}
-
 interface Mt5Connection {
   id: string;
   mt5_login: string;
@@ -147,66 +127,6 @@ function ReferralQuickView() {
   );
 }
 
-// ── Delete Confirmation Modal ─────────────────────────────────────────────────
-function DeleteModal({
-  account,
-  onConfirm,
-  onCancel,
-  deleting,
-}: {
-  account: TradingAccount;
-  onConfirm: () => void;
-  onCancel: () => void;
-  deleting: boolean;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-         style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
-      <div className="w-full max-w-md bg-[var(--cj-surface)] border border-zinc-700 rounded-2xl p-7 shadow-2xl">
-        <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center mb-5">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-            <path d="M10 11v6M14 11v6"/>
-            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-          </svg>
-        </div>
-        <h3 className="text-base font-bold text-zinc-100 mb-2">Delete this account?</h3>
-        <p className="text-sm text-zinc-400 leading-relaxed mb-1">
-          This will permanently remove{" "}
-          <span className="font-semibold text-zinc-200">
-            {account.account_label || account.broker_name || account.account_login || "this account"}
-          </span>{" "}
-          and <span className="font-semibold text-rose-400">ALL its trade history</span> from NIRI.
-        </p>
-        <p className="text-xs text-zinc-600 mb-6">This action cannot be undone.</p>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            disabled={deleting}
-            className="flex-1 py-2.5 rounded-xl font-semibold text-sm border border-zinc-700
-                       text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors
-                       disabled:opacity-50">
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={deleting}
-            className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all
-                       disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)", color: "#fff" }}>
-            {deleting ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Deleting…
-              </span>
-            ) : "Delete Account"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -217,30 +137,18 @@ export default function SettingsPage() {
     window.location.href = "/login";
   }
 
-  const [loading,          setLoading]          = useState(true);
-  const [sub,              setSub]              = useState<SubState>({ status: "free", end: null });
-  const [tradingAccounts,  setTradingAccounts]  = useState<TradingAccount[]>([]);
-  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
-  const [editLabel,        setEditLabel]        = useState("");
+  const [loading,         setLoading]         = useState(true);
+  const [sub,             setSub]             = useState<SubState>({ status: "free", end: null });
 
   // MT5 Direct Connect state
-  const [mt5Connections,   setMt5Connections]   = useState<Mt5Connection[]>([]);
-  const [mt5Login,         setMt5Login]         = useState("");
-  const [mt5Password,      setMt5Password]      = useState("");
-  const [mt5Server,        setMt5Server]        = useState("");
-  const [mt5Connecting,    setMt5Connecting]    = useState(false);
-  const [mt5ConnectError,  setMt5ConnectError]  = useState<string | null>(null);
-  const [disconnectingId,  setDisconnectingId]  = useState<string | null>(null);
-  const [showPassword,     setShowPassword]     = useState(false);
-
-  // CSV state
-  const [csvImporting, setCsvImporting] = useState(false);
-  const [csvResult,    setCsvResult]    = useState<{ inserted: number; duplicates: number } | null>(null);
-  const [csvError,     setCsvError]     = useState<string | null>(null);
-
-  // Delete modal state
-  const [deleteTarget, setDeleteTarget] = useState<TradingAccount | null>(null);
-  const [deleting,     setDeleting]     = useState(false);
+  const [mt5Connections,  setMt5Connections]  = useState<Mt5Connection[]>([]);
+  const [mt5Login,        setMt5Login]        = useState("");
+  const [mt5Password,     setMt5Password]     = useState("");
+  const [mt5Server,       setMt5Server]       = useState("");
+  const [mt5Connecting,   setMt5Connecting]   = useState(false);
+  const [mt5ConnectError, setMt5ConnectError] = useState<string | null>(null);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [showPassword,    setShowPassword]    = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<string | null>(null);
@@ -257,17 +165,12 @@ export default function SettingsPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
-      const [subRes, accountsRes, connectionsRes] = await Promise.all([
+      const [subRes, connectionsRes] = await Promise.all([
         supabase
           .from("user_profiles")
           .select("subscription_status, subscription_end")
           .eq("user_id", user.id)
           .maybeSingle(),
-        supabase
-          .from("trading_accounts")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false }),
         supabase
           .from("mt5_connections")
           .select("*")
@@ -279,24 +182,12 @@ export default function SettingsPage() {
       const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
       setSub({ status: subData?.subscription_status ?? "free", end: subData?.subscription_end ?? null });
 
-      if (accountsRes.data) setTradingAccounts(accountsRes.data as TradingAccount[]);
       if (connectionsRes.data) setMt5Connections(connectionsRes.data as Mt5Connection[]);
 
       setLoading(false);
     }
     init();
   }, []);
-
-  async function refreshAccounts() {
-    if (!user) return;
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("trading_accounts")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    if (data) setTradingAccounts(data as TradingAccount[]);
-  }
 
   async function refreshConnections() {
     if (!user) return;
@@ -308,44 +199,6 @@ export default function SettingsPage() {
       .neq("status", "disconnected")
       .order("created_at", { ascending: false });
     if (data) setMt5Connections(data as Mt5Connection[]);
-  }
-
-  async function saveLabel(accountId: string) {
-    if (!user) return;
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("trading_accounts")
-      .update({ account_label: editLabel.trim() || null })
-      .eq("id", accountId)
-      .eq("user_id", user.id);
-    if (!error) {
-      setTradingAccounts((prev) =>
-        prev.map((a) => a.id === accountId ? { ...a, account_label: editLabel.trim() || null } : a)
-      );
-    }
-    setEditingAccountId(null);
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/accounts/${encodeURIComponent(deleteTarget.account_signature)}`, {
-        method: "DELETE",
-      });
-      const data = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok) {
-        showToast(data.error ?? "Failed to delete account");
-      } else {
-        setTradingAccounts((prev) => prev.filter((a) => a.id !== deleteTarget.id));
-        showToast("Account deleted successfully");
-      }
-    } catch {
-      showToast("Network error — try again.");
-    } finally {
-      setDeleting(false);
-      setDeleteTarget(null);
-    }
   }
 
   async function handleMt5Connect(e: React.FormEvent) {
@@ -373,7 +226,6 @@ export default function SettingsPage() {
         setMt5Password("");
         setMt5Server("");
         await refreshConnections();
-        await refreshAccounts();
         showToast("MT5 account connected — syncing trades now.");
       }
     } catch {
@@ -405,35 +257,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setCsvImporting(true);
-    setCsvResult(null);
-    setCsvError(null);
-    try {
-      const text = await file.text();
-      const res  = await fetch("/api/trades/import-csv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csv_content: text }),
-      });
-      const json = await res.json() as { success?: boolean; inserted?: number; duplicates?: number; total?: number; error?: string };
-      if (!res.ok) {
-        setCsvError(json.error ?? "Import failed.");
-      } else {
-        setCsvResult({ inserted: json.inserted ?? 0, duplicates: json.duplicates ?? 0 });
-        await refreshAccounts();
-        showToast(`${json.inserted ?? 0} trades imported successfully.`);
-      }
-    } catch {
-      setCsvError("Failed to read file.");
-    } finally {
-      setCsvImporting(false);
-      e.target.value = "";
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center">
@@ -446,15 +269,6 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
       <Sidebar user={user} onSignOut={handleLogout} />
 
-      {deleteTarget && (
-        <DeleteModal
-          account={deleteTarget}
-          onConfirm={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
-          deleting={deleting}
-        />
-      )}
-
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl
                         text-sm font-semibold shadow-xl"
@@ -466,7 +280,7 @@ export default function SettingsPage() {
       <div className="md:ml-[240px] pt-14 md:pt-0">
       <main className="max-w-[680px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
-        {/* ── SYNC METHOD OVERVIEW ──────────────────────────────────────────── */}
+        {/* -- SYNC METHOD OVERVIEW -- */}
         <div className="mb-6">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Sync Method</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -491,26 +305,10 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* CSV Import card */}
-            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                     style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                </div>
-                <span className="text-xs font-bold text-zinc-200">CSV Import</span>
-              </div>
-              <p className="text-[11px] text-zinc-500 leading-relaxed">Manual import from any broker — MT5 history CSV.</p>
-              <div className="mt-auto">
-                <span className="flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Always available</span>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* ── MT5 DIRECT CONNECT ────────────────────────────────────────────── */}
+        {/* -- MT -- */}
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">MT5 Direct Connect</p>
 
@@ -726,261 +524,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ── CSV IMPORT ────────────────────────────────────────────────────── */}
-        <div className="mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">CSV Import</p>
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-            <p className="text-sm font-semibold text-zinc-100 mb-1">Import from MT5 History CSV</p>
-            <p className="text-xs text-zinc-500 leading-relaxed mb-4">
-              Export your trade history from MetaTrader 5 as CSV and import it here. Works with any broker.
-            </p>
-
-            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
-                 style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.5"
-                   strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              <div className="text-xs text-emerald-300 leading-relaxed space-y-1">
-                <p>In MT5: <strong>View → Terminal → Account History</strong> → right-click → <strong>Save as Report</strong> → choose CSV.</p>
-                <p className="text-zinc-500">Columns expected: ticket, open time, type, size, symbol, price, S/L, T/P, close time, close price, commission, swap, profit.</p>
-              </div>
-            </div>
-
-            {csvError && (
-              <div className="mb-4 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                <p className="text-xs text-rose-400">{csvError}</p>
-              </div>
-            )}
-
-            {csvResult && (
-              <div className="mb-4 rounded-xl px-4 py-3"
-                   style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}>
-                <p className="text-xs text-emerald-400 font-semibold">
-                  {csvResult.inserted} trade{csvResult.inserted !== 1 ? "s" : ""} imported
-                  {csvResult.duplicates > 0 ? `, ${csvResult.duplicates} duplicate${csvResult.duplicates !== 1 ? "s" : ""} skipped` : ""}.
-                </p>
-              </div>
-            )}
-
-            <label className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm
-                               transition-all cursor-pointer ${csvImporting ? "opacity-60 pointer-events-none" : "hover:opacity-90"}`}
-                   style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff" }}>
-              {csvImporting ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Importing…
-                </>
-              ) : (
-                <>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Select CSV File to Import
-                </>
-              )}
-              <input
-                type="file"
-                accept=".csv,.txt"
-                className="hidden"
-                onChange={handleCsvImport}
-                disabled={csvImporting}
-              />
-            </label>
-          </div>
-        </div>
-
-        {/* ── CONNECTED ACCOUNTS ────────────────────────────────────────────── */}
-        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
-          <div className="flex items-center justify-between mb-5">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
-              Connected Accounts
-            </p>
-            <span className="text-[11px] text-zinc-500">
-              {tradingAccounts.length} of {sub.status === "pro" ? 10 : 1}
-              <span className="ml-1 text-zinc-600 capitalize">({sub.status})</span>
-            </span>
-          </div>
-
-          {tradingAccounts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="w-10 h-10 rounded-xl bg-[var(--cj-raised)] border border-zinc-800
-                              flex items-center justify-center mb-3">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="20" x2="18" y2="10"/>
-                  <line x1="12" y1="20" x2="12" y2="4"/>
-                  <line x1="6" y1="20" x2="6" y2="14"/>
-                </svg>
-              </div>
-              <p className="text-sm text-zinc-500 mb-1">No accounts connected yet</p>
-              <p className="text-xs text-zinc-600">
-                Connect your MT5 account above to start syncing trades.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {tradingAccounts.map((acct) => (
-                <div key={acct.id} className="bg-[var(--cj-raised)] border border-zinc-800 rounded-xl p-4">
-
-                  {/* Header row */}
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                      {editingAccountId === acct.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            value={editLabel}
-                            onChange={(e) => setEditLabel(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveLabel(acct.id);
-                              if (e.key === "Escape") setEditingAccountId(null);
-                            }}
-                            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5
-                                       text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
-                            placeholder="Account label"
-                            autoFocus
-                          />
-                          <button onClick={() => saveLabel(acct.id)}
-                            className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500
-                                       text-white font-semibold transition-all">
-                            Save
-                          </button>
-                          <button onClick={() => setEditingAccountId(null)}
-                            className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700
-                                       text-zinc-400 hover:text-zinc-200 transition-all">
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-zinc-100 truncate">
-                            {acct.account_label || acct.broker_name || acct.account_login || "Unknown Account"}
-                          </p>
-                          <button
-                            onClick={() => { setEditingAccountId(acct.id); setEditLabel(acct.account_label || ""); }}
-                            className="text-[10px] text-zinc-600 hover:text-blue-400 transition-colors">
-                            Rename
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                      <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
-                                       bg-violet-500/15 border border-violet-500/30 text-violet-400">
-                        Direct Sync
-                      </span>
-                      <span className={`text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
-                        ${acct.account_type === "demo"
-                          ? "bg-yellow-500/15 border border-yellow-500/30 text-yellow-400"
-                          : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-                        }`}>
-                        {acct.account_type}
-                      </span>
-                      {acct.is_cent && (
-                        <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full
-                          bg-orange-500/15 border border-orange-500/30 text-orange-400">
-                          Cent
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Status row */}
-                  <div className="flex items-center gap-3 mb-3 pb-3 border-b border-zinc-800">
-                    <SyncStatusDot status={acct.sync_status} />
-                    <span className="text-[11px] text-zinc-600">
-                      Last sync: {timeAgo(acct.last_synced_at)}
-                    </span>
-                  </div>
-
-                  {/* Error message */}
-                  {acct.sync_status === "failed" && acct.sync_error && (
-                    <div className="mb-3 rounded-lg px-3 py-2 bg-rose-500/8 border border-rose-500/20">
-                      <p className="text-[11px] text-rose-400">{acct.sync_error}</p>
-                    </div>
-                  )}
-
-                  {/* Detail grid */}
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs mb-3">
-                    {acct.broker_name && (
-                      <>
-                        <span className="text-zinc-600">Broker</span>
-                        <span className="text-zinc-300 truncate">{acct.broker_name}</span>
-                      </>
-                    )}
-                    {acct.account_login && (
-                      <>
-                        <span className="text-zinc-600">Login</span>
-                        <span className="font-mono text-zinc-300">{acct.account_login}</span>
-                      </>
-                    )}
-                    {acct.account_server && (
-                      <>
-                        <span className="text-zinc-600">Server</span>
-                        <span className="text-zinc-300 truncate">{acct.account_server}</span>
-                      </>
-                    )}
-                    <span className="text-zinc-600">Currency</span>
-                    <span className="text-zinc-300">{acct.account_currency}</span>
-                    {acct.current_balance != null && (
-                      <>
-                        <span className="text-zinc-600">Balance</span>
-                        <span className="text-zinc-300 font-mono">
-                          {acct.current_balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-                          {acct.account_currency}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="border-t border-zinc-800 pt-3 flex items-center gap-3">
-                    <button
-                      onClick={() => setDeleteTarget(acct)}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
-                                 border border-rose-500/20 text-rose-500 hover:bg-rose-500/10
-                                 hover:border-rose-500/40 transition-all">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                        <path d="M10 11v6M14 11v6"/>
-                      </svg>
-                      Delete Account
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {(() => {
-            const limit = sub.status === "pro" ? 10 : 1;
-            const atLimit = tradingAccounts.length >= limit;
-            return (
-              <div className="mt-4 pt-4 border-t border-zinc-800">
-                {atLimit ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-zinc-600">
-                      Limit reached ({limit}/{limit}). Upgrade to connect more accounts.
-                    </p>
-                    <Link href="/pricing"
-                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all whitespace-nowrap"
-                      style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-                      Upgrade
-                    </Link>
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-600">
-                    {tradingAccounts.length}/{limit} accounts connected.
-                  </p>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* ── REFERRALS QUICK-VIEW ──────────────────────────────────────────── */}
+        {/* -- REFERRALS QUICK -- */}
         <ReferralQuickView />
 
       </main>

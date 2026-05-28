@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -86,16 +86,7 @@ export default function OnboardingPage() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [eaToken,       setEaToken]       = useState<{ token: string; account_number: string; broker_server: string } | null>(null);
   const [tokenCopied,   setTokenCopied]   = useState(false);
-  // "setup" → show form; "download" → show download + instructions; "import" → csv sub-step
-  const [s3Phase, setS3Phase] = useState<"setup" | "download" | "import">("setup");
-
-  // Step 3 import sub-step
-  const [importFile,   setImportFile]   = useState<File | null>(null);
-  const [importing,    setImporting]    = useState(false);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
-  const [importError,  setImportError]  = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [connectedSig, setConnectedSig] = useState<string | null>(null);
+  const [s3Phase, setS3Phase] = useState<"setup" | "download">("setup");
 
   // ── Auth check + redirect existing users ──────────────────────────────────
   useEffect(() => {
@@ -216,42 +207,18 @@ export default function OnboardingPage() {
       });
       const json = await res.json() as {
         success?: boolean; error?: string;
-        token?: string; account_number?: string; broker_server?: string; account_signature?: string;
+        token?: string; account_number?: string; broker_server?: string;
       };
       if (!res.ok) {
         setGenerateError(json.error ?? "Failed to generate EA. Please try again.");
       } else {
         setEaToken({ token: json.token!, account_number: json.account_number!, broker_server: json.broker_server! });
-        setConnectedSig(json.account_signature ?? null);
         setS3Phase("download");
       }
     } catch {
       setGenerateError("Network error — check your connection.");
     } finally {
       setGenerating(false);
-    }
-  }
-
-  // ── CSV import ────────────────────────────────────────────────────────────
-  async function handleImport() {
-    if (!importFile || !connectedSig) return;
-    setImporting(true);
-    setImportError(null);
-    const fd = new FormData();
-    fd.append("file", importFile);
-    fd.append("account_signature", connectedSig);
-    try {
-      const res = await fetch("/api/accounts/import-history", { method: "POST", body: fd });
-      const json = await res.json() as { imported?: number; skipped?: number; error?: string };
-      if (!res.ok) {
-        setImportError(json.error ?? "Import failed. Please try again.");
-      } else {
-        setImportResult({ imported: json.imported ?? 0, skipped: json.skipped ?? 0 });
-      }
-    } catch {
-      setImportError("Network error — check your connection.");
-    } finally {
-      setImporting(false);
     }
   }
 
@@ -567,94 +534,13 @@ export default function OnboardingPage() {
                   </p>
                 </div>
 
-                <button type="button" onClick={() => setS3Phase("import")}
-                  className="btn-gold w-full py-3 rounded-xl text-sm font-bold mb-2">
-                  Continue →
-                </button>
                 <button type="button" onClick={() => setStep(4)}
-                  className="w-full py-2 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
-                  Skip history import
+                  className="btn-gold w-full py-3 rounded-xl text-sm font-bold">
+                  Continue →
                 </button>
               </>
             )}
 
-            {/* ── 3c: Import sub-step (optional) ── */}
-            {s3Phase === "import" && !importResult && (
-              <>
-                <p className="text-[11px] uppercase tracking-widest text-[var(--cj-gold-muted)] font-medium mb-2">
-                  Optional · Import History
-                </p>
-                <h2 className="text-lg font-bold mb-1">Import your full trade history</h2>
-                <p className="text-sm text-zinc-500 mb-5">
-                  Upload your MT5 history export to populate your stats from day one.
-                </p>
-
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors mb-4
-                    ${importFile
-                      ? "border-[var(--cj-gold-muted)] bg-[var(--cj-gold-glow)]"
-                      : "border-zinc-700 hover:border-zinc-500 bg-[var(--cj-raised)]"
-                    }`}
-                >
-                  <input ref={fileInputRef} type="file"
-                    accept=".xlsx,.xls,.xml,.htm,.html,.csv,.txt"
-                    className="hidden"
-                    onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportError(null); }}
-                  />
-                  {importFile ? (
-                    <p className="text-sm text-[var(--cj-gold)] font-medium">{importFile.name}</p>
-                  ) : (
-                    <>
-                      <p className="text-sm text-zinc-400 font-medium">Click to select your MT5 history export</p>
-                      <p className="text-xs text-zinc-600 mt-1">
-                        MT5 → History tab → right-click → Report → Open XML (MS Office Excel 2007)
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {importError && (
-                  <div className="mb-4 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
-                    {importError}
-                  </div>
-                )}
-
-                {connectedSig && importFile && (
-                  <button type="button" onClick={handleImport} disabled={importing}
-                    className="btn-gold w-full py-3 rounded-xl text-sm font-bold mb-3 disabled:opacity-50 disabled:cursor-not-allowed">
-                    {importing ? "Importing…" : "Import Trade History →"}
-                  </button>
-                )}
-
-                <button type="button" onClick={() => setStep(4)}
-                  className="w-full py-2.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
-                  Skip — I&apos;ll import later
-                </button>
-              </>
-            )}
-
-            {/* ── 3d: Import success ── */}
-            {s3Phase === "import" && importResult && (
-              <div className="text-center py-4">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30
-                                flex items-center justify-center text-3xl mx-auto mb-5">
-                  🎉
-                </div>
-                <h2 className="text-xl font-bold mb-2">History imported!</h2>
-                <p className="text-sm text-zinc-400 mb-2">
-                  <span className="text-emerald-400 font-semibold">{importResult.imported}</span> trades imported
-                  {importResult.skipped > 0 && (
-                    <> · <span className="text-zinc-500">{importResult.skipped} skipped</span></>
-                  )}
-                </p>
-                <p className="text-sm text-zinc-500 mb-7">Your full trade history is ready.</p>
-                <button type="button" onClick={() => setStep(4)}
-                  className="btn-gold px-8 py-3 rounded-xl text-sm font-bold">
-                  Continue →
-                </button>
-              </div>
-            )}
           </>
         )}
 

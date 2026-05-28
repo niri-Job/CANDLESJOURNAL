@@ -60,9 +60,9 @@
 
 /* ─── NIRI semantic tokens — cinematic gold × purple ────────────────────── */
 :root {
-  --cj-bg:           #06000E;          /* deep void background                */
-  --cj-surface:      #0C0018;          /* cards, panels                       */
-  --cj-raised:       #120022;          /* inputs, tooltips, elevated          */
+  --cj-bg:           #0d0d12;          /* deep void background                */
+  --cj-surface:      #16151f;          /* cards, panels                       */
+  --cj-raised:       #1e1d2a;          /* inputs, tooltips, elevated          */
   --cj-border:       #1A0035;          /* default border                      */
   --cj-border-light: rgba(245,197,24,0.12);  /* subtle gold border            */
   --cj-text:         #FFFFFF;           /* primary text — pure white           */
@@ -86,9 +86,9 @@
 
 /* ── Explicit dark theme (mirrors :root) ── */
 [data-theme="dark"] {
-  --cj-bg:           #06000E;
-  --cj-surface:      #0C0018;
-  --cj-raised:       #120022;
+  --cj-bg:           #0d0d12;
+  --cj-surface:      #16151f;
+  --cj-raised:       #1e1d2a;
   --cj-border:       #1A0035;
   --cj-border-light: rgba(245,197,24,0.12);
   --cj-text:         #FFFFFF;
@@ -109,11 +109,11 @@
 }
 
 
-/* ── Light theme (clean white) ── */
+/* ── Light theme (kept for colour tokens but bg forced dark) ── */
 [data-theme="light"] {
-  --cj-bg:           #FFFFFF;
-  --cj-surface:      #F8F8F8;
-  --cj-raised:       #F2F2F2;
+  --cj-bg:           #0d0d12;
+  --cj-surface:      #16151f;
+  --cj-raised:       #1e1d2a;
   --cj-border:       rgba(0,0,0,0.10);
   --cj-border-light: rgba(0,0,0,0.06);
   --cj-text:         #1A1A1A;
@@ -124,8 +124,12 @@
   --cj-gold-glow:    rgba(196,154,0,0.10);
 }
 
+html {
+  background-color: #0d0d12;
+}
+
 body {
-  background-color: var(--cj-bg);
+  background-color: #0d0d12 !important;
   color: var(--cj-text);
   font-family: var(--font-inter), var(--font-dm-sans), system-ui, sans-serif;
   font-size: 16px;
@@ -239,60 +243,10 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* ─── Light theme ────────────────────────────────────────────────────────────── */
-[data-theme="light"] {
-  --cj-bg:           #E8E0D0;          /* warm medium cream background  */
-  --cj-surface:      #F5F0E6;          /* warm card surface             */
-  --cj-raised:       #DDD5C5;          /* warm beige inputs / tooltips  */
-  --cj-border:       #C8BCA8;          /* warm tan border               */
-  --cj-border-light: #D8CFC0;          /* lighter warm border           */
-  --cj-text:         #1A1410;          /* near-black warm text          */
-  --cj-text-muted:   #4A3F2F;          /* medium dark brown             */
-  --cj-gold:         #B8860B;          /* dark gold — readable on cream */
-  --cj-gold-deep:    #9A7208;
-  --cj-gold-muted:   #7A5A06;
-  --cj-gold-glow:    rgba(184,134,11,0.18);
-  --cj-sidebar-bg:   #E8E0D0;          /* same as bg — flat sidebar     */
-  --cj-sidebar-gradient: var(--cj-surface); /* flat card surface, no dark fade */
-
-  /* Zinc scale inverted for light background */
-  --color-zinc-100: #1A1410;
-  --color-zinc-200: #2A2018;
-  --color-zinc-300: #3E3020;
-  --color-zinc-400: #5A4830;
-  --color-zinc-500: #7A6545;
-  --color-zinc-600: #9A8565;
-  --color-zinc-700: #B8A888;
-  --color-zinc-800: #CEC4B0;
-  --color-zinc-900: #DDD5C5;
-  --color-zinc-950: #E8E0D0;
-  --color-zinc-50:  #100B08;
-}
-
-/* Light mode body override */
+/* Light mode body — force dark background even if theme token is "light" */
 [data-theme="light"] body {
-  background-color: #E8E0D0;
-  color: #1A1410;
-}
-
-/* Gradient classes — light overrides */
-[data-theme="light"] .bg-auth {
-  background: radial-gradient(ellipse at top, #D8CEBB 0%, #E8E0D0 65%);
-}
-
-/* Gold × purple button in light mode */
-[data-theme="light"] .btn-gold {
-  background: linear-gradient(135deg, #B8860B 0%, #7B2FFF 100%);
-  color: #FFFFFF;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-}
-
-[data-theme="light"] .bg-card-warm {
-  background: linear-gradient(145deg, #F5F0E6 0%, #EAE0CE 100%);
-}
-
-[data-theme="light"] .bg-perf-badge {
-  background: linear-gradient(135deg, #EAE0CE 0%, #DDD5C5 100%);
+  background-color: #0d0d12 !important;
+  color: var(--cj-text);
 }
 
 /* ─── Midnight theme — ultra-deep purple atmosphere ──────────────────────────── */

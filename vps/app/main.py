@@ -177,7 +177,7 @@ async def _sync_one(user_id: str, login: str, password: str, server: str):
         loop = _a.get_event_loop()
         try:
             await loop.run_in_executor(
-                None, manager._sync_account, user_id, login, password, server
+                None, manager._sync_one_account, user_id, login, password, server
             )
         except Exception:
             logger.exception("Initial sync failed for %s", login)

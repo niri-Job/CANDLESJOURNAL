@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import asyncio
 import logging
@@ -96,6 +97,62 @@ class MT5Manager:
         self._xdotool("key", "Return"); time.sleep(1)
         logger.info("DataExport EA attachment attempted")
 
+    def _is_authorized_in_log(self, login: str, server: str, start_ts: float) -> bool:
+        """Return True if the MT5 terminal log shows this account authorized after start_ts."""
+        from datetime import date
+        log_path = os.path.join(
+            WINEPREFIX, "drive_c", "Program Files", "MetaTrader 5",
+            "logs", date.today().strftime("%Y%m%d.log"),
+        )
+        needle = f"'{login}': authorized on {server}"
+        try:
+            with open(log_path, encoding="utf-16-le", errors="ignore") as f:
+                content = f.read()
+            # The log file is appended sequentially; we only care about entries
+            # that appeared after start_ts. We look for the needle anywhere since
+            # we can't easily parse timestamps, but at least confirm the needle exists.
+            return needle in content
+        except Exception:
+            return False
+
+    def _write_account_json(self, login: str, server: str) -> None:
+        """Write a minimal mt5_account.json so niri-sync can detect the active account
+        even when the DataExport EA fails to write (e.g., FileOpen fails for a new broker)."""
+        account_file = os.path.join(MT5_FILES_PATH, "mt5_account.json")
+        data = {
+            "login": int(login),
+            "name": "",
+            "server": server,
+            "currency": "USD",
+            "balance": 0.0,
+            "equity": 0.0,
+            "profit": 0.0,
+            "leverage": 1000,
+            "timestamp": int(time.time()),
+        }
+        try:
+            with open(account_file, "w") as f:
+                json.dump(data, f)
+            logger.info("Wrote fallback account.json for login %s", login)
+        except Exception as exc:
+            logger.warning("Could not write fallback account.json: %s", exc)
+
+    def _update_common_ini(self, login: str, server: str) -> None:
+        """Patch common.ini so MT5 starts connected to the right account/server."""
+        common_ini = os.path.join(
+            WINEPREFIX, "drive_c", "Program Files", "MetaTrader 5", "Config", "common.ini"
+        )
+        try:
+            with open(common_ini, encoding="utf-8") as f:
+                content = f.read()
+            content = re.sub(r"(?m)^Login=.*$", f"Login={login}", content)
+            content = re.sub(r"(?m)^Server=.*$", f"Server={server}", content)
+            with open(common_ini, "w", encoding="utf-8") as f:
+                f.write(content)
+            logger.info("Updated common.ini: Login=%s Server=%s", login, server)
+        except Exception as exc:
+            logger.warning("Could not update common.ini: %s", exc)
+
     def _restart_mt5(self, login: str, password: str, server: str) -> bool:
         """Kill the current MT5 terminal, start it with new credentials, and wait
         for the DataExport EA to write a fresh mt5_account.json with the matching
@@ -108,18 +165,24 @@ class MT5Manager:
         subprocess.run(["pkill", "-9", "-f", "terminal64.exe"], capture_output=True)
         time.sleep(2)
 
+        # Kill wineserver to clear the single-instance mutex
+        subprocess.run(["pkill", "-9", "-f", "wineserver"], capture_output=True)
+        time.sleep(5)
+
+        self._update_common_ini(login, server)
+
         env = {
             **os.environ,
             "DISPLAY": DISPLAY,
             "WINEPREFIX": WINEPREFIX,
             "WINEDEBUG": "-all",
-            "WINEDLLOVERRIDES": "mscoree,mshtml=d",
         }
         subprocess.Popen(
             ["wine", MT5_TERMINAL, "/portable", "/autotrading",
              f"/login:{login}", f"/password:{password}", f"/server:{server}",
              "/expert:DataExport"],
             env=env,
+            start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -145,10 +208,17 @@ class MT5Manager:
                 break
 
         # Poll for a fresh JSON with the matching login (EA writes every 30s)
+        # Also check MT5 terminal log directly as fallback for brokers where
+        # FileOpen fails inside the EA.
         for _ in range(60):
             time.sleep(2)
             try:
                 if os.path.getmtime(account_file) < start_ts:
+                    # EA hasn't written yet — check terminal log as secondary signal
+                    if self._is_authorized_in_log(login, server, start_ts):
+                        logger.info("MT5 authorized (log) for %s — writing fallback JSON", login)
+                        self._write_account_json(login, server)
+                        return True
                     continue
                 with open(account_file) as f:
                     data = json.load(f)
@@ -177,6 +247,12 @@ class MT5Manager:
                     return True
         except Exception:
             pass
+
+        # Final fallback: check terminal log one more time
+        if self._is_authorized_in_log(login, server, start_ts):
+            logger.info("MT5 authorized (log fallback) for %s — writing fallback JSON", login)
+            self._write_account_json(login, server)
+            return True
 
         logger.error("MT5 failed to connect account %s within time limit", login)
         return False

@@ -16,12 +16,6 @@ interface OnboardingData {
   monthly_target: string;
 }
 
-interface EaForm {
-  accountNumber: string;
-  brokerServer:  string;
-  label:         string;
-}
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BROKERS        = ["ICMarkets", "HFM", "FBS", "OctaFX", "XM", "Deriv", "Other"];
 const ACCOUNT_SIZES  = ["Under $100", "$100–$500", "$500–$2,000", "$2,000+"];
@@ -38,8 +32,6 @@ const EMPTY: OnboardingData = {
   name: "", broker: "", account_size: "", preferred_pairs: [],
   experience_level: "", trading_style: "", preferred_sessions: [], monthly_target: "",
 };
-const EMPTY_EA: EaForm = { accountNumber: "", brokerServer: "", label: "" };
-
 interface ProfileRow {
   onboarding_completed: boolean;
   name: string | null;
@@ -80,13 +72,14 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
 
-  // Step 3 — EA setup
-  const [eaForm,        setEaForm]        = useState<EaForm>(EMPTY_EA);
-  const [generating,    setGenerating]    = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
-  const [eaToken,       setEaToken]       = useState<{ token: string; account_number: string; broker_server: string } | null>(null);
-  const [tokenCopied,   setTokenCopied]   = useState(false);
-  const [s3Phase, setS3Phase] = useState<"setup" | "download">("setup");
+  // Step 3 — MT5 Direct Connect
+  const [mt5Login,      setMt5Login]      = useState("");
+  const [mt5Password,   setMt5Password]   = useState("");
+  const [mt5Server,     setMt5Server]     = useState("");
+  const [mt5Connecting, setMt5Connecting] = useState(false);
+  const [mt5Error,      setMt5Error]      = useState<string | null>(null);
+  const [mt5Connected,  setMt5Connected]  = useState(false);
+  const [showPassword,  setShowPassword]  = useState(false);
 
   // ── Auth check + redirect existing users ──────────────────────────────────
   useEffect(() => {
@@ -186,39 +179,30 @@ export default function OnboardingPage() {
     }
   }
 
-  // ── EA Token Generation ──────────────────────────────────────────────────
-  async function handleGenerateEa(e: React.FormEvent) {
+  // ── MT5 Direct Connect ───────────────────────────────────────────────────
+  async function handleMt5Connect(e: React.FormEvent) {
     e.preventDefault();
-    setGenerateError(null);
-    if (!eaForm.accountNumber.trim() || !eaForm.brokerServer.trim()) {
-      setGenerateError("Please enter your MT5 account number and broker server.");
-      return;
-    }
-    setGenerating(true);
+    setMt5Error(null);
+    if (!mt5Login.trim())    { setMt5Error("Enter your MT5 account number."); return; }
+    if (!mt5Password.trim()) { setMt5Error("Enter your MT5 password."); return; }
+    if (!mt5Server.trim())   { setMt5Error("Enter your broker server name."); return; }
+    setMt5Connecting(true);
     try {
-      const res = await fetch("/api/mt5/token", {
+      const res = await fetch("/api/mt5/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          account_number: eaForm.accountNumber.trim(),
-          broker_server:  eaForm.brokerServer.trim(),
-          label:          eaForm.label.trim() || undefined,
-        }),
+        body: JSON.stringify({ login: mt5Login.trim(), password: mt5Password, server: mt5Server.trim() }),
       });
-      const json = await res.json() as {
-        success?: boolean; error?: string;
-        token?: string; account_number?: string; broker_server?: string;
-      };
+      const json = await res.json() as { success?: boolean; error?: string };
       if (!res.ok) {
-        setGenerateError(json.error ?? "Failed to generate EA. Please try again.");
+        setMt5Error(json.error ?? "Connection failed. Check your credentials.");
       } else {
-        setEaToken({ token: json.token!, account_number: json.account_number!, broker_server: json.broker_server! });
-        setS3Phase("download");
+        setMt5Connected(true);
       }
     } catch {
-      setGenerateError("Network error — check your connection.");
+      setMt5Error("Network error — check your connection.");
     } finally {
-      setGenerating(false);
+      setMt5Connecting(false);
     }
   }
 
@@ -381,27 +365,39 @@ export default function OnboardingPage() {
         {/* ════════════════════════════════ STEP 3 ═══════════════════════════════ */}
         {step === 3 && (
           <>
-            {/* ── 3a: EA Setup form ── */}
-            {s3Phase === "setup" && (
+            {!mt5Connected ? (
               <>
                 <p className="text-[11px] uppercase tracking-widest text-[var(--cj-gold-muted)] font-medium mb-2">
                   Step 3 of 4 · Connect MT5
                 </p>
-                <h2 className="text-xl font-bold mb-1">Connect Your MT5</h2>
-                <p className="text-sm text-zinc-500 mb-4">
-                  We&apos;ll generate your sync token — install the EA in MT5, paste the token, and trades sync automatically.
+                <h2 className="text-xl font-bold mb-1">Connect Your MT5 Account</h2>
+                <p className="text-sm text-zinc-500 mb-5">
+                  Enter your MT5 credentials and our server connects directly — no EA, no downloads, syncs 24/7 even when your PC is off.
                 </p>
 
-                <form onSubmit={handleGenerateEa} className="space-y-4">
+                {/* Trust badges */}
+                <div className="flex items-center gap-4 mb-5 flex-wrap">
+                  {[
+                    { icon: "🔒", label: "Encrypted" },
+                    { icon: "📱", label: "Works from phone" },
+                    { icon: "🌍", label: "24/7 sync" },
+                  ].map((b) => (
+                    <span key={b.label} className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+                      <span>{b.icon}</span>{b.label}
+                    </span>
+                  ))}
+                </div>
+
+                <form onSubmit={handleMt5Connect} className="space-y-4">
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
-                      MT5 Account Number
+                      MT5 Login (Account Number)
                     </label>
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={eaForm.accountNumber}
-                      onChange={(e) => setEaForm((f) => ({ ...f, accountNumber: e.target.value }))}
+                      value={mt5Login}
+                      onChange={(e) => setMt5Login(e.target.value)}
                       placeholder="e.g. 12345678"
                       className={fieldCls}
                       autoFocus
@@ -413,13 +409,49 @@ export default function OnboardingPage() {
 
                   <div>
                     <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
+                      MT5 Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={mt5Password}
+                        onChange={(e) => setMt5Password(e.target.value)}
+                        placeholder="Your MT5 investor or main password"
+                        className={fieldCls + " pr-10"}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        ) : (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-600">
+                      Encrypted on connection — never stored in plain text
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
                       Broker Server
                     </label>
                     <input
                       type="text"
-                      value={eaForm.brokerServer}
-                      onChange={(e) => setEaForm((f) => ({ ...f, brokerServer: e.target.value }))}
-                      placeholder="e.g. ICMarkets-Live, Exness-MT5Real9"
+                      value={mt5Server}
+                      onChange={(e) => setMt5Server(e.target.value)}
+                      placeholder="e.g. ICMarkets-Live01, DerivSVG-Server"
                       className={fieldCls}
                     />
                     <p className="mt-1 text-[11px] text-zinc-600">
@@ -427,15 +459,20 @@ export default function OnboardingPage() {
                     </p>
                   </div>
 
-                  {generateError && (
+                  {mt5Error && (
                     <div className="px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
-                      {generateError}
+                      {mt5Error}
                     </div>
                   )}
 
-                  <button type="submit" disabled={generating}
+                  <button type="submit" disabled={mt5Connecting}
                     className="btn-gold w-full py-3 rounded-xl text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
-                    {generating ? "Generating your token…" : "Generate My Token →"}
+                    {mt5Connecting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Connecting…
+                      </span>
+                    ) : "Connect Account →"}
                   </button>
                 </form>
 
@@ -444,103 +481,26 @@ export default function OnboardingPage() {
                   I&apos;ll do this later
                 </button>
               </>
-            )}
-
-            {/* ── 3b: Download + instructions ── */}
-            {s3Phase === "download" && eaToken && (
-              <>
-                <p className="text-[11px] uppercase tracking-widest text-[var(--cj-gold-muted)] font-medium mb-2">
-                  Step 3 of 4 · Install EA
+            ) : (
+              /* Connected success state */
+              <div className="text-center py-4">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30
+                                flex items-center justify-center text-3xl mx-auto mb-5">
+                  ✅
+                </div>
+                <h2 className="text-xl font-bold mb-2">MT5 Connected!</h2>
+                <p className="text-sm text-zinc-400 mb-2">
+                  Your account is syncing. Trades appear in your dashboard within minutes.
                 </p>
-                <h2 className="text-xl font-bold mb-1">Your EA is ready</h2>
-                <p className="text-sm text-zinc-500 mb-5">
-                  Download the EA file, copy your token, and follow the steps below.
+                <p className="text-[11px] text-zinc-600 mb-7">
+                  Sync runs 24/7 from our server — no EA, no open PC required.
                 </p>
-
-                {/* Single download button */}
-                <a href="/NIRI_EA.ex5" download="NIRI_EA.ex5"
-                  className="flex items-center gap-3 p-4 rounded-xl border border-[var(--cj-gold-muted)]/40
-                             bg-[var(--cj-gold-glow)] hover:bg-[var(--cj-gold)]/10 transition-all mb-4">
-                  <span className="text-2xl shrink-0">📦</span>
-                  <div>
-                    <p className="text-sm font-bold text-[var(--cj-gold)]">Download NIRI_EA.ex5</p>
-                    <p className="text-[11px] text-zinc-500">Compiled EA file — ready to install</p>
-                  </div>
-                  <svg className="ml-auto shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="var(--cj-gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                </a>
-
-                {/* Copyable token */}
-                <div className="mb-6">
-                  <label className="text-[10px] uppercase tracking-widest text-zinc-500 block mb-1.5 font-medium">
-                    Your NIRI Token — paste this into MT5 Inputs tab
-                  </label>
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-zinc-700 bg-[var(--cj-raised)]">
-                    <code className="flex-1 text-xs text-[var(--cj-gold)] font-mono break-all select-all">
-                      {eaToken.token}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(eaToken.token);
-                        setTokenCopied(true);
-                        setTimeout(() => setTokenCopied(false), 2000);
-                      }}
-                      className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all"
-                      style={{
-                        background: tokenCopied ? "rgba(16,185,129,0.15)" : "rgba(245,197,24,0.1)",
-                        border: tokenCopied ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(245,197,24,0.25)",
-                        color: tokenCopied ? "#34d399" : "var(--cj-gold)",
-                      }}
-                    >
-                      {tokenCopied ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Installation steps 1–6 */}
-                <div className="space-y-3 mb-6">
-                  {[
-                    { n: 1, icon: "📦", text: "Download NIRI_EA.ex5 using the button above" },
-                    { n: 2, icon: "📁", text: "Open MT5 → File → Open Data Folder → MQL5 → Experts → paste NIRI_EA.ex5 there" },
-                    { n: 3, icon: "🔗", text: "Tools → Options → Expert Advisors → tick \"Allow WebRequest for listed URL\" → add https://www.niri.live" },
-                    { n: 4, icon: "🔄", text: "Restart MT5 → find NIRI_EA in the Navigator panel (Ctrl+N)" },
-                    { n: 5, icon: "📊", text: "Drag NIRI_EA onto any chart → Inputs tab → paste your NIRI token → OK" },
-                    { n: 6, icon: "✅", text: "Allow live trading → OK. Your trades will sync automatically within 60 seconds." },
-                  ].map(({ n, icon, text }) => (
-                    <div key={n} className="flex items-start gap-3">
-                      <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5"
-                            style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.2)" }}>
-                        {n}
-                      </span>
-                      <p className="text-xs text-zinc-400 leading-relaxed">
-                        <span className="mr-1">{icon}</span>{text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="px-4 py-3 rounded-xl border mb-5"
-                     style={{ background: "rgba(16,185,129,0.07)", borderColor: "rgba(16,185,129,0.2)" }}>
-                  <p className="text-xs text-emerald-400 font-semibold mb-0.5">
-                    Your trades will sync automatically within 60 seconds of closing
-                  </p>
-                  <p className="text-[11px] text-emerald-400/60">
-                    The EA checks for closed trades every 5 seconds and pushes them to your journal instantly.
-                  </p>
-                </div>
-
                 <button type="button" onClick={() => setStep(4)}
-                  className="btn-gold w-full py-3 rounded-xl text-sm font-bold">
+                  className="btn-gold px-8 py-3 rounded-xl text-sm font-bold">
                   Continue →
                 </button>
-              </>
+              </div>
             )}
-
           </>
         )}
 
@@ -618,8 +578,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Back button on step 3 setup phase ── */}
-        {step === 3 && s3Phase === "setup" && (
+        {/* ── Back button on step 3 ── */}
+        {step === 3 && !mt5Connected && (
           <div className="mt-5">
             <button type="button" onClick={() => setStep(2)}
               className="px-5 py-2.5 rounded-xl border border-zinc-700 text-zinc-400 text-sm

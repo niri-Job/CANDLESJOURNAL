@@ -15,12 +15,12 @@ const FREE_FEATURES = [
   "1 trading account",
 ];
 const FREE_MISSING = [
-  "No MT5 EA Sync",
+  "No MT5 Direct Sync",
   "No advanced charts or reports",
 ];
 const PRO_FEATURES = [
   "Unlimited trades",
-  "MT5 EA Sync",
+  "MT5 Direct Sync (24/7, no EA needed)",
   "Full dashboard with all charts",
   "Trade journal (notes, screenshots, emotions)",
   "Market news and economic calendar",

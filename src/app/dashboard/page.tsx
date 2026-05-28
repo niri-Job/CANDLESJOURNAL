@@ -1086,7 +1086,7 @@ export default function TradingJournal() {
                   {[
                     "90 AI analyses/month",
                     "Market Intelligence setups",
-                    "MT5 EA Sync",
+                    "MT5 Direct Sync",
                     "Full psychology reports",
                     "Unlimited trade journal",
                     "Priority support",

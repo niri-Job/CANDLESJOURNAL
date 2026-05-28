@@ -338,8 +338,8 @@ export default function LandingPage() {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const features = [
-    { ico: <IcoSync />, title: "Sync your MT5 account in seconds",
-      desc: "Download the NIRI EA, drop it into MetaTrader 5, paste your sync token, and every closed trade appears in your journal automatically — no manual entry ever." },
+    { ico: <IcoSync />, title: "Sync your MT5 account automatically",
+      desc: "Enter your MT5 login, password and broker server — our server connects directly and syncs every closed trade to your journal 24/7. No EA, no downloads, works from your phone." },
     { ico: <IcoCoach />, title: "Know exactly what to fix after every session",
       desc: "After each session, NIRI analyses your entry timing, exit behavior, pair performance and session patterns, then generates a coaching report with specific observations." },
     { ico: <IcoChart />, title: "See every trade on the actual chart",
@@ -810,7 +810,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "2rem" }}>
           {[
             { val: "87%", label: "of retail traders lose money — most don't know why" },
-            { val: "2 min", label: "to sync your first trade — one file, one token" },
+            { val: "30 sec", label: "to connect your MT5 — no EA, no downloads" },
             { val: "5 min", label: "to connect your MT5 and see your first report" },
           ].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
@@ -953,8 +953,8 @@ export default function LandingPage() {
             {/* Step selector */}
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               {[
-                { n: "01", title: "Install the NIRI EA in MT5",
-                  desc: "Download NIRI_EA.ex5, copy it into your Experts folder, allow WebRequest, then drag onto any chart and paste your sync token. Under 2 minutes." },
+                { n: "01", title: "Connect your MT5 account",
+                  desc: "Enter your MT5 login, password and broker server in Settings. Our VPS connects directly — no EA to install, no PC to keep on, works from any device." },
                 { n: "02", title: "NIRI analyses your behavior",
                   desc: "Every closed trade is processed automatically. NIRI maps your entries, exits, timing, pairs, emotions and patterns into measurable data." },
                 { n: "03", title: "Get your coaching report",
@@ -995,15 +995,15 @@ export default function LandingPage() {
             }}>
               {howStep === 0 && (
                 <div style={{ padding: "1.75rem" }}>
-                  <p style={{ color: "#FFFFFF", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Expert Advisor</p>
+                  <p style={{ color: "#FFFFFF", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>MT5 Direct Connect</p>
                   <div style={{ background: "#060012", borderRadius: "0.75rem", padding: "1.25rem", fontFamily: "monospace", fontSize: "0.8125rem", color: "#00FF41", lineHeight: 2, border: "1px solid rgba(0,255,65,0.25)" }}>
-                    <div style={{ color: "#00FF41" }}>NIRI EA v1.0 — Active on account #12345678</div>
-                    <div style={{ color: "#00FF41" }}>Scanning full history from 2000.01.01...</div>
+                    <div style={{ color: "#F5C518" }}>NIRI VPS → account #12345678 connected</div>
+                    <div style={{ color: "#00FF41" }}>Syncing full history...</div>
                     <div style={{ color: "#00FF41" }}>Synced #1029482 XAUUSD BUY 0.50 lots | P&L: +$184.20</div>
                     <div style={{ color: "#00FF41" }}>Synced #1029481 EURUSD SELL 0.20 lots | P&L: -$32.00</div>
-                    <div style={{ color: "#00FF41" }}>Synced 247 trades. Up to date.</div>
+                    <div style={{ color: "#00FF41" }}>247 trades synced. Running 24/7.</div>
                   </div>
-                  <p style={{ color: "#FFFFFF", fontSize: "0.8125rem", marginTop: "1rem", textAlign: "center" }}>Every trade syncs within seconds of closing</p>
+                  <p style={{ color: "#FFFFFF", fontSize: "0.8125rem", marginTop: "1rem", textAlign: "center" }}>Syncs automatically — even when your PC is off</p>
                 </div>
               )}
               {howStep === 1 && (
@@ -1386,7 +1386,7 @@ export default function LandingPage() {
                 <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦15,000</span>
                 <span style={{ color: "#888888", fontSize: "0.875rem" }}> / month</span>
               </div>
-              <CheckItem text="Unlimited trades + MT5 EA Sync" />
+              <CheckItem text="Unlimited trades + MT5 Direct Sync" />
               <CheckItem text="Full dashboard, reports, chart review" />
               <CheckItem text="Trade journal with emotions" />
               <CheckItem text="Market Intelligence (AI setups)" />
@@ -1527,7 +1527,7 @@ export default function LandingPage() {
             <FaqItem q="How is NIRI different from TradeZella?"
               a="NIRI is built specifically for MT5 traders and costs 70% less (₦15,000/month compared to $29–$49/month). NIRI also includes features TradeZella does not: emotion tracking per trade, trade visualization on a live chart, a dedicated Psychology report tab, and a referral earnings program." />
             <FaqItem q="Do I need to manually import my trades?"
-              a="No. Download the free NiriEA, attach it to any chart in MT5, and trades sync automatically the moment they close. No manual work is required." />
+              a="No. Enter your MT5 credentials in Settings — our server connects directly to MT5 and syncs your trades automatically 24/7. No EA to download, no PC to keep on, works from your phone." />
             <FaqItem q="How does the coaching report work?"
               a="After each session, NIRI analyses your trade history and generates a report covering your best and worst trades, behavioral patterns such as revenge trading or early exits, and specific observations for the next session." />
             <FaqItem q="How does the free trial work?"

@@ -1,9 +1,10 @@
 import asyncio
-import base64
+import base64 as _b64
 import logging
 import os
 from contextlib import asynccontextmanager
 
+import httpx
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -18,34 +19,82 @@ from mt5_manager import MT5Manager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-_raw_secret = os.getenv("SUPABASE_JWT_SECRET", "")
-# Supabase signs JWTs with the raw bytes of the base64-encoded secret
-try:
-    padded = _raw_secret + "=" * (-len(_raw_secret) % 4)
-    SUPABASE_JWT_KEY: bytes | str = base64.b64decode(padded)
-except Exception:
-    SUPABASE_JWT_KEY = _raw_secret
-
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 SYNC_INTERVAL = int(os.getenv("SYNC_INTERVAL", "60"))
 
 manager: MT5Manager | None = None
 security = HTTPBearer()
+_jwks_cache: dict | None = None
+
+
+def _decode_jwt_header(token: str) -> str:
+    try:
+        raw = token.split(".")[0]
+        padded = raw + "=" * (-len(raw) % 4)
+        return _b64.urlsafe_b64decode(padded).decode("utf-8", errors="replace")
+    except Exception:
+        return "?"
+
+
+def _fetch_jwks() -> dict:
+    global _jwks_cache
+    if _jwks_cache is not None:
+        return _jwks_cache
+    try:
+        resp = httpx.get(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json", timeout=10)
+        resp.raise_for_status()
+        _jwks_cache = resp.json()
+        logger.info("Fetched Supabase JWKS: %d key(s)", len(_jwks_cache.get("keys", [])))
+    except Exception as e:
+        logger.warning("Failed to fetch JWKS: %s", e)
+        _jwks_cache = {"keys": []}
+    return _jwks_cache
+
+
+def _get_jwk_for_kid(kid: str | None):
+    keys = _fetch_jwks().get("keys", [])
+    if kid:
+        for k in keys:
+            if k.get("kid") == kid:
+                return k
+    return keys[0] if keys else None
 
 
 def verify_token(creds: HTTPAuthorizationCredentials = Security(security)) -> str:
+    token = creds.credentials
     try:
-        payload = jwt.decode(
-            creds.credentials,
-            SUPABASE_JWT_KEY,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
+        header = jwt.get_unverified_header(token)
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token header: {e}")
+
+    alg = header.get("alg", "HS256")
+
+    try:
+        if alg == "HS256":
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+        else:
+            jwk_key = _get_jwk_for_kid(header.get("kid"))
+            if jwk_key is None:
+                raise HTTPException(status_code=401, detail="No JWKS key available for token verification")
+            payload = jwt.decode(
+                token,
+                jwk_key,
+                algorithms=[alg],
+                options={"verify_aud": False},
+            )
+
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token: no sub")
         return user_id
     except JWTError as e:
-        logger.warning("JWT verify failed: %s", e)
+        logger.warning("JWT verify failed: %s | header: %s", e, _decode_jwt_header(token))
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
 
 

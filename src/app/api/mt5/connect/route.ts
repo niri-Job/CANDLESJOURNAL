@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
     });
 
     const data = await vpsRes.json() as Record<string, unknown>;
+    // FastAPI error responses use "detail"; frontend expects "error"
+    if (data.detail && !data.error) data.error = data.detail;
     return NextResponse.json(data, { status: vpsRes.status });
   } catch {
     return NextResponse.json({ error: "Could not reach sync server" }, { status: 503 });

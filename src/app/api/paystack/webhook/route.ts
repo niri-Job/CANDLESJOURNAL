@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { activatePaidSubscription } from "@/lib/subscriptionActivation";
 
 function db() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -55,6 +56,9 @@ export async function POST(request: Request) {
     const customFields = metadata?.custom_fields as { value?: string }[] | undefined;
     const userId   = (metadata?.user_id ?? customFields?.[0]?.value) as string | undefined;
     const planType = (metadata?.plan_type ?? "pro") as string;
+    const reference = typeof event.data.reference === "string" ? event.data.reference : undefined;
+    const amount = typeof event.data.amount === "number" ? event.data.amount : undefined;
+    const currency = typeof event.data.currency === "string" ? event.data.currency : undefined;
 
     if (!userId) {
       console.warn("webhook: charge.success missing user_id in metadata");
@@ -62,25 +66,22 @@ export async function POST(request: Request) {
     }
 
     const now = new Date();
-    const subscriptionEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const { error: profileErr } = await supabase
-      .from("user_profiles")
-      .upsert(
-        {
-          user_id:             userId,
-          subscription_status: planType || "pro",
-          subscription_start:  now.toISOString(),
-          subscription_end:    subscriptionEnd.toISOString(),
-          updated_at:          now.toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
-
-    if (profileErr) {
-      console.error("webhook: failed to activate plan for user", userId, ":", profileErr.message);
-    } else {
-      console.log("webhook: plan activated for user", userId, "(", planType, ") until", subscriptionEnd.toISOString());
+    let activation: Awaited<ReturnType<typeof activatePaidSubscription>> | null = null;
+    try {
+      activation = await activatePaidSubscription({
+        supabase,
+        userId,
+        planType,
+        metadataBillingType: metadata?.billing_type,
+        reference,
+        amount,
+        currency,
+        now,
+      });
+      console.log("webhook: plan activated for user", userId, "(", planType, activation.billingType, ") until", activation.subscriptionEnd.toISOString());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("webhook: failed to activate plan for user", userId, ":", message);
     }
 
     // Find referral for this user and create/update commission

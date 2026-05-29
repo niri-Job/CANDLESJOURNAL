@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { sendPaymentReceipt } from "@/lib/email";
+import { activatePaidSubscription } from "@/lib/subscriptionActivation";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       amount: number;
       currency: string;
       customer: { email: string };
+      metadata?: Record<string, unknown>;
     };
   };
 
@@ -92,31 +94,27 @@ export async function POST(request: Request) {
   }
 
   // ── Activate Pro subscription ─────────────────────────────────────────────
-  const now = new Date();
-  const subscriptionEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-  const { error: updateErr } = await supabase
-    .from("user_profiles")
-    .upsert(
-      {
-        user_id: user.id,
-        subscription_status: "pro",
-        subscription_start: now.toISOString(),
-        subscription_end: subscriptionEnd.toISOString(),
-        updated_at: now.toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
-
-  if (updateErr) {
-    console.error("verify: failed to update subscription:", updateErr.message);
+  let activation: Awaited<ReturnType<typeof activatePaidSubscription>>;
+  try {
+    activation = await activatePaidSubscription({
+      supabase,
+      userId: user.id,
+      planType: "pro",
+      metadataBillingType: verifyJson.data.metadata?.billing_type,
+      reference,
+      amount: verifyJson.data.amount,
+      currency: verifyJson.data.currency,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("verify: failed to activate subscription:", message);
     return NextResponse.json(
       { error: "Payment confirmed but failed to activate subscription. Contact support with ref: " + reference },
       { status: 500 }
     );
   }
 
-  console.log("verify: Pro activated for user", user.id, "until", subscriptionEnd.toISOString(), "ref:", reference);
+  console.log("verify: Pro activated for user", user.id, "until", activation.subscriptionEnd.toISOString(), "ref:", reference);
 
   // ── Send payment receipt (fire-and-forget) ────────────────────────────────
   if (user.email) {
@@ -130,19 +128,16 @@ export async function POST(request: Request) {
     const name = (profile as { name?: string | null } | null)?.name ||
                  user.email.split("@")[0].replace(/[._-]/g, " ");
 
-    // Infer billing type from amount — yearly amounts are 10.8× monthly
-    const isYearly = verifyJson.data!.amount >= 14_000;
-
     sendPaymentReceipt(user.email, {
       name,
-      billingType:     isYearly ? "yearly" : "monthly",
-      subscriptionEnd: subscriptionEnd.toISOString(),
+      billingType:     activation.billingType,
+      subscriptionEnd: activation.subscriptionEnd.toISOString(),
       reference,
     }).catch((err) => console.error("[verify] receipt email error:", err));
   }
 
   return NextResponse.json({
     success: true,
-    subscription_end: subscriptionEnd.toISOString(),
+    subscription_end: activation.subscriptionEnd.toISOString(),
   });
 }

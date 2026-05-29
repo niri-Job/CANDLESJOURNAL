@@ -4,6 +4,8 @@ import { verifyAdminCookie, adminUnauthorized } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
+const TRIAL_DAYS = 3;
+
 function svc() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY not set");
   return createClient(
@@ -34,8 +36,8 @@ export async function GET() {
   const totalUsers  = profilesRes.count ?? allProfiles.length;
   const proCount    = proRes.count ?? 0;
 
-  // Active trials: created within last 30 days, not pro
-  const trialCutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  // Active trials: created within the trial window
+  const trialCutoff = new Date(Date.now() - TRIAL_DAYS * 86_400_000).toISOString();
   const activeTrials = allProfiles.filter(
     (p) => (p as { created_at?: string }).created_at &&
            (p as { created_at?: string }).created_at! >= trialCutoff

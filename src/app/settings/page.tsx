@@ -152,7 +152,6 @@ export default function SettingsPage() {
   const [mt5Login,        setMt5Login]        = useState("");
   const [mt5Password,     setMt5Password]     = useState("");
   const [mt5Server,       setMt5Server]       = useState("");
-  const [mt5Connecting,   setMt5Connecting]   = useState(false);
   const [mt5ConnectError, setMt5ConnectError] = useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [showPassword,    setShowPassword]    = useState(false);
@@ -247,36 +246,7 @@ export default function SettingsPage() {
 
   async function handleMt5Connect(e: React.FormEvent) {
     e.preventDefault();
-    if (!mt5Login.trim())    { setMt5ConnectError("Enter your MT5 account number."); return; }
-    if (!mt5Password.trim()) { setMt5ConnectError("Enter your MT5 password."); return; }
-    if (!mt5Server.trim())   { setMt5ConnectError("Enter your broker server name."); return; }
-    setMt5Connecting(true);
-    setMt5ConnectError(null);
-    try {
-      const res = await fetch("/api/mt5/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          login:    mt5Login.trim(),
-          password: mt5Password,
-          server:   mt5Server.trim(),
-        }),
-      });
-      const json = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok) {
-        setMt5ConnectError(json.error ?? "Connection failed.");
-      } else {
-        setMt5Login("");
-        setMt5Password("");
-        setMt5Server("");
-        await refreshConnections();
-        showToast("MT5 account connected — syncing trades now.");
-      }
-    } catch {
-      setMt5ConnectError("Network error — check your connection.");
-    } finally {
-      setMt5Connecting(false);
-    }
+    setMt5ConnectError("MT5 Direct Connect is coming soon. Use EA Sync or CSV Import for now.");
   }
 
   async function handleMt5Disconnect(conn: Mt5Connection) {
@@ -415,14 +385,18 @@ export default function SettingsPage() {
                   </svg>
                 </div>
                 <span className="text-xs font-bold text-zinc-200">MT5 Direct Connect</span>
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full
+                                 bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                  Coming Soon
+                </span>
               </div>
               <p className="text-[11px] text-zinc-500 leading-relaxed">
-                Credentials-based sync via our secure VPS — no EA file needed.
+                Credentials-based sync is not ready for production yet.
               </p>
               <div className="mt-auto">
-                {mt5Connections.length > 0
-                  ? <span className="flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Connected</span>
-                  : <span className="flex items-center gap-1.5 text-[11px] text-zinc-500"><span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />Not set up</span>}
+                <span className="flex items-center gap-1.5 text-[11px] text-amber-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300" />Coming Soon
+                </span>
               </div>
             </div>
 
@@ -471,7 +445,7 @@ export default function SettingsPage() {
 
         {/* -- MT -- */}
         <div className="mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">A. MT5 Direct Connect (Recommended)</p>
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">A. MT5 Direct Connect</p>
 
           {/* Quick-action buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
@@ -500,16 +474,16 @@ export default function SettingsPage() {
             </a>
           </div>
 
-          {/* Security notice */}
+          {/* Coming soon notice */}
           <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-4"
-               style={{ background: "rgba(139,53,255,0.07)", border: "1px solid rgba(139,53,255,0.2)" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.5"
+               style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.24)" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="1.5"
                  strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
-            <p className="text-xs text-violet-300 leading-relaxed">
-              <span className="font-semibold">Your password is never stored on our servers.</span>{" "}
-              It is encrypted with a key that only our VPS holds, and only used to connect to your broker.
+            <p className="text-xs text-amber-200 leading-relaxed">
+              <span className="font-semibold">Coming Soon:</span>{" "}
+              MT5 Direct Connect is not ready for production. Use EA Sync or CSV Import for now.
             </p>
           </div>
 
@@ -582,15 +556,15 @@ export default function SettingsPage() {
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-1">
               <p className="text-sm font-semibold text-zinc-100">
-                {mt5Connections.length > 0 ? "Add Another MT5 Account" : "Connect MT5 Account"}
+                MT5 Direct Connect
               </p>
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                               bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                Real-time
+                               bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                Coming Soon
               </span>
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed mb-5">
-              Enter your MT5 credentials. Your trades sync automatically every minute.
+              This connection method is disabled while we finish production hardening.
             </p>
 
             <form onSubmit={handleMt5Connect} className="space-y-3">
@@ -604,10 +578,12 @@ export default function SettingsPage() {
                     inputMode="numeric"
                     value={mt5Login}
                     onChange={(e) => setMt5Login(e.target.value)}
+                    disabled
                     placeholder="e.g. 12345678"
                     className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
                                text-sm text-zinc-100 placeholder-zinc-600
-                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
+                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <p className="mt-1.5 text-[11px] text-zinc-600">Shown in MT5 top-left corner</p>
                 </div>
@@ -619,10 +595,12 @@ export default function SettingsPage() {
                     type="text"
                     value={mt5Server}
                     onChange={(e) => setMt5Server(e.target.value)}
+                    disabled
                     placeholder="e.g. ICMarkets-MT5"
                     className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
                                text-sm text-zinc-100 placeholder-zinc-600
-                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
+                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <p className="mt-1.5 text-[11px] text-zinc-600">MT5 → File → Open an Account</p>
                 </div>
@@ -637,14 +615,17 @@ export default function SettingsPage() {
                     type={showPassword ? "text" : "password"}
                     value={mt5Password}
                     onChange={(e) => setMt5Password(e.target.value)}
+                    disabled
                     placeholder="Your MT5 investor or master password"
                     className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
                                text-sm text-zinc-100 placeholder-zinc-600 pr-10
-                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors"
+                               focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors
+                               disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                     {showPassword ? (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -670,16 +651,11 @@ export default function SettingsPage() {
 
               <button
                 type="submit"
-                disabled={mt5Connecting}
+                disabled
                 className="w-full py-3 rounded-xl font-semibold text-sm transition-all
                            disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: "linear-gradient(135deg,#F5C518,#8B35FF)", color: "#fff" }}>
-                {mt5Connecting ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Connecting…
-                  </span>
-                ) : mt5Connections.length > 0 ? "Add Account →" : "Connect Account →"}
+                style={{ background: "linear-gradient(135deg,#52525b,#3f3f46)", color: "#d4d4d8" }}>
+                Coming Soon
               </button>
             </form>
           </div>
@@ -769,11 +745,27 @@ export default function SettingsPage() {
               Use this option when you want MT5 to push closed trades through the NIRI EA instead of Direct Connect.
             </p>
 
+            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
+                 style={{ background: "rgba(245,197,24,0.07)", border: "1px solid rgba(245,197,24,0.24)" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5"
+                   strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p className="text-xs text-amber-100 leading-relaxed">
+                NIRI EA requires MT5 on Windows or Mac. Mobile-only MT5 installations are not supported.
+                MT5 must remain running for trades to sync.
+              </p>
+            </div>
+
             <div className="space-y-3 mb-5">
               {[
-                { n: 1, title: "Generate a token", desc: "Enter your MT5 account number and broker server below." },
-                { n: 2, title: "Install the EA", desc: "Download NIRI_EA.ex5, place it in MT5's MQL5 Experts folder, then restart MT5." },
-                { n: 3, title: "Activate on a chart", desc: "Drag NIRI_EA onto any chart, paste your token in Inputs, allow live trading, then click OK." },
+                { n: 1, title: "Generate EA Token", desc: "Enter your MT5 account number and broker server below." },
+                { n: 2, title: "Download NIRI_EA.ex5", desc: "Download the EA file after generating your token." },
+                { n: 3, title: "Install EA in MT5", desc: "Place NIRI_EA.ex5 in MT5's MQL5 Experts folder, then restart MT5." },
+                { n: 4, title: "Paste Token", desc: "Drag NIRI_EA onto any chart and paste your token in Inputs." },
+                { n: 5, title: "Enable Live Trading", desc: "Allow live trading for the EA, then click OK." },
+                { n: 6, title: "Trades Sync Automatically", desc: "Keep MT5 running so closed trades can sync to NIRI." },
               ].map(({ n, title, desc }) => (
                 <div key={n} className="flex items-start gap-3">
                   <span className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-sm font-bold"

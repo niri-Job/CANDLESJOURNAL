@@ -4,6 +4,8 @@ import { verifyAdminCookie, adminUnauthorized } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
+const TRIAL_DAYS = 3;
+
 function svc() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("SUPABASE_SERVICE_ROLE_KEY not set");
   return createClient(
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
       !!p?.subscription_end &&
       new Date(p.subscription_end) > new Date();
     const trialEnd  = p?.created_at
-      ? new Date(new Date(p.created_at).getTime() + 14 * 86_400_000)
+      ? new Date(new Date(p.created_at).getTime() + TRIAL_DAYS * 86_400_000)
       : null;
     const trialActive = !isPro && !!trialEnd && trialEnd > new Date();
     return {
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
   }
 
   if (action === "extend_trial") {
-    // Extend by 14 days: push created_at forward 14 days
+    // Extend by 3 days: push created_at forward 3 days
     const { data: profile } = await db.from("user_profiles")
       .select("created_at")
       .eq("user_id", userId)
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
     if (!profile) return NextResponse.json({ error: "User profile not found" }, { status: 404 });
 
     const extended = new Date(
-      new Date(profile.created_at).getTime() + 14 * 86_400_000
+      new Date(profile.created_at).getTime() + TRIAL_DAYS * 86_400_000
     ).toISOString();
 
     const { error } = await db.from("user_profiles")

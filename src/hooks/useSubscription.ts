@@ -3,11 +3,8 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 
-// Developer account — always treated as Pro regardless of DB value
-const DEV_USER_ID = "b9433d15-02e3-44ed-b66f-b4f51f22fac7";
-
-// 14-day trial from account creation
-const TRIAL_DAYS = 14;
+// 3-day trial from account creation
+const TRIAL_DAYS = 3;
 
 export interface SubscriptionState {
   plan:        "free" | "pro" | "trial";
@@ -38,14 +35,6 @@ export function useSubscription(): SubscriptionState {
       if (!user || cancelled) { setLoading(false); return; }
       setUserId(user.id);
 
-      // Developer account always Pro
-      if (user.id === DEV_USER_ID) {
-        setPlan("pro");
-        setSubEnd(null);
-        setLoading(false);
-        return;
-      }
-
       const { data } = await sb
         .from("user_profiles")
         .select("subscription_status, subscription_end, created_at")
@@ -62,7 +51,7 @@ export function useSubscription(): SubscriptionState {
         setSubEnd(data?.subscription_end ?? null);
         setTrialDaysLeft(0);
       } else {
-        // Trial: 14 days from profile creation
+        // Trial: 3 days from profile creation
         const createdAt = (data as { created_at?: string } | null)?.created_at;
         const trialEnd  = createdAt
           ? new Date(new Date(createdAt).getTime() + TRIAL_DAYS * 86_400_000)

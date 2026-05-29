@@ -139,18 +139,20 @@ class MT5Manager:
 
     def _write_account_json(self, login: str, server: str) -> None:
         """Write a minimal mt5_account.json so niri-sync can detect the active account
-        even when the DataExport EA fails to write (e.g., FileOpen fails for a new broker)."""
+        even when the DataExport EA fails to write (e.g., FileOpen fails for a new broker).
+        The _fallback marker distinguishes our stub from a real EA write."""
         account_file = os.path.join(MT5_FILES_PATH, "mt5_account.json")
         data = {
-            "login": int(login),
-            "name": "",
-            "server": server,
-            "currency": "USD",
-            "balance": 0.0,
-            "equity": 0.0,
-            "profit": 0.0,
-            "leverage": 1000,
+            "login":     int(login),
+            "name":      "",
+            "server":    server,
+            "currency":  "USD",
+            "balance":   0.0,
+            "equity":    0.0,
+            "profit":    0.0,
+            "leverage":  1000,
             "timestamp": int(time.time()),
+            "_fallback": True,  # marker: not written by the DataExport EA
         }
         try:
             with open(account_file, "w") as f:
@@ -243,19 +245,18 @@ class MT5Manager:
                     with open(account_file) as f:
                         data = json.load(f)
                     if str(data.get("login")) == str(login):
-                        if data.get("name"):
-                            # DataExport EA wrote real account data (name is non-empty).
-                            # Return now so the caller reads real balance + deals.
+                        if not data.get("_fallback"):
+                            # DataExport EA wrote this file (no _fallback marker).
+                            # Return so the caller reads real balance + deals.
+                            # (Some brokers like Exness return name="" via AccountInfoString —
+                            # that's fine; what matters is the EA produced the data.)
                             logger.info(
                                 "MT5 connected: login=%s name=%s balance=%s %s",
                                 login, data.get("name"), data.get("balance"),
                                 data.get("currency"),
                             )
                             return True
-                        # account.json was updated but name is still empty.
-                        # This is either our own fallback write or an Exness trial
-                        # account whose MT5 name field is genuinely "".
-                        # Keep polling so EA gets a chance to write a proper value.
+                        # account.json has our stub — keep polling for the EA
                 else:
                     # EA hasn't written yet — use log as an early signal to write
                     # fallback so _current_mt5_login() works during the wait,
@@ -442,7 +443,8 @@ class MT5Manager:
                     f"Account mismatch after switch: got {account_data.get('login')}, want {login}"
                 )
 
-            has_real_data = bool(account_data.get("name"))
+            # True when account.json was written by the DataExport EA (not our fallback stub)
+            has_real_data = not account_data.get("_fallback", False)
             # Only read deals.json when the DataExport EA actually ran for this
             # account.  If we only have fallback data (name=""), deals.json may
             # still contain stale trades from the *previous* account — reading
@@ -498,7 +500,6 @@ class MT5Manager:
             currency = account_data.get("currency") or "USD"
             balance  = float(account_data.get("balance", 0.0))
             acc_name = account_data.get("name") or ""
-            # has_real_data was set above after reading account_data
 
             conn_update: dict = {
                 "status":         "connected",

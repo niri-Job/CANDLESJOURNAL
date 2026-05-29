@@ -239,7 +239,23 @@ class MT5Manager:
                     if self._is_authorized_in_log(login, server, start_ts):
                         logger.info("MT5 authorized (log) for %s — writing fallback JSON", login)
                         self._write_account_json(login, server)
-                        return True
+                        # Keep polling under this lock for up to 40s more so the
+                        # DataExport EA can overwrite the fallback with real data.
+                        for _ in range(20):
+                            time.sleep(2)
+                            try:
+                                with open(account_file) as f:
+                                    fresh = json.load(f)
+                                if (str(fresh.get("login")) == str(login)
+                                        and fresh.get("name")):
+                                    logger.info(
+                                        "Got real account data: name=%s balance=%s",
+                                        fresh.get("name"), fresh.get("balance"),
+                                    )
+                                    return True
+                            except Exception:
+                                pass
+                        return True  # Return with fallback if EA never writes
                     continue
                 with open(account_file) as f:
                     data = json.load(f)
@@ -415,23 +431,6 @@ class MT5Manager:
                 raise RuntimeError(
                     f"Account mismatch after switch: got {account_data.get('login')}, want {login}"
                 )
-
-            # If we have fallback data (name="", balance=0), give the DataExport EA
-            # up to 40 more seconds to write real balance/name before uploading.
-            if not account_data.get("name") and float(account_data.get("balance", 0)) == 0:
-                logger.info("Waiting up to 40s for EA to write real account data for %s...", login)
-                for _ in range(20):
-                    time.sleep(2)
-                    try:
-                        with open(account_file) as f:
-                            fresh = json.load(f)
-                        if str(fresh.get("login")) == str(login) and fresh.get("name"):
-                            account_data = fresh
-                            logger.info("Got real account data: name=%s balance=%s",
-                                        fresh.get("name"), fresh.get("balance"))
-                            break
-                    except Exception:
-                        pass
 
             try:
                 with open(deals_file) as f:

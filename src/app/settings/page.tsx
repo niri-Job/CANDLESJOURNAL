@@ -385,8 +385,8 @@ export default function SettingsPage() {
                   </svg>
                 </div>
                 <span className="text-xs font-bold text-zinc-200">MT5 Direct Connect</span>
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full
-                                 bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                      style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
                   Coming Soon
                 </span>
               </div>
@@ -394,8 +394,8 @@ export default function SettingsPage() {
                 Credentials-based sync is not ready for production yet.
               </p>
               <div className="mt-auto">
-                <span className="flex items-center gap-1.5 text-[11px] text-amber-300">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300" />Coming Soon
+                <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--cj-gold-muted)" }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--cj-gold-muted)" }} />Coming Soon
                 </span>
               </div>
             </div>
@@ -476,13 +476,13 @@ export default function SettingsPage() {
 
           {/* Coming soon notice */}
           <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-4"
-               style={{ background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.24)" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="1.5"
+               style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cj-gold-muted)" strokeWidth="1.5"
                  strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
-            <p className="text-xs text-amber-200 leading-relaxed">
-              <span className="font-semibold">Coming Soon:</span>{" "}
+            <p className="text-xs leading-relaxed" style={{ color: "var(--cj-text-muted)" }}>
+              <span className="font-semibold" style={{ color: "var(--cj-gold-muted)" }}>Coming Soon:</span>{" "}
               MT5 Direct Connect is not ready for production. Use EA Sync or CSV Import for now.
             </p>
           </div>
@@ -558,8 +558,8 @@ export default function SettingsPage() {
               <p className="text-sm font-semibold text-zinc-100">
                 MT5 Direct Connect
               </p>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                               bg-amber-500/10 border border-amber-500/30 text-amber-300">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                    style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
                 Coming Soon
               </span>
             </div>
@@ -654,7 +654,7 @@ export default function SettingsPage() {
                 disabled
                 className="w-full py-3 rounded-xl font-semibold text-sm transition-all
                            disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: "linear-gradient(135deg,#52525b,#3f3f46)", color: "#d4d4d8" }}>
+                style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
                 Coming Soon
               </button>
             </form>
@@ -746,13 +746,13 @@ export default function SettingsPage() {
             </p>
 
             <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
-                 style={{ background: "rgba(245,197,24,0.07)", border: "1px solid rgba(245,197,24,0.24)" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5"
+                 style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cj-gold-muted)" strokeWidth="1.5"
                    strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              <p className="text-xs text-amber-100 leading-relaxed">
+              <p className="text-xs leading-relaxed" style={{ color: "var(--cj-text-muted)" }}>
                 NIRI EA requires MT5 on Windows or Mac. Mobile-only MT5 installations are not supported.
                 MT5 must remain running for trades to sync.
               </p>

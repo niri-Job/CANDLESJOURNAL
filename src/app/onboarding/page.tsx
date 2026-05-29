@@ -379,13 +379,13 @@ export default function OnboardingPage() {
             </p>
 
             <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
-                 style={{ background: "rgba(245,197,24,0.07)", border: "1px solid rgba(245,197,24,0.24)" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5"
+                 style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cj-gold-muted)" strokeWidth="1.5"
                    strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
-              <p className="text-xs text-amber-100 leading-relaxed">
+              <p className="text-xs leading-relaxed" style={{ color: "var(--cj-text-muted)" }}>
                 NIRI EA requires MT5 on Windows or Mac. Mobile-only MT5 installations are not supported.
                 MT5 must remain running for trades to sync.
               </p>
@@ -489,7 +489,8 @@ export default function OnboardingPage() {
               <div className="rounded-xl border border-zinc-800 bg-[var(--cj-raised)] p-4 opacity-70">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm font-semibold text-zinc-200">MT5 Direct Connect</p>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                        style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
                     Coming Soon
                   </span>
                 </div>

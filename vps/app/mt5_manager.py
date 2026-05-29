@@ -483,25 +483,36 @@ class MT5Manager:
             currency = account_data.get("currency") or "USD"
             balance  = float(account_data.get("balance", 0.0))
             acc_name = account_data.get("name") or ""
+            has_real_data = bool(acc_name)  # EA wrote real data; fallback has name=""
 
-            self.supabase.table("mt5_connections").update({
-                "status":           "connected",
-                "last_synced_at":   now.isoformat(),
-                "sync_error":       None,
-                "account_name":     acc_name,
-                "account_currency": currency,
-                "account_balance":  balance,
-            }).eq("user_id", user_id).eq("mt5_login", login).execute()
+            conn_update: dict = {
+                "status":         "connected",
+                "last_synced_at": now.isoformat(),
+                "sync_error":     None,
+            }
+            # Only overwrite balance/name when the EA gave us real data.
+            # If we only have fallback (name=""), preserve whatever Supabase had before
+            # so the dashboard keeps showing the last known real balance.
+            if has_real_data:
+                conn_update["account_name"]     = acc_name
+                conn_update["account_currency"] = currency
+                conn_update["account_balance"]  = balance
+
+            self.supabase.table("mt5_connections").update(conn_update)\
+                .eq("user_id", user_id).eq("mt5_login", login).execute()
 
             # Keep trading_accounts in sync so the Dashboard account switcher works
-            _ta = {
+            _ta_base = {
                 "user_id": user_id, "account_signature": account_sig,
                 "account_login": login, "account_server": server,
-                "account_currency": currency, "account_type": "real",
-                "sync_method": "mt5_direct", "sync_status": "connected",
-                "last_synced_at": now.isoformat(), "sync_error": None,
-                "is_verified": True, "verification_status": "verified_direct",
+                "account_type": "real", "sync_method": "mt5_direct",
+                "sync_status": "connected", "last_synced_at": now.isoformat(),
+                "sync_error": None, "is_verified": True,
+                "verification_status": "verified_direct",
             }
+            if has_real_data:
+                _ta_base["account_currency"] = currency
+            _ta = _ta_base
             try:
                 self.supabase.table("trading_accounts").insert(_ta).execute()
             except Exception:

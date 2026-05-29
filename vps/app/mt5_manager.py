@@ -98,20 +98,42 @@ class MT5Manager:
         logger.info("DataExport EA attachment attempted")
 
     def _is_authorized_in_log(self, login: str, server: str, start_ts: float) -> bool:
-        """Return True if the MT5 terminal log shows this account authorized after start_ts."""
-        from datetime import date
+        """Return True only if the MT5 log shows an authorization for this account
+        that was written AFTER start_ts (current session), ignoring old entries."""
+        from datetime import date, datetime as dt
+        today = date.today()
         log_path = os.path.join(
             WINEPREFIX, "drive_c", "Program Files", "MetaTrader 5",
-            "logs", date.today().strftime("%Y%m%d.log"),
+            "logs", today.strftime("%Y%m%d.log"),
         )
         needle = f"'{login}': authorized on {server}"
         try:
             with open(log_path, encoding="utf-16-le", errors="ignore") as f:
                 content = f.read()
-            # The log file is appended sequentially; we only care about entries
-            # that appeared after start_ts. We look for the needle anywhere since
-            # we can't easily parse timestamps, but at least confirm the needle exists.
-            return needle in content
+
+            # Find every occurrence of the needle and parse its timestamp.
+            # Log line format: "XX\t0\tHH:MM:SS.mmm\tCategory\tMessage"
+            # (tab-separated after UTF-16 decode; the code strips all whitespace patterns)
+            idx = content.find(needle)
+            while idx >= 0:
+                line_start = content.rfind("\n", 0, idx) + 1
+                line = content[line_start: idx + len(needle)]
+                parts = line.split()
+                # parts[2] should be "HH:MM:SS.mmm"
+                if len(parts) >= 3:
+                    try:
+                        ts_str = parts[2]
+                        h, m, rest = ts_str.split(":")
+                        s, ms = rest.split(".")
+                        log_ts = dt(today.year, today.month, today.day,
+                                    int(h), int(m), int(s),
+                                    int(ms) * 1000).timestamp()
+                        if log_ts >= start_ts:
+                            return True
+                    except Exception:
+                        pass
+                idx = content.find(needle, idx + 1)
+            return False
         except Exception:
             return False
 
@@ -393,6 +415,23 @@ class MT5Manager:
                 raise RuntimeError(
                     f"Account mismatch after switch: got {account_data.get('login')}, want {login}"
                 )
+
+            # If we have fallback data (name="", balance=0), give the DataExport EA
+            # up to 40 more seconds to write real balance/name before uploading.
+            if not account_data.get("name") and float(account_data.get("balance", 0)) == 0:
+                logger.info("Waiting up to 40s for EA to write real account data for %s...", login)
+                for _ in range(20):
+                    time.sleep(2)
+                    try:
+                        with open(account_file) as f:
+                            fresh = json.load(f)
+                        if str(fresh.get("login")) == str(login) and fresh.get("name"):
+                            account_data = fresh
+                            logger.info("Got real account data: name=%s balance=%s",
+                                        fresh.get("name"), fresh.get("balance"))
+                            break
+                    except Exception:
+                        pass
 
             try:
                 with open(deals_file) as f:

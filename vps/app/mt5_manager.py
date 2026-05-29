@@ -159,15 +159,13 @@ class MT5Manager:
         login. Returns True on success, False on timeout."""
         logger.info("Switching MT5 → account %s on %s", login, server)
 
-        # Graceful kill first (allows profile save), then force
+        # Kill sequence — reduced waits for faster cycle time
         subprocess.run(["pkill", "-TERM", "-f", "terminal64.exe"], capture_output=True)
-        time.sleep(3)
+        time.sleep(1)
         subprocess.run(["pkill", "-9", "-f", "terminal64.exe"], capture_output=True)
-        time.sleep(2)
-
-        # Kill wineserver to clear the single-instance mutex
+        time.sleep(1)
         subprocess.run(["pkill", "-9", "-f", "wineserver"], capture_output=True)
-        time.sleep(5)
+        time.sleep(3)  # enough for wineserver to release the single-instance mutex
 
         self._update_common_ini(login, server)
 
@@ -189,12 +187,13 @@ class MT5Manager:
 
         account_file = os.path.join(MT5_FILES_PATH, "mt5_account.json")
         start_ts = time.time()
-        logger.info("Waiting up to 120s for MT5 to connect as %s...", login)
+        logger.info("Waiting up to 90s for MT5 to connect as %s...", login)
 
-        # Accept any "Login" confirmation dialog that MT5 may show (first connect to new server)
-        for _ in range(30):
+        # Brief window to accept any first-connect Login dialog (10s instead of 30s —
+        # the log-detection loop below fires much sooner than the old 30s xdotool wait).
+        env_d = {**os.environ, "DISPLAY": DISPLAY}
+        for _ in range(10):
             time.sleep(1)
-            env_d = {**os.environ, "DISPLAY": DISPLAY}
             win = subprocess.run(
                 ["xdotool", "search", "--name", "Login"],
                 env=env_d, capture_output=True, text=True,
@@ -207,14 +206,14 @@ class MT5Manager:
                 subprocess.run(["xdotool", "key", "Return"], env=env_d, capture_output=True)
                 break
 
-        # Poll for a fresh JSON with the matching login (EA writes every 30s)
-        # Also check MT5 terminal log directly as fallback for brokers where
-        # FileOpen fails inside the EA.
-        for _ in range(60):
+        # Poll every 2s for up to 90s. Two success paths:
+        # 1. DataExport EA writes mt5_account.json directly (Deriv, and eventually Exness)
+        # 2. Terminal log shows authorization → write fallback json (Exness new-broker case)
+        for _ in range(45):
             time.sleep(2)
             try:
-                if os.path.getmtime(account_file) < start_ts:
-                    # EA hasn't written yet — check terminal log as secondary signal
+                mtime = os.path.getmtime(account_file)
+                if mtime < start_ts:
                     if self._is_authorized_in_log(login, server, start_ts):
                         logger.info("MT5 authorized (log) for %s — writing fallback JSON", login)
                         self._write_account_json(login, server)
@@ -231,12 +230,11 @@ class MT5Manager:
             except Exception:
                 pass
 
-        # EA didn't write a fresh file — profile may not have had it attached.
-        # Attach it manually then wait one more OnTimer cycle (35s).
-        logger.warning("EA not writing JSON after 120s — attaching manually")
-        time.sleep(10)
+        # One manual EA-attach attempt then a shorter final wait
+        logger.warning("EA not writing JSON after 90s — attaching manually")
+        time.sleep(5)
         self._attach_ea()
-        time.sleep(35)
+        time.sleep(30)
 
         try:
             if os.path.getmtime(account_file) >= start_ts:
@@ -248,7 +246,6 @@ class MT5Manager:
         except Exception:
             pass
 
-        # Final fallback: check terminal log one more time
         if self._is_authorized_in_log(login, server, start_ts):
             logger.info("MT5 authorized (log fallback) for %s — writing fallback JSON", login)
             self._write_account_json(login, server)
@@ -350,22 +347,29 @@ class MT5Manager:
         if not rows:
             return
 
-        # All accounts run sequentially in one executor thread — MT5 can only
-        # be logged into one account at a time, so switches are serialized.
-        await asyncio.get_event_loop().run_in_executor(
-            None, self._sync_all_accounts, rows
-        )
+        # Decrypt passwords before spawning threads (cipher is not thread-safe to share).
+        jobs = [
+            (row["user_id"], row["mt5_login"], self.decrypt(row["enc_password"]), row["broker_server"])
+            for row in rows
+        ]
 
-    def _sync_all_accounts(self, rows) -> None:
-        for row in rows:
-            user_id  = row["user_id"]
-            login    = row["mt5_login"]
-            server   = row["broker_server"]
-            password = self.decrypt(row["enc_password"])
-            try:
-                self._sync_one_account(user_id, login, password, server)
-            except Exception:
-                logger.exception("Sync failed for user %s login %s", user_id, login)
+        # Sort so the account already running in MT5 goes first.  It needs no
+        # restart and completes in seconds, freeing the _mt5_lock for the next
+        # account while its own Supabase uploads run in parallel.
+        current = self._current_mt5_login()
+        jobs.sort(key=lambda j: 0 if j[1] == current else 1)
+
+        loop = asyncio.get_event_loop()
+
+        # Launch all account syncs concurrently.  _mt5_lock serialises the
+        # actual MT5 switch; everything else (Supabase reads/writes) overlaps.
+        results = await asyncio.gather(
+            *(loop.run_in_executor(None, self._sync_one_account, *job) for job in jobs),
+            return_exceptions=True,
+        )
+        for (uid, login, _, _), exc in zip(jobs, results):
+            if isinstance(exc, Exception):
+                logger.exception("Sync failed for user %s login %s", uid, login, exc_info=exc)
 
     def _sync_one_account(self, user_id: str, login: str, password: str, server: str) -> None:
         account_file = os.path.join(MT5_FILES_PATH, "mt5_account.json")

@@ -255,7 +255,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/mt5/connect", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login: conn.mt5_login }),
+        body: JSON.stringify({ id: conn.id, login: conn.mt5_login }),
       });
       const json = await res.json() as { success?: boolean; error?: string };
       if (!res.ok) {

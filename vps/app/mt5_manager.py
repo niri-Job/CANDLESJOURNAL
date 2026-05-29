@@ -237,7 +237,7 @@ class MT5Manager:
         # The EA typically fires OnTimer ~45-75s after MT5 connects; returning as soon
         # as it writes gives the dashboard real data instead of the 0-balance fallback.
         fallback_written = False
-        for _ in range(45):
+        for _ in range(65):  # 130s — EA loads ~75-90s after MT5 starts and fires OnTimer 30s later
             time.sleep(2)
             try:
                 mtime = os.path.getmtime(account_file)
@@ -445,17 +445,21 @@ class MT5Manager:
 
             # True when account.json was written by the DataExport EA (not our fallback stub)
             has_real_data = not account_data.get("_fallback", False)
-            # Only read deals.json when the DataExport EA actually ran for this
-            # account.  If we only have fallback data (name=""), deals.json may
-            # still contain stale trades from the *previous* account — reading
-            # them would insert them with the wrong account_signature.
+
+            # Read deals.json when either:
+            # a) EA wrote real account data this session (has_real_data), OR
+            # b) deals.json was written recently (within last 10 min) — the EA
+            #    may have run in the immediately preceding Exness session and
+            #    produced valid deals before niri-sync switched back to Deriv.
             deals_raw: list = []
-            if has_real_data:
-                try:
+            sync_ts = time.time()
+            try:
+                deals_mtime = os.path.getmtime(deals_file)
+                if has_real_data or (sync_ts - deals_mtime) < 600:
                     with open(deals_file) as f:
                         deals_raw = json.load(f)
-                except FileNotFoundError:
-                    pass
+            except (FileNotFoundError, OSError):
+                pass
 
             now = datetime.now(timezone.utc)
             account_sig = f"{login}_{server}"

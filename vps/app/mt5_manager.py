@@ -228,45 +228,47 @@ class MT5Manager:
                 subprocess.run(["xdotool", "key", "Return"], env=env_d, capture_output=True)
                 break
 
-        # Poll every 2s for up to 90s. Two success paths:
-        # 1. DataExport EA writes mt5_account.json directly (Deriv, and eventually Exness)
-        # 2. Terminal log shows authorization → write fallback json (Exness new-broker case)
+        # Poll every 2s for up to 90s.
+        # When the terminal log shows authorization, write a fallback json immediately
+        # (so _current_mt5_login() picks up the right account), but CONTINUE polling
+        # so the DataExport EA can overwrite with real balance/name data.
+        # The EA typically fires OnTimer ~45-75s after MT5 connects; returning as soon
+        # as it writes gives the dashboard real data instead of the 0-balance fallback.
+        fallback_written = False
         for _ in range(45):
             time.sleep(2)
             try:
                 mtime = os.path.getmtime(account_file)
-                if mtime < start_ts:
-                    if self._is_authorized_in_log(login, server, start_ts):
-                        logger.info("MT5 authorized (log) for %s — writing fallback JSON", login)
+                if mtime >= start_ts:
+                    with open(account_file) as f:
+                        data = json.load(f)
+                    if str(data.get("login")) == str(login):
+                        if data.get("name") or fallback_written:
+                            # EA wrote real data, or we already wrote fallback and EA
+                            # still hasn't produced a name — either is a valid return.
+                            logger.info(
+                                "MT5 connected: login=%s name=%s balance=%s %s",
+                                login, data.get("name"), data.get("balance"),
+                                data.get("currency"),
+                            )
+                            return True
+                else:
+                    # EA hasn't written yet — use log as an early signal to write
+                    # fallback so _current_mt5_login() works during the wait.
+                    if not fallback_written and self._is_authorized_in_log(
+                            login, server, start_ts):
+                        logger.info(
+                            "MT5 authorized (log) for %s — writing fallback, continuing poll",
+                            login,
+                        )
                         self._write_account_json(login, server)
-                        # Keep polling under this lock for up to 40s more so the
-                        # DataExport EA can overwrite the fallback with real data.
-                        for _ in range(20):
-                            time.sleep(2)
-                            try:
-                                with open(account_file) as f:
-                                    fresh = json.load(f)
-                                if (str(fresh.get("login")) == str(login)
-                                        and fresh.get("name")):
-                                    logger.info(
-                                        "Got real account data: name=%s balance=%s",
-                                        fresh.get("name"), fresh.get("balance"),
-                                    )
-                                    return True
-                            except Exception:
-                                pass
-                        return True  # Return with fallback if EA never writes
-                    continue
-                with open(account_file) as f:
-                    data = json.load(f)
-                if str(data.get("login")) == str(login):
-                    logger.info(
-                        "MT5 connected: login=%s name=%s balance=%s %s",
-                        login, data.get("name"), data.get("balance"), data.get("currency"),
-                    )
-                    return True
+                        fallback_written = True
             except Exception:
                 pass
+
+        if fallback_written:
+            logger.info("EA did not write real data within 90s for %s — using fallback", login)
+            return True
 
         # One manual EA-attach attempt then a shorter final wait
         logger.warning("EA not writing JSON after 90s — attaching manually")

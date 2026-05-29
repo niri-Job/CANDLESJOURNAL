@@ -450,22 +450,19 @@ class MT5Manager:
             }).eq("user_id", user_id).eq("mt5_login", login).execute()
 
             # Keep trading_accounts in sync so the Dashboard account switcher works
-            self.supabase.table("trading_accounts").upsert({
-                "user_id":            user_id,
-                "account_signature":  account_sig,
-                "account_login":      login,
-                "account_server":     server,
-                "account_label":      login,
-                "account_currency":   currency,
-                "current_balance":    balance,
-                "account_type":       "real",
-                "sync_method":        "mt5_direct",
-                "sync_status":        "connected",
-                "last_synced_at":     now.isoformat(),
-                "sync_error":         None,
-                "is_verified":        True,
-                "verification_status": "verified_direct",
-            }).execute()
+            _ta = {
+                "user_id": user_id, "account_signature": account_sig,
+                "account_login": login, "account_server": server,
+                "account_currency": currency, "account_type": "real",
+                "sync_method": "mt5_direct", "sync_status": "connected",
+                "last_synced_at": now.isoformat(), "sync_error": None,
+                "is_verified": True, "verification_status": "verified_direct",
+            }
+            try:
+                self.supabase.table("trading_accounts").insert(_ta).execute()
+            except Exception:
+                _ta_upd = {k: v for k, v in _ta.items() if k not in ("user_id", "account_signature")}
+                self.supabase.table("trading_accounts").update(_ta_upd).eq("user_id", user_id).eq("account_signature", account_sig).execute()
 
             logger.info("Synced %d trades for login %s", len(trades), login)
 

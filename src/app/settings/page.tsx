@@ -27,6 +27,22 @@ interface EaTokenRow {
   last_used_at: string | null;
 }
 
+interface TradingAccountRow {
+  id: string;
+  account_signature: string;
+  account_label: string | null;
+  broker_name: string | null;
+  account_login: string | null;
+  account_server: string | null;
+  account_currency: string | null;
+  account_type: string | null;
+  sync_method: string | null;
+  is_verified: boolean | null;
+  verification_status: string | null;
+  current_balance: number | null;
+  last_synced_at: string | null;
+}
+
 function timeAgo(iso: string | null): string {
   if (!iso) return "Never";
   const diff = Date.now() - new Date(iso).getTime();
@@ -149,11 +165,13 @@ export default function SettingsPage() {
 
   // MT5 Direct Connect state
   const [mt5Connections,  setMt5Connections]  = useState<Mt5Connection[]>([]);
+  const [tradingAccounts, setTradingAccounts] = useState<TradingAccountRow[]>([]);
   const [mt5Login,        setMt5Login]        = useState("");
   const [mt5Password,     setMt5Password]     = useState("");
   const [mt5Server,       setMt5Server]       = useState("");
   const [mt5ConnectError, setMt5ConnectError] = useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<string | null>(null);
   const [showPassword,    setShowPassword]    = useState(false);
 
   // EA Sync state
@@ -191,7 +209,7 @@ export default function SettingsPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
-      const [subRes, connectionsRes, tokenRes] = await Promise.all([
+      const [subRes, connectionsRes, tokenRes, accountsRes] = await Promise.all([
         supabase
           .from("user_profiles")
           .select("subscription_status, subscription_end")
@@ -208,6 +226,11 @@ export default function SettingsPage() {
           .select("token, account_number, broker_server, last_used_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("trading_accounts")
+          .select("id, account_signature, account_label, broker_name, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
       ]);
 
       const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
@@ -215,6 +238,7 @@ export default function SettingsPage() {
 
       if (connectionsRes.data) setMt5Connections(connectionsRes.data as Mt5Connection[]);
       if (tokenRes.data)       setEaTokens(tokenRes.data as EaTokenRow[]);
+      if (accountsRes.data)    setTradingAccounts(accountsRes.data as TradingAccountRow[]);
 
       setLoading(false);
     }
@@ -244,6 +268,17 @@ export default function SettingsPage() {
     if (data) setEaTokens(data as EaTokenRow[]);
   }
 
+  async function refreshTradingAccounts() {
+    if (!user) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("trading_accounts")
+      .select("id, account_signature, account_label, broker_name, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (data) setTradingAccounts(data as TradingAccountRow[]);
+  }
+
   async function handleMt5Connect(e: React.FormEvent) {
     e.preventDefault();
     setMt5ConnectError("MT5 Direct Connect is coming soon. Use EA Sync or CSV Import for now.");
@@ -268,6 +303,41 @@ export default function SettingsPage() {
       showToast("Network error — try again.");
     } finally {
       setDisconnectingId(null);
+    }
+  }
+
+  async function handleDeleteTradingAccount(account: TradingAccountRow) {
+    const label = account.account_label || [account.account_login, account.account_server].filter(Boolean).join(" - ") || account.account_signature;
+    const ok = window.confirm(`Delete ${label}? This removes the account and its imported/synced trades from your journal.`);
+    if (!ok) return;
+
+    setDeletingAccount(account.account_signature);
+    try {
+      const res = await fetch(`/api/accounts/${encodeURIComponent(account.account_signature)}`, {
+        method: "DELETE",
+      });
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) {
+        showToast(json.error ?? "Failed to delete account.");
+      } else {
+        setTradingAccounts((prev) => prev.filter((a) => a.account_signature !== account.account_signature));
+        setMt5Connections((prev) => prev.filter((c) => {
+          if (account.account_login && c.mt5_login !== account.account_login) return true;
+          if (account.account_server && c.broker_server !== account.account_server) return true;
+          return false;
+        }));
+        setEaTokens((prev) => prev.filter((tok) => {
+          if (account.account_login && tok.account_number !== account.account_login) return true;
+          if (account.account_server && tok.broker_server !== account.account_server) return true;
+          return false;
+        }));
+        showToast("Account deleted.");
+        await Promise.all([refreshTradingAccounts(), refreshConnections(), refreshEaTokens()]);
+      }
+    } catch {
+      showToast("Network error - try again.");
+    } finally {
+      setDeletingAccount(null);
     }
   }
 
@@ -441,6 +511,89 @@ export default function SettingsPage() {
             </div>
 
           </div>
+        </div>
+
+        {/* -- SYNCED ACCOUNTS -- */}
+        <div className="mb-5">
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Synced Accounts</p>
+
+          {tradingAccounts.length > 0 ? (
+            <div className="space-y-3">
+              {tradingAccounts.map((account) => {
+                const title = account.account_label ||
+                  [account.account_login, account.account_server].filter(Boolean).join(" - ") ||
+                  account.account_signature;
+                const isDeleting = deletingAccount === account.account_signature;
+
+                return (
+                  <div key={account.id}
+                       className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <p className="text-sm font-semibold text-zinc-100">{title}</p>
+                          {account.account_type && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                                             bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                              {account.account_type}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                                           border border-zinc-700 text-zinc-500">
+                            {account.is_verified ? "Verified" : "Unverified"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 font-mono">{account.account_signature}</p>
+                        <p className="text-[11px] text-zinc-600 mt-1">
+                          {account.sync_method ? `${account.sync_method.toUpperCase()} sync` : "Journal account"}
+                          {" "}· Last sync: {timeAgo(account.last_synced_at)}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTradingAccount(account)}
+                        disabled={isDeleting}
+                        className="shrink-0 flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
+                                   border border-rose-500/20 text-rose-400 hover:bg-rose-500/10
+                                   hover:border-rose-500/40 transition-all disabled:opacity-50">
+                        {isDeleting ? (
+                          <span className="w-3 h-3 border border-rose-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                          </svg>
+                        )}
+                        Delete
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-4">
+                      {account.account_currency && (
+                        <>
+                          <span className="text-zinc-600">Currency</span>
+                          <span className="text-zinc-300">{account.account_currency}</span>
+                        </>
+                      )}
+                      {account.current_balance != null && (
+                        <>
+                          <span className="text-zinc-600">Balance</span>
+                          <span className="text-zinc-300 font-mono">
+                            {account.current_balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
+              <p className="text-sm font-semibold text-zinc-100 mb-1">No synced accounts yet</p>
+              <p className="text-xs text-zinc-500">Generate an EA token or import CSV history to add an account.</p>
+            </div>
+          )}
         </div>
 
         {/* -- MT -- */}

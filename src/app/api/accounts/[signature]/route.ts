@@ -42,7 +42,7 @@ export async function DELETE(
   // Verify the account belongs to this user
   const { data: account } = await supabase
     .from("trading_accounts")
-    .select("id, sync_method")
+    .select("id, sync_method, account_login, account_server")
     .eq("account_signature", signature)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -55,12 +55,40 @@ export async function DELETE(
 
   // If this was an EA account, also revoke the token so the EA stops syncing
   // and the user can register a different account number.
-  const syncMethod = (account as Record<string, string>).sync_method;
+  const accountRow = account as {
+    sync_method?: string | null;
+    account_login?: string | null;
+    account_server?: string | null;
+  };
+  const syncMethod = accountRow.sync_method;
   if (syncMethod === "ea") {
-    await svc
+    let tokenDelete = svc
       .from("ea_tokens")
       .delete()
       .eq("user_id", user.id);
+
+    if (accountRow.account_login) {
+      tokenDelete = tokenDelete.eq("account_number", accountRow.account_login);
+    }
+    if (accountRow.account_server) {
+      tokenDelete = tokenDelete.eq("broker_server", accountRow.account_server);
+    }
+
+    await tokenDelete;
+  }
+
+  if (accountRow.account_login) {
+    let directUpdate = svc
+      .from("mt5_connections")
+      .update({ status: "disconnected" })
+      .eq("user_id", user.id)
+      .eq("mt5_login", accountRow.account_login);
+
+    if (accountRow.account_server) {
+      directUpdate = directUpdate.eq("broker_server", accountRow.account_server);
+    }
+
+    await directUpdate;
   }
 
   // Delete trades first (FK integrity)

@@ -243,18 +243,23 @@ class MT5Manager:
                     with open(account_file) as f:
                         data = json.load(f)
                     if str(data.get("login")) == str(login):
-                        if data.get("name") or fallback_written:
-                            # EA wrote real data, or we already wrote fallback and EA
-                            # still hasn't produced a name — either is a valid return.
+                        if data.get("name"):
+                            # DataExport EA wrote real account data (name is non-empty).
+                            # Return now so the caller reads real balance + deals.
                             logger.info(
                                 "MT5 connected: login=%s name=%s balance=%s %s",
                                 login, data.get("name"), data.get("balance"),
                                 data.get("currency"),
                             )
                             return True
+                        # account.json was updated but name is still empty.
+                        # This is either our own fallback write or an Exness trial
+                        # account whose MT5 name field is genuinely "".
+                        # Keep polling so EA gets a chance to write a proper value.
                 else:
                     # EA hasn't written yet — use log as an early signal to write
-                    # fallback so _current_mt5_login() works during the wait.
+                    # fallback so _current_mt5_login() works during the wait,
+                    # but DO NOT return here; keep the loop running.
                     if not fallback_written and self._is_authorized_in_log(
                             login, server, start_ts):
                         logger.info(
@@ -266,6 +271,9 @@ class MT5Manager:
             except Exception:
                 pass
 
+        # Timed out waiting for real data.  If we at least know the account is
+        # connected (from log detection), accept the fallback so the sync marks
+        # this account as connected (even with 0 balance).
         if fallback_written:
             logger.info("EA did not write real data within 90s for %s — using fallback", login)
             return True
@@ -434,11 +442,18 @@ class MT5Manager:
                     f"Account mismatch after switch: got {account_data.get('login')}, want {login}"
                 )
 
-            try:
-                with open(deals_file) as f:
-                    deals_raw = json.load(f)
-            except FileNotFoundError:
-                deals_raw = []
+            has_real_data = bool(account_data.get("name"))
+            # Only read deals.json when the DataExport EA actually ran for this
+            # account.  If we only have fallback data (name=""), deals.json may
+            # still contain stale trades from the *previous* account — reading
+            # them would insert them with the wrong account_signature.
+            deals_raw: list = []
+            if has_real_data:
+                try:
+                    with open(deals_file) as f:
+                        deals_raw = json.load(f)
+                except FileNotFoundError:
+                    pass
 
             now = datetime.now(timezone.utc)
             account_sig = f"{login}_{server}"
@@ -483,7 +498,7 @@ class MT5Manager:
             currency = account_data.get("currency") or "USD"
             balance  = float(account_data.get("balance", 0.0))
             acc_name = account_data.get("name") or ""
-            has_real_data = bool(acc_name)  # EA wrote real data; fallback has name=""
+            # has_real_data was set above after reading account_data
 
             conn_update: dict = {
                 "status":         "connected",

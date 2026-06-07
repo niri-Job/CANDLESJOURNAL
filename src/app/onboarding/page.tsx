@@ -234,7 +234,7 @@ export default function OnboardingPage() {
         </svg>
         <span className="font-bold text-xl tracking-tight text-zinc-100">NIRI</span>
         <span className="text-[10px] font-semibold tracking-widest" style={{ color: "var(--cj-gold-muted)" }}>
-          Know Your Trading Edge
+          Master your behaviour, master your trading.
         </span>
       </div>
 

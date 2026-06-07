@@ -672,7 +672,7 @@ export default function LandingPage() {
               </div>
 
               <p style={{ color: "var(--cj-gold)", fontSize: "1.25rem", fontWeight: 800, marginBottom: "1.125rem", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-                Know Your Trading Edge.
+                Master your behaviour, master your trading.
               </p>
 
               <h1 style={{ fontSize: "clamp(2.5rem,5.5vw,3.5rem)", fontWeight: 900, lineHeight: 1.08, marginBottom: "1.375rem", letterSpacing: "-0.02em" }}>

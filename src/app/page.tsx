@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import LandingPage from "./LandingPage";
 
 export const metadata: Metadata = {
-  title: "NIRI — Know Your Trading Edge | AI Trading Journal for MT5 Traders",
+  title: "NIRI — Master your behaviour, master your trading. | AI Trading Journal for MT5 Traders",
   description:
-    "NIRI helps you Know Your Trading Edge. AI-powered trading journal built for MT5 traders — auto-sync trades, track behaviour, and improve discipline. Start free.",
+    "NIRI helps you master your behaviour, master your trading. AI-powered trading journal built for MT5 traders — auto-sync trades, track behaviour, and improve discipline. Start free.",
   alternates: { canonical: "https://niri.live" },
   openGraph: {
-    title: "NIRI — Know Your Trading Edge",
+    title: "NIRI — Master your behaviour, master your trading.",
     description:
       "The first AI trading journal built for African traders. Sync MT5 trades automatically and discover exactly what behavioral patterns are costing you money.",
     url: "https://niri.live",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "NIRI — Know Your Trading Edge",
+    title: "NIRI — Master your behaviour, master your trading.",
     description:
       "The first AI trading journal built for African traders. Sync MT5 trades automatically and discover exactly what behavioral patterns are costing you money.",
   },

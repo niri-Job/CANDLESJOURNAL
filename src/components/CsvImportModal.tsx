@@ -174,6 +174,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
   const brokerMissing = touched.broker && !broker.trim();
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    console.log("file input changed", e.target.files?.[0]?.name);
     if (!login.trim() || !broker.trim()) {
       setTouched({ login: true, broker: true });
       setError("Fill in your MT5 Login Number and Broker first.");
@@ -484,23 +485,53 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
               In MT5: <strong>View → Terminal → Account History</strong> → right-click → <strong>Save as Report</strong> → choose CSV, HTML, or Excel.
             </div>
 
-            <label style={{
+            {/* Dropzone: transparent input overlays the full area so it receives clicks directly */}
+            <div style={{
+              position: "relative",
               display: "flex", alignItems: "center", gap: 12,
               padding: "12px 16px", borderRadius: 12,
               border: `2px dashed ${preview ? "rgba(52,211,153,0.5)" : "#3f3f46"}`,
-              cursor: "pointer",
               background: preview ? "rgba(16,185,129,0.05)" : "transparent",
-              transition: "all 0.2s",
+              transition: "border 0.2s",
+              minHeight: 48,
             }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={preview ? "#34d399" : "#52525b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={preview ? "#34d399" : "#52525b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, pointerEvents: "none" }}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              <span style={{ fontSize: 13, color: preview ? "#86efac" : "#71717a" }}>
+              <span style={{ fontSize: 13, color: preview ? "#86efac" : "#71717a", pointerEvents: "none" }}>
                 {fileName ? fileName : "Click to choose a .csv, .xlsx, .htm, or .html file"}
               </span>
-              <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.htm,.html,.txt" style={{ display: "none" }} onChange={handleFile} />
-            </label>
+              {/* Transparent overlay — NOT display:none so it actually receives pointer events */}
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,.xlsx,.xls,.htm,.html,.txt"
+                onChange={handleFile}
+                style={{
+                  position: "absolute", inset: 0,
+                  width: "100%", height: "100%",
+                  opacity: 0, cursor: "pointer",
+                  fontSize: 0,
+                }}
+              />
+            </div>
+
+            {/* Visible fallback button — triggers the same input via ref */}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              style={{
+                marginTop: 8, width: "100%",
+                padding: "9px 0", borderRadius: 10,
+                border: "1px solid #3f3f46",
+                background: "transparent",
+                color: "#a1a1aa", fontSize: 13, cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {fileName ? `Change file: ${fileName}` : "Browse for file…"}
+            </button>
           </div>
 
           {/* Error */}

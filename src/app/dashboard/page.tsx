@@ -14,6 +14,7 @@ import { TradeReflectionModal } from "@/components/TradeReflectionModal";
 import { SharePerformanceCard } from "@/components/SharePerformanceCard";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import CsvImportModal from "@/components/CsvImportModal";
+import NiriOrb from "@/components/NiriOrb";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -1876,6 +1877,9 @@ export default function TradingJournal() {
           {toast.msg}
         </div>
       )}
+
+      {/* NIRI ORB */}
+      <NiriOrb trades={trades} />
       </div>
     </div>
   );

@@ -1833,6 +1833,17 @@ export default function TradingJournal() {
           </div>
         </div>
 
+        {/* Test NIRI — developer only, bottom of page content */}
+        {currentUser?.email === process.env.NEXT_PUBLIC_DEVELOPER_EMAIL && (
+          <div className="flex justify-center pt-4 pb-8">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("niri:test"))}
+              className="text-[10px] font-mono text-zinc-700 hover:text-zinc-500 transition-colors px-3 py-1.5 rounded-md border border-zinc-800 hover:border-zinc-700"
+            >
+              · test niri orb ·
+            </button>
+          </div>
+        )}
       </main>
 
       {/* TRADE NOTE MODAL */}
@@ -1877,19 +1888,6 @@ export default function TradingJournal() {
           {toast.msg}
         </div>
       )}
-
-      {/* TEST NIRI — temporary debug trigger, remove after confirming orb works */}
-      <button
-        onClick={() => window.dispatchEvent(new CustomEvent("niri:test"))}
-        style={{
-          position: "fixed", bottom: 20, left: 20, zIndex: 10000,
-          fontSize: 10, fontFamily: "monospace", padding: "5px 10px",
-          borderRadius: 6, background: "#18181b", border: "1px solid #3f3f46",
-          color: "#71717a", cursor: "pointer",
-        }}
-      >
-        Test NIRI
-      </button>
 
       {/* NIRI ORB */}
       <NiriOrb trades={trades} />

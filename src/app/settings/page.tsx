@@ -86,6 +86,64 @@ function SyncStatusDot({ status }: { status: string | null }) {
   );
 }
 
+// ── Client-side CSV parser (for inline settings form) ────────────────────────
+interface CsvPreviewRow {
+  pair: string; direction: string; lot: number;
+  entry: number; exit: number; pnl: number; date: string;
+}
+
+function normCsvKey(h: string) { return h.toLowerCase().replace(/[^a-z0-9]/g, ""); }
+
+function settingsParseCSV(content: string): CsvPreviewRow[] {
+  const lines = content.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("---"));
+  if (lines.length < 2) return [];
+  const delim = lines[0].includes(";") ? ";" : ",";
+  const headers = lines[0].split(delim).map((h) => normCsvKey(h.replace(/^"|"$/g, "")));
+
+  function idx(aliases: string[]): number {
+    for (const a of aliases) { const i = headers.findIndex((h) => h === a); if (i >= 0) return i; }
+    for (const a of aliases) { const i = headers.findIndex((h) => h.includes(a) || a.includes(h)); if (i >= 0) return i; }
+    return -1;
+  }
+
+  const SKIP = new Set(["balance","credit","creditin","creditout","deposit","withdrawal","bonus","correction"]);
+  const COL = {
+    type:       idx(["type","direction"]),
+    volume:     idx(["size","volume","lots"]),
+    symbol:     idx(["item","symbol","instrument","pair"]),
+    openPrice:  idx(["price","openprice","open"]),
+    closeTime:  idx(["closetime","closedate"]),
+    openTime:   idx(["opentime","time"]),
+    closePrice: idx(["closeprice","close"]),
+    profit:     idx(["profit","pnl"]),
+  };
+
+  const rows: CsvPreviewRow[] = [];
+  for (let i = 1; i < lines.length && rows.length < 200; i++) {
+    const raw = lines[i].split(delim).map((c) => c.trim().replace(/^"|"$/g, ""));
+    if (raw.length < 5) continue;
+    const get = (c: number) => c >= 0 ? (raw[c] ?? "") : "";
+    const num = (c: number) => { const v = parseFloat(get(c).replace(/\s/g, "")); return isNaN(v) ? 0 : v; };
+    const typeRaw = get(COL.type).toLowerCase().replace(/[^a-z]/g, "");
+    if (SKIP.has(typeRaw)) continue;
+    const symbol = get(COL.symbol).toUpperCase().trim();
+    const dateRaw = get(COL.closeTime) || get(COL.openTime);
+    if (!symbol || symbol.length < 2 || !dateRaw) continue;
+    const clean = dateRaw.trim().replace(/\./g, "-").replace(" ", "T");
+    const d = new Date(clean);
+    rows.push({
+      pair:      symbol,
+      direction: typeRaw.includes("sell") || typeRaw === "s" ? "SELL" : "BUY",
+      lot:       num(COL.volume),
+      entry:     num(COL.openPrice),
+      exit:      num(COL.closePrice),
+      pnl:       num(COL.profit),
+      date:      isNaN(d.getTime()) ? dateRaw : d.toISOString().slice(0, 10),
+    });
+  }
+  return rows;
+}
+
 // ── Referral quick-view ───────────────────────────────────────────────────────
 function ReferralQuickView() {
   const [data, setData] = useState<{
@@ -183,10 +241,17 @@ export default function SettingsPage() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copiedToken,   setCopiedToken]   = useState<string | null>(null);
 
-  // CSV Import state
+  // CSV Import state — inline form
+  const [csvLogin,    setCsvLogin]    = useState("");
+  const [csvBroker,   setCsvBroker]   = useState("");
+  const [csvPreview,  setCsvPreview]  = useState<CsvPreviewRow[] | null>(null);
+  const [csvRaw,      setCsvRaw]      = useState("");
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvTouched,  setCsvTouched]  = useState({ login: false, broker: false });
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvResult,    setCsvResult]    = useState<{ inserted: number; duplicates: number } | null>(null);
   const [csvError,     setCsvError]     = useState<string | null>(null);
+  const [csvSuccess,   setCsvSuccess]   = useState<{ inserted: number; label: string } | null>(null);
 
   // Toast state
   const [toast, setToast] = useState<string | null>(null);
@@ -385,37 +450,74 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!csvLogin.trim() || !csvBroker.trim()) {
+      setCsvTouched({ login: true, broker: true });
+      setCsvError("Fill in your MT5 Login Number and Broker first.");
+      return;
+    }
+    setCsvFileName(file.name);
+    setCsvError(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      setCsvRaw(text);
+      const rows = settingsParseCSV(text);
+      if (rows.length === 0) {
+        setCsvError("No valid trades found. Export from MT5 → Account History → right-click → Save as Report → CSV.");
+        setCsvPreview(null);
+      } else {
+        setCsvPreview(rows);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  async function handleCsvConfirm() {
+    setCsvTouched({ login: true, broker: true });
+    if (!csvLogin.trim()) { setCsvError("MT5 Login Number is required."); return; }
+    if (!csvBroker.trim()) { setCsvError("Broker name is required."); return; }
+    if (!csvRaw) { setCsvError("Please select a CSV file first."); return; }
     setCsvImporting(true);
-    setCsvResult(null);
     setCsvError(null);
     try {
-      const text = await file.text();
       const res = await fetch("/api/trades/import-csv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ csv_content: text }),
+        body: JSON.stringify({
+          csv_content:    csvRaw,
+          account_login:  csvLogin.trim(),
+          account_broker: csvBroker.trim(),
+        }),
       });
       const json = await res.json() as {
-        success?: boolean;
-        inserted?: number;
-        duplicates?: number;
-        total?: number;
-        error?: string;
+        success?: boolean; inserted?: number; duplicates?: number;
+        account_label?: string; error?: string;
       };
       if (!res.ok) {
-        setCsvError(json.error ?? "Import failed.");
+        setCsvError(json.error === "FREE_LIMIT_REACHED"
+          ? "Upgrade to Pro to import more trades. Your free trial import has been used."
+          : json.error ?? "Import failed. Please try again.");
       } else {
-        setCsvResult({ inserted: json.inserted ?? 0, duplicates: json.duplicates ?? 0 });
-        showToast(`${json.inserted ?? 0} trades imported successfully.`);
+        const label = json.account_label ?? `${csvLogin.trim()} — ${csvBroker.trim()}`;
+        const inserted = json.inserted ?? 0;
+        const duplicates = json.duplicates ?? 0;
+        setCsvSuccess({ inserted, label });
+        setCsvResult({ inserted, duplicates });
+        showToast(`${inserted} trade${inserted !== 1 ? "s" : ""} imported for ${label}.`);
+        // Reset form fields
+        setCsvLogin(""); setCsvBroker(""); setCsvPreview(null);
+        setCsvRaw(""); setCsvFileName(""); setCsvTouched({ login: false, broker: false });
+        // Immediately refresh Synced Accounts without page reload
+        await refreshTradingAccounts();
       }
     } catch {
-      setCsvError("Failed to read file.");
+      setCsvError("Network error. Check your connection and try again.");
     } finally {
       setCsvImporting(false);
-      e.target.value = "";
     }
   }
 
@@ -445,7 +547,7 @@ export default function SettingsPage() {
         {/* -- SYNC METHOD OVERVIEW -- */}
         <div className="mb-6">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Sync Method</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className={`grid grid-cols-1 gap-3 ${isDeveloper ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
             {/* MT5 Direct Connect card */}
             <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
               <div className="flex items-center gap-2 mb-1">
@@ -471,7 +573,8 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* EA Sync card */}
+            {/* EA Sync card — developer only */}
+            {isDeveloper && (
             <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -491,6 +594,7 @@ export default function SettingsPage() {
                   : <span className="flex items-center gap-1.5 text-[11px] text-zinc-500"><span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />Not set up</span>}
               </div>
             </div>
+            )}
 
             {/* CSV Import card */}
             <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 flex flex-col gap-2">
@@ -1015,25 +1119,191 @@ export default function SettingsPage() {
         </> /* end isDeveloper */
         )}
 
-        {/* -- CSV IMPORT -- */}
+        {/* -- CSV IMPORT (inline form) -- */}
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">CSV Import</p>
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-zinc-100 mb-1">Import MT5 Trade History</p>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                Upload a CSV export from your MT5 account history. Free accounts get 1 import; Pro accounts have unlimited imports.
-              </p>
-            </div>
-            <a href="/dashboard"
-               className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap"
-               style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              Import on Dashboard →
-            </a>
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+
+            {/* ── Success state ── */}
+            {csvSuccess ? (
+              <div className="flex flex-col items-center text-center gap-4 py-4">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center"
+                     style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100 mb-1">
+                    {csvSuccess.inserted} trade{csvSuccess.inserted !== 1 ? "s" : ""} imported successfully
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    Account: <span className="text-zinc-300 font-medium">{csvSuccess.label}</span>
+                  </p>
+                  {csvResult && csvResult.duplicates > 0 && (
+                    <p className="text-xs text-zinc-600 mt-1">
+                      {csvResult.duplicates} duplicate{csvResult.duplicates !== 1 ? "s" : ""} skipped
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setCsvSuccess(null); setCsvResult(null); }}
+                  className="text-xs font-semibold px-4 py-2 rounded-xl border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors">
+                  Import another account
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* How to export hint */}
+                <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5 text-xs leading-relaxed"
+                     style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", color: "#86efac" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+                       strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span>
+                    In MT5: <strong>View → Terminal → Account History</strong> → right-click → <strong>Save as Report → CSV</strong>.
+                    Free accounts: 1 import. Pro: unlimited.
+                  </span>
+                </div>
+
+                {/* Account fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.12em] font-semibold mb-1.5"
+                           style={{ color: "var(--cj-gold-muted)" }}>
+                      MT5 Login Number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={csvLogin}
+                      onChange={(e) => { setCsvLogin(e.target.value); setCsvError(null); }}
+                      onBlur={() => setCsvTouched((t) => ({ ...t, login: true }))}
+                      placeholder="e.g. 12345678"
+                      className="w-full bg-[var(--cj-raised)] border rounded-xl px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none transition-colors"
+                      style={{ borderColor: csvTouched.login && !csvLogin.trim() ? "rgba(239,68,68,0.5)" : "var(--cj-border)" }}
+                    />
+                    <p className="text-[10px] text-zinc-600 mt-1">Shown in MT5 top-left corner</p>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.12em] font-semibold mb-1.5"
+                           style={{ color: "var(--cj-gold-muted)" }}>
+                      Broker <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={csvBroker}
+                      onChange={(e) => { setCsvBroker(e.target.value); setCsvError(null); }}
+                      onBlur={() => setCsvTouched((t) => ({ ...t, broker: true }))}
+                      placeholder="e.g. Exness, FXTM"
+                      className="w-full bg-[var(--cj-raised)] border rounded-xl px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none transition-colors"
+                      style={{ borderColor: csvTouched.broker && !csvBroker.trim() ? "rgba(239,68,68,0.5)" : "var(--cj-border)" }}
+                    />
+                    {csvLogin && csvBroker && (
+                      <p className="text-[10px] text-zinc-600 mt-1">
+                        Account: {csvLogin} — {csvBroker}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* File upload */}
+                <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all mb-4
+                                   ${csvPreview ? "border-emerald-500/40 bg-emerald-500/5" : "border-zinc-700 hover:border-zinc-500"}`}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                       stroke={csvPreview ? "#34d399" : "#52525b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <span className="text-sm" style={{ color: csvPreview ? "#86efac" : "#71717a" }}>
+                    {csvFileName || "Click to choose a .csv file"}
+                  </span>
+                  <input type="file" accept=".csv,.txt" className="hidden" onChange={handleCsvFile} />
+                </label>
+
+                {/* Error */}
+                {csvError && (
+                  <div className="mb-4 px-4 py-3 rounded-xl text-xs"
+                       style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
+                    {csvError}
+                    {csvError.includes("Upgrade to Pro") && (
+                      <a href="/pricing" className="ml-2 font-bold underline" style={{ color: "#F5C518" }}>Upgrade →</a>
+                    )}
+                  </div>
+                )}
+
+                {/* Preview table */}
+                {csvPreview && csvPreview.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">
+                      Preview — {csvPreview.length} trade{csvPreview.length !== 1 ? "s" : ""} detected
+                    </p>
+                    <div className="overflow-x-auto rounded-xl border border-zinc-800">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-zinc-800" style={{ background: "var(--cj-raised)" }}>
+                            {["Pair","Dir","Lot","Entry","Exit","P&L","Date"].map((h) => (
+                              <th key={h} className="px-3 py-2 text-left text-zinc-500 font-semibold uppercase tracking-wider text-[10px]">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {csvPreview.slice(0, 8).map((row, i) => (
+                            <tr key={i} className="border-b border-zinc-800/60 last:border-0">
+                              <td className="px-3 py-2 font-mono font-semibold text-zinc-200">{row.pair}</td>
+                              <td className="px-3 py-2">
+                                <span className={`font-mono font-bold text-[10px] ${row.direction === "BUY" ? "text-emerald-400" : "text-rose-400"}`}>
+                                  {row.direction}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-zinc-400 font-mono">{row.lot}</td>
+                              <td className="px-3 py-2 text-zinc-400 font-mono">{row.entry}</td>
+                              <td className="px-3 py-2 text-zinc-400 font-mono">{row.exit}</td>
+                              <td className="px-3 py-2 font-mono font-semibold"
+                                  style={{ color: row.pnl >= 0 ? "#34d399" : "#f87171" }}>
+                                {row.pnl >= 0 ? "+" : ""}{row.pnl.toFixed(2)}
+                              </td>
+                              <td className="px-3 py-2 text-zinc-500">{row.date}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {csvPreview.length > 8 && (
+                        <p className="px-3 py-2 text-[10px] text-zinc-600 border-t border-zinc-800">
+                          … and {csvPreview.length - 8} more
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Confirm button — shown once file is parsed */}
+                {csvPreview && (
+                  <button
+                    onClick={handleCsvConfirm}
+                    disabled={csvImporting || !csvLogin.trim() || !csvBroker.trim()}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all
+                               disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                    {csvImporting ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Importing…
+                      </>
+                    ) : (
+                      <>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Confirm Import — {csvPreview.length} trades
+                      </>
+                    )}
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 

@@ -224,29 +224,49 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
           const ws      = wb.Sheets[wb.SheetNames[0]];
           const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
 
-          console.log("[XLSX import] First 5 rows:", allRows.slice(0, 5));
+          // Log enough rows to always see past MT5's metadata header block
+          console.log("[XLSX import] First 10 rows:", allRows.slice(0, 10));
 
-          // Scan first 30 rows for the trade header — needs 3+ MT5 column keyword hits
-          const HEADER_KW = ["ticket","deal","symbol","item","type","direction","volume","size","lots","profit","pnl","price","commission","swap","open","close"];
+          // Find the header row: first row in the first 30 with 3+ MT5 keyword matches
+          const HEADER_KW = ["ticket","deal","symbol","item","type","direction","volume","size","lots","profit","pnl","price","commission","swap","position"];
           let headerIdx = -1;
           for (let i = 0; i < Math.min(allRows.length, 30); i++) {
             const norm = allRows[i].map((c) => String(c ?? "").toLowerCase().replace(/[^a-z0-9]/g, ""));
             const hits = norm.filter((c) => HEADER_KW.some((kw) => c === kw || (kw.length >= 4 && c.includes(kw)))).length;
             if (hits >= 3) { headerIdx = i; break; }
           }
-
           if (headerIdx === -1) {
-            console.warn("[XLSX import] No header row detected in first 30 rows — using row 0");
+            console.warn("[XLSX import] No header row found in first 30 rows — using row 0");
             headerIdx = 0;
           }
 
           console.log("[XLSX import] Header row at index", headerIdx, ":", allRows[headerIdx]);
 
-          // Convert from header row onwards; drop fully-empty rows
-          const csvLines = allRows
-            .slice(headerIdx)
-            .filter((row) => row.some((c) => String(c ?? "").trim() !== ""))
-            .map((row) => row.map((c) => `"${String(c ?? "").replace(/"/g, "'")}"`).join(","));
+          // MT5 exports duplicate column names: "Time" appears twice (open/close)
+          // and "Price" appears twice (entry/exit). Rename by position so that
+          // clientParseCSV can distinguish them via its alias lists.
+          const rawHeaders = allRows[headerIdx].map((c) => String(c ?? ""));
+          const seenNorm = new Map<string, number>();
+          const dedupedHeaders = rawHeaders.map((h) => {
+            const norm = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+            const count = seenNorm.get(norm) ?? 0;
+            seenNorm.set(norm, count + 1);
+            if (norm === "time")     return count === 0 ? "opentime"  : "closetime";
+            if (norm === "price")    return count === 0 ? "openprice" : "closeprice";
+            if (norm === "position") return "ticket";
+            return h;
+          });
+
+          console.log("[XLSX import] Deduplicated headers:", dedupedHeaders);
+
+          // Build CSV: deduplicated header row + data rows (skip fully-empty rows)
+          const csvLines: string[] = [
+            dedupedHeaders.map((h) => `"${h.replace(/"/g, "'")}"`).join(","),
+            ...allRows
+              .slice(headerIdx + 1)
+              .filter((row) => row.some((c) => String(c ?? "").trim() !== ""))
+              .map((row) => row.map((c) => `"${String(c ?? "").replace(/"/g, "'")}"`).join(",")),
+          ];
 
           applyText(csvLines.join("\n"));
         } catch (err) {

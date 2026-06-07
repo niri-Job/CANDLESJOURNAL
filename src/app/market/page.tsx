@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
@@ -387,7 +387,7 @@ export default function MarketPage() {
               </div>
             </div>
             <div className="flex items-baseline gap-1.5 shrink-0">
-              <span className="font-mono text-3xl font-bold text-red-400">{countdown}</span>
+              <span className="font-sans text-3xl font-bold text-red-400">{countdown}</span>
               <span className="text-xs text-zinc-500">remaining</span>
             </div>
           </div>
@@ -575,7 +575,7 @@ export default function MarketPage() {
                   <span className="text-[10px] uppercase tracking-wider text-zinc-600">Your pairs:</span>
                   {preferredPairs.slice(0, 6).map((p) => (
                     <span key={p}
-                      className="text-[10px] font-mono bg-blue-500/10 border border-blue-500/20
+                      className="text-[10px] font-sans bg-blue-500/10 border border-blue-500/20
                                  text-blue-400 px-2 py-0.5 rounded-md">
                       {p}
                     </span>
@@ -638,7 +638,7 @@ export default function MarketPage() {
                                   : toDateWAT(ev.date)
                                 }
                               </td>
-                              <td className="px-4 py-3 font-mono text-xs text-zinc-300 whitespace-nowrap">
+                              <td className="px-4 py-3 font-sans text-xs text-zinc-300 whitespace-nowrap">
                                 {toWAT(ev.date)}
                                 {(() => {
                                   const diff = new Date(ev.date).getTime() - tickMs;
@@ -654,7 +654,7 @@ export default function MarketPage() {
                                 })()}
                               </td>
                               <td className="px-4 py-3">
-                                <span className="font-mono text-xs font-bold text-zinc-200
+                                <span className="font-sans text-xs font-bold text-zinc-200
                                                  bg-zinc-800 px-2 py-0.5 rounded">
                                   {ev.country}
                                 </span>
@@ -667,13 +667,13 @@ export default function MarketPage() {
                                   {ev.title}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 font-mono text-xs text-zinc-500">
+                              <td className="px-4 py-3 font-sans text-xs text-zinc-500">
                                 {ev.previous || "—"}
                               </td>
-                              <td className="px-4 py-3 font-mono text-xs text-zinc-400">
+                              <td className="px-4 py-3 font-sans text-xs text-zinc-400">
                                 {ev.forecast || "—"}
                               </td>
-                              <td className="px-4 py-3 font-mono text-xs">
+                              <td className="px-4 py-3 font-sans text-xs">
                                 {ev.actual ? (
                                   <span className={
                                     ev.forecast && ev.actual > ev.forecast

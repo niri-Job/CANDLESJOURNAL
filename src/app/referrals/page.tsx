@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -418,7 +418,7 @@ export default function ReferralsPage() {
                   <>
                     {/* Link box */}
                     <div className="flex items-center gap-2 mb-4">
-                      <div className="flex-1 bg-[var(--cj-raised)] rounded-xl px-3 py-2.5 text-xs font-mono text-zinc-300 truncate"
+                      <div className="flex-1 bg-[var(--cj-raised)] rounded-xl px-3 py-2.5 text-xs font-sans text-zinc-300 truncate"
                            style={{ border: "1px solid var(--cj-border)" }}>
                         {referralLink}
                       </div>
@@ -430,7 +430,7 @@ export default function ReferralsPage() {
                       <div className="bg-[var(--cj-raised)] rounded-xl px-4 py-2 flex items-center gap-3"
                            style={{ border: "1px solid var(--cj-border)" }}>
                         <span className="text-xs text-zinc-500">Code:</span>
-                        <span className="font-mono font-bold text-[var(--cj-gold)] tracking-widest text-sm">
+                        <span className="font-sans font-bold text-[var(--cj-gold)] tracking-widest text-sm">
                           {stats?.referral_code}
                         </span>
                         <CopyBtn text={stats?.referral_code ?? ""} label="Copy Code" />
@@ -533,7 +533,7 @@ export default function ReferralsPage() {
                       <tbody className="divide-y divide-zinc-800/50">
                         {referrals.map(r => (
                           <tr key={r.id} className="hover:bg-[var(--cj-raised)] transition-colors">
-                            <td className="py-2.5 pr-4 font-mono text-zinc-400">{r.referred_anon}…</td>
+                            <td className="py-2.5 pr-4 font-sans text-zinc-400">{r.referred_anon}…</td>
                             <td className="py-2.5 pr-4"><StatusBadge status={r.status} /></td>
                             <td className="py-2.5 pr-4 capitalize text-zinc-400">{r.plan_type}</td>
                             <td className="py-2.5 pr-4 text-zinc-400">

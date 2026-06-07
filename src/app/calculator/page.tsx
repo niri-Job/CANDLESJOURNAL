@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
@@ -263,7 +263,7 @@ export default function CalculatorPage() {
                 key={card.label}
                 className={`rounded-2xl border p-4 sm:p-5 ${rc.card}`}>
                 <p className={labelCls() + " mb-1"}>{card.label}</p>
-                <p className={`text-xl font-bold font-mono ${rc.label}`}>{card.value}</p>
+                <p className={`text-xl font-bold font-sans ${rc.label}`}>{card.value}</p>
                 <p className="text-[11px] text-zinc-500 mt-0.5">{card.sub}</p>
               </div>
             ))}
@@ -275,7 +275,7 @@ export default function CalculatorPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs">
               {PAIRS.map(p => (
                 <div key={p} className="flex justify-between gap-2">
-                  <span className={`font-mono ${p === pair ? "text-[var(--cj-gold)] font-bold" : "text-zinc-500"}`}>{p}</span>
+                  <span className={`font-sans ${p === pair ? "text-[var(--cj-gold)] font-bold" : "text-zinc-500"}`}>{p}</span>
                   <span className={p === pair ? "text-zinc-200" : "text-zinc-600"}>${PIP_VALUES[p]}/pip</span>
                 </div>
               ))}

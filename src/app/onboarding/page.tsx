@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
@@ -471,7 +471,7 @@ export default function OnboardingPage() {
                   Sync Token
                 </label>
                 <div className="flex items-center gap-2">
-                  <input readOnly value={eaToken} className={fieldCls + " font-mono text-xs"} />
+                  <input readOnly value={eaToken} className={fieldCls + " font-sans text-xs"} />
                   <button type="button" onClick={copyEaToken}
                     className="px-3 py-2 rounded-xl border border-zinc-700 text-xs font-semibold text-zinc-300">
                     {copiedToken ? "Copied" : "Copy"}

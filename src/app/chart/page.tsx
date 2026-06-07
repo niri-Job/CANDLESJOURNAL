@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase";
@@ -454,7 +454,7 @@ function LightweightChartWidget({
       {chartStatus === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0A0A0F]/85 z-10 gap-3 px-6 text-center">
           <span className="text-2xl">📡</span>
-          <p className="text-sm text-rose-400 font-mono">{errMsg}</p>
+          <p className="text-sm text-rose-400 font-sans">{errMsg}</p>
           <button
             onClick={() => fetchData(symbol, interval, tradeRef.current)}
             className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors">
@@ -473,7 +473,7 @@ function StatCard({ label, value, sub, color = "text-zinc-100" }: {
   return (
     <div className="bg-[var(--cj-raised)] rounded-xl p-3 border border-zinc-800">
       <p className="text-[11px] uppercase tracking-widest text-zinc-600 mb-1">{label}</p>
-      <p className={`font-mono text-base font-semibold ${color}`}>{value}</p>
+      <p className={`font-sans text-base font-semibold ${color}`}>{value}</p>
       {sub && <p className="text-[11px] text-zinc-600 mt-0.5">{sub}</p>}
     </div>
   );
@@ -484,7 +484,7 @@ function WinBar({ label, winRate, total }: { label: string; winRate: number; tot
     <div>
       <div className="flex justify-between text-[12px] mb-1">
         <span className="text-zinc-300">{label}</span>
-        <span className="font-mono text-zinc-400">{winRate.toFixed(0)}% · {total}t</span>
+        <span className="font-sans text-zinc-400">{winRate.toFixed(0)}% · {total}t</span>
       </div>
       <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{
@@ -792,7 +792,7 @@ Notes: ${t.notes || "—"}`;
               <div className="flex gap-1.5 shrink-0 flex-wrap">
                 {quickPairs.map((p) => (
                   <button key={p} onClick={() => handlePairClick(p)}
-                    className="px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all whitespace-nowrap"
+                    className="px-3 py-1 rounded-lg text-xs font-sans font-semibold transition-all whitespace-nowrap"
                     style={symbol === p
                       ? { background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F", border: "none" }
                       : { background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "#9B8B75" }}>
@@ -803,7 +803,7 @@ Notes: ${t.notes || "—"}`;
                 <select
                   value={DERIV_SYNTHETIC_PAIRS.includes(symbol) ? symbol : ""}
                   onChange={(e) => { if (e.target.value) handlePairClick(e.target.value); }}
-                  className="px-2 py-1 rounded-lg text-xs font-mono font-semibold transition-all"
+                  className="px-2 py-1 rounded-lg text-xs font-sans font-semibold transition-all"
                   style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "#9B8B75", minWidth: 90 }}>
                   <option value="">Deriv ▾</option>
                   {DERIV_SYNTHETIC_PAIRS.map(p => (
@@ -818,7 +818,7 @@ Notes: ${t.notes || "—"}`;
               <div className="flex gap-1 shrink-0">
                 {INTERVALS.map((iv) => (
                   <button key={iv.val} onClick={() => setIntervalVal(iv.val)}
-                    className={`px-2.5 py-1 rounded text-xs font-mono transition-all
+                    className={`px-2.5 py-1 rounded text-xs font-sans transition-all
                                 ${interval === iv.val ? "bg-zinc-700 text-zinc-100" : "text-zinc-600 hover:text-zinc-400"}`}>
                     {iv.label}
                   </button>
@@ -872,17 +872,17 @@ Notes: ${t.notes || "—"}`;
                 <div className="w-px h-4 bg-zinc-700 shrink-0" />
                 <span className="text-zinc-300 whitespace-nowrap text-[12px]">
                   <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>Reviewing:</span>{" "}
-                  <span className="font-mono font-semibold text-zinc-100">{selected.pair}</span>{" "}
+                  <span className="font-sans font-semibold text-zinc-100">{selected.pair}</span>{" "}
                   <span className={selected.direction === "BUY" ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold"}>
                     {selected.direction}
                   </span>{" "}
                   <span className="text-zinc-500">{fmtDate(selected.date)}</span>
                   {"  —  "}
-                  <span className="text-zinc-400">Entry: <span className="font-mono text-zinc-200">{selected.entry}</span></span>
+                  <span className="text-zinc-400">Entry: <span className="font-sans text-zinc-200">{selected.entry}</span></span>
                   {"  ·  "}
-                  <span className="text-zinc-400">Exit: <span className="font-mono text-zinc-200">{selected.exit_price}</span></span>
+                  <span className="text-zinc-400">Exit: <span className="font-sans text-zinc-200">{selected.exit_price}</span></span>
                   {"  ·  "}
-                  <span className={`font-mono font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</span>
+                  <span className={`font-sans font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</span>
                 </span>
               </div>
             )}
@@ -909,17 +909,17 @@ Notes: ${t.notes || "—"}`;
                     {selected && (
                       <div className="mt-6 w-full max-w-xs bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4 text-left">
                         <div className="flex items-center gap-2 mb-3">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-sans
                             ${selected.direction === "BUY" ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>
                             {selected.direction}
                           </span>
                           <span className="text-xs text-zinc-500">{selected.pair} · {selected.date}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-xs mb-2">
-                          <div><span className="text-zinc-600">Entry</span><p className="font-mono text-zinc-200">{selected.entry}</p></div>
-                          <div><span className="text-zinc-600">Exit</span><p className="font-mono text-zinc-200">{selected.exit_price}</p></div>
-                          <div><span className="text-zinc-600">P&amp;L</span><p className={`font-mono font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</p></div>
-                          <div><span className="text-zinc-600">Lot</span><p className="font-mono text-zinc-200">{selected.lot}</p></div>
+                          <div><span className="text-zinc-600">Entry</span><p className="font-sans text-zinc-200">{selected.entry}</p></div>
+                          <div><span className="text-zinc-600">Exit</span><p className="font-sans text-zinc-200">{selected.exit_price}</p></div>
+                          <div><span className="text-zinc-600">P&amp;L</span><p className={`font-sans font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</p></div>
+                          <div><span className="text-zinc-600">Lot</span><p className="font-sans text-zinc-200">{selected.lot}</p></div>
                         </div>
                         {selected.opened_at && (
                           <p className="text-[11px] text-zinc-600">Open: {new Date(selected.opened_at).toLocaleString()}</p>
@@ -951,9 +951,9 @@ Notes: ${t.notes || "—"}`;
 
                 <div className="shrink-0 px-4 py-3" style={{ borderBottom: "1px solid var(--cj-border)" }}>
                   <div className="flex items-center justify-between">
-                    <p className="font-mono text-sm font-semibold text-zinc-300">{symbol}</p>
+                    <p className="font-sans text-sm font-semibold text-zinc-300">{symbol}</p>
                     {symbolTrades.length > 0 && (
-                      <span className={`text-xs font-mono font-semibold ${pnlCls(symbolTrades.reduce((s, t) => s + t.pnl, 0))}`}>
+                      <span className={`text-xs font-sans font-semibold ${pnlCls(symbolTrades.reduce((s, t) => s + t.pnl, 0))}`}>
                         {fmt(symbolTrades.reduce((s, t) => s + t.pnl, 0))}
                       </span>
                     )}
@@ -984,16 +984,16 @@ Notes: ${t.notes || "—"}`;
                                           : "border-l-transparent hover:bg-[var(--cj-gold-glow)] hover:border-l-[var(--cj-gold-muted)]"}`}>
                             <div className="flex items-center justify-between mb-1">
                               <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-sans
                                                   ${t.direction === "BUY" ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>
                                   {t.direction}
                                 </span>
                                 <span className="text-[12px] text-zinc-500">{t.date}</span>
                                 {t.emotion && <span className="text-xs">{EMOTION_EMOJI[t.emotion] ?? ""}</span>}
                               </div>
-                              <span className={`text-xs font-mono font-semibold ${pnlCls(t.pnl)}`}>{fmt(t.pnl)}</span>
+                              <span className={`text-xs font-sans font-semibold ${pnlCls(t.pnl)}`}>{fmt(t.pnl)}</span>
                             </div>
-                            <div className="text-[12px] text-zinc-600 font-mono">
+                            <div className="text-[12px] text-zinc-600 font-sans">
                               {t.entry} → {t.exit_price} · {t.lot}L
                             </div>
                           </button>
@@ -1021,22 +1021,22 @@ Notes: ${t.notes || "—"}`;
                           <div className="grid grid-cols-2 gap-2 mb-3">
                             <div className="rounded-xl p-3" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.25)" }}>
                               <p className="text-[10px] font-semibold uppercase text-emerald-400">Entry</p>
-                              <p className="font-mono text-sm text-zinc-100 mt-0.5">{selected.entry}</p>
+                              <p className="font-sans text-sm text-zinc-100 mt-0.5">{selected.entry}</p>
                             </div>
                             <div className="rounded-xl p-3" style={{ background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.30)" }}>
                               <p className="text-[10px] font-semibold uppercase text-orange-400">Exit</p>
-                              <p className="font-mono text-sm text-zinc-100 mt-0.5">{selected.exit_price}</p>
+                              <p className="font-sans text-sm text-zinc-100 mt-0.5">{selected.exit_price}</p>
                             </div>
                             {selected.sl != null && (
                               <div className="rounded-xl p-3" style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)" }}>
                                 <p className="text-[10px] font-semibold uppercase text-rose-400">Stop Loss</p>
-                                <p className="font-mono text-sm text-zinc-100 mt-0.5">{selected.sl}</p>
+                                <p className="font-sans text-sm text-zinc-100 mt-0.5">{selected.sl}</p>
                               </div>
                             )}
                             {selected.tp != null && (
                               <div className="rounded-xl p-3" style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.25)" }}>
                                 <p className="text-[10px] font-semibold uppercase" style={{ color: "#93c5fd" }}>Take Profit</p>
-                                <p className="font-mono text-sm text-zinc-100 mt-0.5">{selected.tp}</p>
+                                <p className="font-sans text-sm text-zinc-100 mt-0.5">{selected.tp}</p>
                               </div>
                             )}
                           </div>
@@ -1044,7 +1044,7 @@ Notes: ${t.notes || "—"}`;
                           {/* Stats strip */}
                           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] mb-3 pb-3"
                                style={{ borderBottom: "1px solid var(--cj-border)" }}>
-                            <span className={`font-mono font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</span>
+                            <span className={`font-sans font-semibold ${pnlCls(selected.pnl)}`}>{fmt(selected.pnl)}</span>
                             {selPips && selPips !== "—" && <span className="text-zinc-500">{selPips} pips</span>}
                             <span className="text-zinc-600">{selected.lot} lot</span>
                             {selRR && <span className="text-zinc-500">R:R {selRR}:1</span>}
@@ -1170,7 +1170,7 @@ Notes: ${t.notes || "—"}`;
                         <p className="text-lg mb-2">🛑</p>
                         <p className="text-sm text-zinc-200 leading-snug mb-1">
                           {stats.consecDelta > 0
-                            ? <>Stop after 2 consecutive losses/day — P&L improves by <span className="font-mono font-semibold text-emerald-400">{fmt(stats.consecDelta)}</span></>
+                            ? <>Stop after 2 consecutive losses/day — P&L improves by <span className="font-sans font-semibold text-emerald-400">{fmt(stats.consecDelta)}</span></>
                             : "Your daily loss-limit is already saving you."}
                         </p>
                         <p className="text-[12px] text-zinc-600">Simulated: {fmt(stats.simPnl)} vs actual: {fmt(stats.actualPnl)}</p>
@@ -1180,7 +1180,7 @@ Notes: ${t.notes || "—"}`;
                       <div className="rounded-xl p-4" style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.20)" }}>
                         <p className="text-lg mb-2">🎯</p>
                         <p className="text-sm text-zinc-200 leading-snug mb-1">
-                          Win rate on <span className="font-mono font-semibold" style={{ color: "var(--cj-gold)" }}>{stats.bestPair.pair}</span> ({stats.bestPair.wr.toFixed(0)}%) beats <span className="font-mono font-semibold text-rose-400">{stats.worstPair.pair}</span> ({stats.worstPair.wr.toFixed(0)}%)
+                          Win rate on <span className="font-sans font-semibold" style={{ color: "var(--cj-gold)" }}>{stats.bestPair.pair}</span> ({stats.bestPair.wr.toFixed(0)}%) beats <span className="font-sans font-semibold text-rose-400">{stats.worstPair.pair}</span> ({stats.worstPair.wr.toFixed(0)}%)
                         </p>
                         <p className="text-[12px] text-zinc-600">Consider focusing on {stats.bestPair.pair}</p>
                       </div>
@@ -1189,7 +1189,7 @@ Notes: ${t.notes || "—"}`;
                       <div className="rounded-xl p-4" style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-gold-muted)" }}>
                         <p className="text-lg mb-2">⏰</p>
                         <p className="text-sm text-zinc-200 leading-snug mb-1">
-                          You win <span className="font-mono font-semibold" style={{ color: "var(--cj-gold)" }}>{(stats.bestSession.wr - stats.worstSession.wr).toFixed(0)}%</span> more in <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>{stats.bestSession.session}</span> than {stats.worstSession.session}
+                          You win <span className="font-sans font-semibold" style={{ color: "var(--cj-gold)" }}>{(stats.bestSession.wr - stats.worstSession.wr).toFixed(0)}%</span> more in <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>{stats.bestSession.session}</span> than {stats.worstSession.session}
                         </p>
                         <p className="text-[12px] text-zinc-600">{stats.bestSession.session}: {stats.bestSession.wr.toFixed(0)}% · {stats.worstSession.session}: {stats.worstSession.wr.toFixed(0)}%</p>
                       </div>

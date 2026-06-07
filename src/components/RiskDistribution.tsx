@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
@@ -114,7 +114,7 @@ export function RiskDistribution({ trades }: { trades: Trade[] }) {
                     content={({ active, payload }) =>
                       active && payload?.length ? (
                         <div className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs">
-                          <p className="font-mono font-semibold text-zinc-200">{payload[0].payload.pair}</p>
+                          <p className="font-sans font-semibold text-zinc-200">{payload[0].payload.pair}</p>
                           <p className="text-zinc-400">{payload[0].payload.count} trades · {payload[0].payload.pct}%</p>
                         </div>
                       ) : null
@@ -128,8 +128,8 @@ export function RiskDistribution({ trades }: { trades: Trade[] }) {
                 <div key={p.pair} className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ background: getPairColor(p.pair, i) }} />
-                  <span className="font-mono text-[13px] text-zinc-100 truncate">{p.pair}</span>
-                  <span className="text-[13px] font-mono ml-auto shrink-0"
+                  <span className="font-sans text-[13px] text-zinc-100 truncate">{p.pair}</span>
+                  <span className="text-[13px] font-sans ml-auto shrink-0"
                         style={{ color: "var(--cj-gold)" }}>{p.pct}%</span>
                 </div>
               ))}
@@ -164,7 +164,7 @@ export function RiskDistribution({ trades }: { trades: Trade[] }) {
               ].map(({ label, value }) => (
                 <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-2.5 text-center">
                   <p className="text-[13px] text-zinc-600">{label}</p>
-                  <p className="font-mono text-sm font-semibold text-zinc-300 mt-0.5">{value}</p>
+                  <p className="font-sans text-sm font-semibold text-zinc-300 mt-0.5">{value}</p>
                 </div>
               ))}
             </div>
@@ -173,7 +173,7 @@ export function RiskDistribution({ trades }: { trades: Trade[] }) {
           {stats.avgPipsRisked !== null && (
             <div>
               <p className="text-[13px] uppercase tracking-widest text-zinc-600 mb-1">Avg Pips Risked</p>
-              <p className="font-mono text-sm font-semibold text-zinc-300">{stats.avgPipsRisked.toFixed(1)} pips</p>
+              <p className="font-sans text-sm font-semibold text-zinc-300">{stats.avgPipsRisked.toFixed(1)} pips</p>
             </div>
           )}
         </div>
@@ -184,8 +184,8 @@ export function RiskDistribution({ trades }: { trades: Trade[] }) {
             <div>
               <p className="text-[13px] uppercase tracking-widest text-zinc-600 mb-2">Best Pair</p>
               <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-xl p-3">
-                <p className="font-mono text-sm font-semibold text-zinc-100">{stats.bestPair[0]}</p>
-                <p className="text-sm font-mono text-emerald-400 mt-0.5">{fmt(stats.bestPair[1])}</p>
+                <p className="font-sans text-sm font-semibold text-zinc-100">{stats.bestPair[0]}</p>
+                <p className="text-sm font-sans text-emerald-400 mt-0.5">{fmt(stats.bestPair[1])}</p>
               </div>
             </div>
           )}
@@ -193,8 +193,8 @@ export function RiskDistribution({ trades }: { trades: Trade[] }) {
             <div>
               <p className="text-[13px] uppercase tracking-widest text-zinc-600 mb-2">Worst Pair</p>
               <div className="bg-rose-500/8 border border-rose-500/20 rounded-xl p-3">
-                <p className="font-mono text-sm font-semibold text-zinc-100">{stats.worstPair[0]}</p>
-                <p className="text-sm font-mono text-rose-400 mt-0.5">{fmt(stats.worstPair[1])}</p>
+                <p className="font-sans text-sm font-semibold text-zinc-100">{stats.worstPair[0]}</p>
+                <p className="text-sm font-sans text-rose-400 mt-0.5">{fmt(stats.worstPair[1])}</p>
               </div>
             </div>
           )}

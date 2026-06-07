@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
@@ -105,7 +105,7 @@ function EquityTooltip({ active, payload, label }: {
   return (
     <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-zinc-400 mb-1">{label}</p>
-      <p className={`font-mono font-semibold ${payload[0].value >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+      <p className={`font-sans font-semibold ${payload[0].value >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
         {fmt(payload[0].value)}
       </p>
     </div>
@@ -263,7 +263,7 @@ function CalendarHeatmap({ dailyData, trades }: {
         {/* Total P&L — full-width prominent card */}
         <div className="bg-[var(--cj-raised)] rounded-lg px-4 py-2.5 flex items-center justify-between">
           <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Total P&L</p>
-          <p className={`text-sm font-mono font-bold ${totalMonthPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          <p className={`text-sm font-sans font-bold ${totalMonthPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
             {monthEntries.length > 0 ? fmt(totalMonthPnl) : "—"}
           </p>
         </div>
@@ -277,7 +277,7 @@ function CalendarHeatmap({ dailyData, trades }: {
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-2 text-center">
               <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">{label}</p>
-              <p className={`text-xs font-mono font-semibold ${color}`}>{value}</p>
+              <p className={`text-xs font-sans font-semibold ${color}`}>{value}</p>
             </div>
           ))}
         </div>
@@ -352,7 +352,7 @@ function CalendarHeatmap({ dailyData, trades }: {
               {/* PnL + trade count — color adapts to theme */}
               {entry && (
                 <div className="mt-auto flex flex-col gap-[2px] overflow-hidden">
-                  <span className="text-[10px] font-mono font-extrabold leading-none whitespace-nowrap overflow-hidden"
+                  <span className="text-[10px] font-sans font-extrabold leading-none whitespace-nowrap overflow-hidden"
                         style={{ color: "var(--cj-text)" }}>
                     {fmt(parseFloat(entry.pnl.toFixed(2)))}
                   </span>
@@ -382,7 +382,7 @@ function CalendarHeatmap({ dailyData, trades }: {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-[11px] text-zinc-500 mb-0.5">{selected}</p>
-                <p className={`text-xl font-mono font-bold
+                <p className={`text-xl font-sans font-bold
                                ${selEntry.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                   {fmt(parseFloat(selEntry.pnl.toFixed(2)))}
                 </p>
@@ -405,7 +405,7 @@ function CalendarHeatmap({ dailyData, trades }: {
               ].map(({ label, value, color }) => (
                 <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-2 text-center">
                   <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-0.5">{label}</p>
-                  <p className={`text-xs font-mono font-semibold ${color}`}>{value}</p>
+                  <p className={`text-xs font-sans font-semibold ${color}`}>{value}</p>
                 </div>
               ))}
             </div>
@@ -415,13 +415,13 @@ function CalendarHeatmap({ dailyData, trades }: {
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <div className="bg-emerald-500/8 border border-emerald-500/15 rounded-lg px-3 py-2">
                   <p className="text-[9px] text-emerald-700 uppercase mb-0.5">Best trade</p>
-                  <p className="text-xs font-mono font-semibold text-emerald-400">
+                  <p className="text-xs font-sans font-semibold text-emerald-400">
                     {selBest.pair} · {fmt(selBest.pnl)}
                   </p>
                 </div>
                 <div className="bg-rose-500/8 border border-rose-500/15 rounded-lg px-3 py-2">
                   <p className="text-[9px] text-rose-700 uppercase mb-0.5">Worst trade</p>
-                  <p className="text-xs font-mono font-semibold text-rose-400">
+                  <p className="text-xs font-sans font-semibold text-rose-400">
                     {selWorst.pair} · {fmt(selWorst.pnl)}
                   </p>
                 </div>
@@ -436,7 +436,7 @@ function CalendarHeatmap({ dailyData, trades }: {
                   className="flex items-center justify-between bg-[var(--cj-raised)]
                              rounded-lg px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-semibold text-zinc-200">{t.pair}</span>
+                    <span className="text-xs font-sans font-semibold text-zinc-200">{t.pair}</span>
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded
                                       ${t.direction === "BUY"
                                         ? "bg-emerald-500/10 text-emerald-400"
@@ -447,7 +447,7 @@ function CalendarHeatmap({ dailyData, trades }: {
                       <span className="text-[10px] text-zinc-600">{t.lot}L</span>
                     )}
                   </div>
-                  <span className={`text-xs font-mono font-semibold
+                  <span className={`text-xs font-sans font-semibold
                                     ${t.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                     {fmt(t.pnl)}
                   </span>
@@ -517,7 +517,7 @@ function AccountCard({
         ].map(({ label, value, cls }) => (
           <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-1.5">
             <p className="text-[9px] text-zinc-600">{label}</p>
-            <p className={`font-mono text-xs font-semibold mt-0.5 ${cls}`}>{value}</p>
+            <p className={`font-sans text-xs font-semibold mt-0.5 ${cls}`}>{value}</p>
           </div>
         ))}
       </div>
@@ -1249,7 +1249,7 @@ export default function TradingJournal() {
               className="bg-[var(--cj-surface)] border border-zinc-800 rounded-xl px-5 py-4
                          hover:border-zinc-700 transition-colors">
               <p className="text-sm uppercase tracking-widest text-zinc-500 font-semibold mb-2">{card.label}</p>
-              <p className={`font-mono text-2xl font-semibold ${card.cls}`}>{card.value}</p>
+              <p className={`font-sans text-2xl font-semibold ${card.cls}`}>{card.value}</p>
               <p className="text-xs text-zinc-500 mt-1">{card.sub}</p>
             </div>
           ))}
@@ -1424,7 +1424,7 @@ export default function TradingJournal() {
                     style={direction === d && d === "BUY"
                       ? { background: "linear-gradient(135deg,#F5C518,#C9A227)" }
                       : undefined}
-                    className={`flex-1 py-2.5 rounded-lg font-mono text-xs font-semibold tracking-widest
+                    className={`flex-1 py-2.5 rounded-lg font-sans text-xs font-semibold tracking-widest
                                 border transition-all
                                 ${direction === d
                       ? d === "BUY"
@@ -1572,7 +1572,7 @@ export default function TradingJournal() {
                     Clear all trades
                   </button>
                 )}
-                <span className="font-mono text-xs text-zinc-500">
+                <span className="font-sans text-xs text-zinc-500">
                   {filteredTrades.length}
                   {filteredTrades.length !== accountTrades.length && `/${accountTrades.length}`} trade{accountTrades.length !== 1 ? "s" : ""}
                 </span>
@@ -1699,7 +1699,7 @@ export default function TradingJournal() {
 
                         <td className="px-2 py-3 border-b border-zinc-800/60">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-xs font-semibold bg-zinc-800 rounded-md px-2 py-1">{t.pair}</span>
+                            <span className="font-sans text-xs font-semibold bg-zinc-800 rounded-md px-2 py-1">{t.pair}</span>
                             {t.asset_class && <span className="text-[10px] text-zinc-600">{t.asset_class}</span>}
                             {t.news_event && (
                               <span className="text-[10px] font-semibold bg-orange-500/10 border border-orange-500/25
@@ -1724,16 +1724,16 @@ export default function TradingJournal() {
                         </td>
 
                         <td className="px-2 py-3 border-b border-zinc-800/60">
-                          <span className={`font-mono text-[10px] font-bold rounded px-2 py-1
+                          <span className={`font-sans text-[10px] font-bold rounded px-2 py-1
                             ${t.direction === "BUY" ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>
                             {t.direction}
                           </span>
                         </td>
-                        <td className="px-2 py-3 border-b border-zinc-800/60 font-mono text-xs text-zinc-500">{t.date}</td>
-                        <td className="px-2 py-3 border-b border-zinc-800/60 font-mono text-xs text-right">{t.lot}</td>
-                        <td className="px-2 py-3 border-b border-zinc-800/60 font-mono text-xs text-right">{t.entry.toFixed(5)}</td>
-                        <td className="px-2 py-3 border-b border-zinc-800/60 font-mono text-xs text-right">{t.exit_price.toFixed(5)}</td>
-                        <td className={`px-2 py-3 border-b border-zinc-800/60 font-mono text-sm font-semibold text-right ${pnlColor(t.pnl)}`}>
+                        <td className="px-2 py-3 border-b border-zinc-800/60 font-sans text-xs text-zinc-500">{t.date}</td>
+                        <td className="px-2 py-3 border-b border-zinc-800/60 font-sans text-xs text-right">{t.lot}</td>
+                        <td className="px-2 py-3 border-b border-zinc-800/60 font-sans text-xs text-right">{t.entry.toFixed(5)}</td>
+                        <td className="px-2 py-3 border-b border-zinc-800/60 font-sans text-xs text-right">{t.exit_price.toFixed(5)}</td>
+                        <td className={`px-2 py-3 border-b border-zinc-800/60 font-sans text-sm font-semibold text-right ${pnlColor(t.pnl)}`}>
                           {fmt(t.pnl)}
                         </td>
 
@@ -1841,7 +1841,7 @@ export default function TradingJournal() {
           <div className="flex justify-center pt-4 pb-8">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent("niri:test"))}
-              className="text-[10px] font-mono text-zinc-700 hover:text-zinc-500 transition-colors px-3 py-1.5 rounded-md border border-zinc-800 hover:border-zinc-700"
+              className="text-[10px] font-sans text-zinc-700 hover:text-zinc-500 transition-colors px-3 py-1.5 rounded-md border border-zinc-800 hover:border-zinc-700"
             >
               · test niri orb ·
             </button>

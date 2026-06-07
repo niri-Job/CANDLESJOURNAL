@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -497,7 +497,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   return (
     <div className="rounded-xl p-3 sm:p-4" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
       <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1 truncate">{label}</p>
-      <p className={`text-base sm:text-lg font-mono font-bold leading-tight ${color ?? "text-zinc-100"}`}>{value}</p>
+      <p className={`text-base sm:text-lg font-sans font-bold leading-tight ${color ?? "text-zinc-100"}`}>{value}</p>
       {sub && <p className="text-[10px] text-zinc-500 mt-0.5 truncate">{sub}</p>}
     </div>
   );
@@ -546,7 +546,7 @@ function PnlTooltip({ active, payload, label }: { active?: boolean; payload?: { 
     <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
       {label && <p className="text-zinc-400 mb-1">{label}</p>}
       {payload.map((p, i) => (
-        <p key={i} className={`font-mono font-semibold ${(p.value ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+        <p key={i} className={`font-sans font-semibold ${(p.value ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
           {p.name && <span className="text-zinc-500 mr-1">{p.name}:</span>}
           {f$(p.value ?? 0)}
         </p>
@@ -560,7 +560,7 @@ function WrTooltip({ active, payload, label }: { active?: boolean; payload?: { v
   return (
     <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
       {label && <p className="text-zinc-400 mb-1">{label}</p>}
-      <p className={`font-mono font-semibold ${payload[0].value >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
+      <p className={`font-sans font-semibold ${payload[0].value >= 50 ? "text-emerald-400" : "text-rose-400"}`}>
         {payload[0].value}% win rate
       </p>
       <p className="text-zinc-500 mt-0.5">{payload[0].payload.trades} trades</p>
@@ -574,7 +574,7 @@ function HourTooltip({ active, payload, label }: { active?: boolean; payload?: {
   return (
     <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
       {label && <p className="text-zinc-400 mb-1">{label}</p>}
-      <p className={`font-mono font-semibold ${(payload[0].value ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{f$(payload[0].value ?? 0)}</p>
+      <p className={`font-sans font-semibold ${(payload[0].value ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{f$(payload[0].value ?? 0)}</p>
       {d && <p className="text-zinc-500 mt-0.5">{d.trades} trades · {d.winRate}% wr</p>}
     </div>
   );
@@ -697,7 +697,7 @@ function TabOverview({ trades, onExportCsv }: { trades: Trade[]; onExportCsv: ()
                       return (
                         <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
                           <p className="text-zinc-400">{d.label}</p>
-                          <p className="font-mono font-bold text-zinc-100">{d.count} trade{d.count !== 1 ? "s" : ""}</p>
+                          <p className="font-sans font-bold text-zinc-100">{d.count} trade{d.count !== 1 ? "s" : ""}</p>
                         </div>
                       );
                     }}
@@ -782,12 +782,12 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
                   style={{ borderBottom: "1px solid var(--cj-border)", background: row.totalPnl > 0 ? "rgba(52,211,153,0.04)" : row.totalPnl < 0 ? "rgba(248,113,113,0.04)" : undefined }}>
                   <td className="py-2 px-3 font-semibold text-zinc-200">{row.pair}</td>
                   <td className="py-2 px-3 text-zinc-400">{row.trades}</td>
-                  <td className={`py-2 px-3 font-mono font-semibold ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
-                  <td className={`py-2 px-3 font-mono font-semibold ${pCls(row.totalPnl)}`}>{f$(row.totalPnl)}</td>
-                  <td className={`py-2 px-3 font-mono ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
-                  <td className="py-2 px-3 font-mono text-emerald-400">{f$(row.best)}</td>
-                  <td className="py-2 px-3 font-mono text-rose-400">{f$(row.worst)}</td>
-                  <td className={`py-2 px-3 font-mono ${row.pf >= 1.5 ? "text-emerald-400" : row.pf >= 1 ? "text-yellow-400" : "text-rose-400"}`}>
+                  <td className={`py-2 px-3 font-sans font-semibold ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
+                  <td className={`py-2 px-3 font-sans font-semibold ${pCls(row.totalPnl)}`}>{f$(row.totalPnl)}</td>
+                  <td className={`py-2 px-3 font-sans ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
+                  <td className="py-2 px-3 font-sans text-emerald-400">{f$(row.best)}</td>
+                  <td className="py-2 px-3 font-sans text-rose-400">{f$(row.worst)}</td>
+                  <td className={`py-2 px-3 font-sans ${row.pf >= 1.5 ? "text-emerald-400" : row.pf >= 1 ? "text-yellow-400" : "text-rose-400"}`}>
                     {row.pf === 999 ? "∞" : row.pf.toFixed(2)}
                   </td>
                 </tr>
@@ -889,9 +889,9 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
                   <tr key={row.setup} style={{ borderBottom: "1px solid var(--cj-border)", background: row.pnl > 0 ? "rgba(52,211,153,0.04)" : row.pnl < 0 ? "rgba(248,113,113,0.04)" : undefined }}>
                     <td className="py-2 px-3 font-semibold text-zinc-200">{row.setup || "—"}</td>
                     <td className="py-2 px-3 text-zinc-400">{row.trades}</td>
-                    <td className={`py-2 px-3 font-mono ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
-                    <td className={`py-2 px-3 font-mono font-semibold ${pCls(row.pnl)}`}>{f$(row.pnl)}</td>
-                    <td className={`py-2 px-3 font-mono ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
+                    <td className={`py-2 px-3 font-sans ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
+                    <td className={`py-2 px-3 font-sans font-semibold ${pCls(row.pnl)}`}>{f$(row.pnl)}</td>
+                    <td className={`py-2 px-3 font-sans ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -948,13 +948,13 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
                       {SESSIONS_LIST.map(sess => {
                         const cell = matrix[setup][sess];
                         if (cell.n < 3) return (
-                          <td key={sess} className="py-2 px-3 text-center text-zinc-600 font-mono">—</td>
+                          <td key={sess} className="py-2 px-3 text-center text-zinc-600 font-sans">—</td>
                         );
                         const wr = +(cell.wins / cell.n * 100).toFixed(1);
                         const cls = wr > 60 ? "text-emerald-400" : wr >= 40 ? "text-yellow-400" : "text-rose-400";
                         const bg  = wr > 60 ? "rgba(52,211,153,0.08)" : wr >= 40 ? "rgba(234,179,8,0.08)" : "rgba(248,113,113,0.08)";
                         return (
-                          <td key={sess} className={`py-2 px-3 text-center font-mono font-semibold ${cls}`}
+                          <td key={sess} className={`py-2 px-3 text-center font-sans font-semibold ${cls}`}
                             style={{ background: bg }} title={`${cell.n} trades`}>
                             {wr}%
                           </td>
@@ -996,12 +996,12 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
                         style={{ borderBottom: "1px solid var(--cj-border)", background: row.totalPnl > 0 ? "rgba(52,211,153,0.04)" : row.totalPnl < 0 ? "rgba(248,113,113,0.04)" : undefined }}>
                         <td className="py-2 px-3 font-semibold text-zinc-200">{row.assetClass}</td>
                         <td className="py-2 px-3 text-zinc-400">{row.trades}</td>
-                        <td className={`py-2 px-3 font-mono font-semibold ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
-                        <td className={`py-2 px-3 font-mono font-semibold ${pCls(row.totalPnl)}`}>{f$(row.totalPnl)}</td>
-                        <td className={`py-2 px-3 font-mono ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
-                        <td className="py-2 px-3 font-mono text-emerald-400">{f$(row.best)}</td>
-                        <td className="py-2 px-3 font-mono text-rose-400">{f$(row.worst)}</td>
-                        <td className={`py-2 px-3 font-mono ${row.pf >= 1.5 ? "text-emerald-400" : row.pf >= 1 ? "text-yellow-400" : "text-rose-400"}`}>
+                        <td className={`py-2 px-3 font-sans font-semibold ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
+                        <td className={`py-2 px-3 font-sans font-semibold ${pCls(row.totalPnl)}`}>{f$(row.totalPnl)}</td>
+                        <td className={`py-2 px-3 font-sans ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
+                        <td className="py-2 px-3 font-sans text-emerald-400">{f$(row.best)}</td>
+                        <td className="py-2 px-3 font-sans text-rose-400">{f$(row.worst)}</td>
+                        <td className={`py-2 px-3 font-sans ${row.pf >= 1.5 ? "text-emerald-400" : row.pf >= 1 ? "text-yellow-400" : "text-rose-400"}`}>
                           {row.pf === 999 ? "∞" : row.pf.toFixed(2)}
                         </td>
                       </tr>
@@ -1142,12 +1142,12 @@ function DayDrawer({ date, trades, onClose }: { date: string; trades: Trade[]; o
                     }`}>{t.direction}</span>
                     <span className="text-[10px] text-zinc-500">{t.lot}L</span>
                   </div>
-                  <span className={`text-sm font-mono font-bold ${pCls(t.pnl)}`}>{f$(t.pnl)}</span>
+                  <span className={`text-sm font-sans font-bold ${pCls(t.pnl)}`}>{f$(t.pnl)}</span>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-zinc-500 flex-wrap">
                   {t.session  && <span>{t.session}</span>}
                   {t.emotion  && <span className="capitalize">{EMOTION_LABEL[t.emotion] || t.emotion}</span>}
-                  <span className="font-mono">{fmtTime(t.opened_at)} → {fmtTime(t.closed_at)}</span>
+                  <span className="font-sans">{fmtTime(t.opened_at)} → {fmtTime(t.closed_at)}</span>
                 </div>
               </div>
             ))}
@@ -1237,7 +1237,7 @@ function TabTime({ trades }: { trades: Trade[] }) {
                   />
                 )}
               </div>
-              <span className={`w-16 text-right font-mono shrink-0 ${pCls(h.pnl)}`}>
+              <span className={`w-16 text-right font-sans shrink-0 ${pCls(h.pnl)}`}>
                 {h.trades > 0 ? f$(h.pnl) : ""}
               </span>
               <span className="w-12 text-right text-zinc-600 shrink-0">
@@ -1386,7 +1386,7 @@ function TabRisk({ trades }: { trades: Trade[] }) {
                     return (
                       <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
                         <p className="text-zinc-400 mb-1">{props.label}</p>
-                        <p className="font-mono text-rose-400">{(props.payload[0].value as number).toFixed(2)}%</p>
+                        <p className="font-sans text-rose-400">{(props.payload[0].value as number).toFixed(2)}%</p>
                       </div>
                     );
                   }}
@@ -1482,9 +1482,9 @@ function EmotionTable({ rows, title }: { rows: ReturnType<typeof emotionBreakdow
                     <tr key={row.key} style={{ borderBottom: "1px solid var(--cj-border)" }}>
                       <td className="py-2 px-2 text-zinc-200 whitespace-nowrap">{row.emotion}</td>
                       <td className="py-2 px-2 text-zinc-400">{row.trades}</td>
-                      <td className={`py-2 px-2 font-mono ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
-                      <td className={`py-2 px-2 font-mono font-semibold ${pCls(row.pnl)}`}>{f$(row.pnl)}</td>
-                      <td className={`py-2 px-2 font-mono ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
+                      <td className={`py-2 px-2 font-sans ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
+                      <td className={`py-2 px-2 font-sans font-semibold ${pCls(row.pnl)}`}>{f$(row.pnl)}</td>
+                      <td className={`py-2 px-2 font-sans ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1529,7 +1529,7 @@ function TabPsychology({ trades }: { trades: Trade[] }) {
       <div className="rounded-xl p-5" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
         <SectionHead>Trading Discipline Score</SectionHead>
         <div className="flex items-end gap-4 mb-4">
-          <span className={`text-5xl font-mono font-bold ${scoreColor}`}>{disc.score}</span>
+          <span className={`text-5xl font-sans font-bold ${scoreColor}`}>{disc.score}</span>
           <span className="text-zinc-500 text-lg mb-1">/ 100</span>
         </div>
         <div className="w-full h-2 rounded-full bg-zinc-800 mb-4 overflow-hidden">
@@ -1540,7 +1540,7 @@ function TabPsychology({ trades }: { trades: Trade[] }) {
           <div className="space-y-2">
             {disc.factors.map(f => (
               <div key={f.label} className="flex items-center gap-2 text-xs">
-                <span className="text-rose-400 font-mono w-8 text-right shrink-0">-{f.impact}</span>
+                <span className="text-rose-400 font-sans w-8 text-right shrink-0">-{f.impact}</span>
                 <span className="text-zinc-400">{f.label}</span>
                 <span className="text-zinc-600">— {f.detail}</span>
               </div>
@@ -1611,7 +1611,7 @@ function TabWinsVsLosses({ trades }: { trades: Trade[] }) {
         {rows.map(r => (
           <div key={r.k} className="flex justify-between items-center py-1.5 text-xs" style={{ borderBottom: "1px solid var(--cj-border)" }}>
             <span className="text-zinc-500">{r.k}</span>
-            <span className="text-zinc-200 font-mono">{r.v}</span>
+            <span className="text-zinc-200 font-sans">{r.v}</span>
           </div>
         ))}
       </div>
@@ -1658,12 +1658,12 @@ function TabWinsVsLosses({ trades }: { trades: Trade[] }) {
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl p-4" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 mb-2">BUY Trades</p>
-            <p className="text-xl font-mono font-bold text-emerald-400">{buyWr.toFixed(1)}%</p>
+            <p className="text-xl font-sans font-bold text-emerald-400">{buyWr.toFixed(1)}%</p>
             <p className="text-[11px] text-zinc-600 mt-0.5">{buyTrades.length} trades</p>
           </div>
           <div className="rounded-xl p-4" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 mb-2">SELL Trades</p>
-            <p className="text-xl font-mono font-bold text-emerald-400">{sellWr.toFixed(1)}%</p>
+            <p className="text-xl font-sans font-bold text-emerald-400">{sellWr.toFixed(1)}%</p>
             <p className="text-[11px] text-zinc-600 mt-0.5">{sellTrades.length} trades</p>
           </div>
         </div>
@@ -1862,9 +1862,9 @@ function TabMAEMFE({ trades }: { trades: Trade[] }) {
                   return (
                     <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
                       <p className="font-bold text-zinc-100">{d.pair}</p>
-                      <p className="text-zinc-400">MFE: <span className="font-mono text-emerald-400">{f$(d.mfe)}</span></p>
-                      <p className="text-zinc-400">P&L: <span className={`font-mono ${pCls(d.pnl)}`}>{f$(d.pnl)}</span></p>
-                      <p className="text-zinc-400">Captured: <span className="font-mono text-zinc-200">{d.captured}%</span></p>
+                      <p className="text-zinc-400">MFE: <span className="font-sans text-emerald-400">{f$(d.mfe)}</span></p>
+                      <p className="text-zinc-400">P&L: <span className={`font-sans ${pCls(d.pnl)}`}>{f$(d.pnl)}</span></p>
+                      <p className="text-zinc-400">Captured: <span className="font-sans text-zinc-200">{d.captured}%</span></p>
                     </div>
                   );
                 }}
@@ -2022,8 +2022,8 @@ function TabCompare({ trades, accounts, selAccount }: { trades: Trade[]; account
             {compRows.map(row => (
               <tr key={row.label} style={{ borderBottom: "1px solid var(--cj-border)" }}>
                 <td className="py-2 px-3 text-zinc-400">{row.label}</td>
-                <td className="py-2 px-3 font-mono font-semibold text-zinc-200">{row.aVal}</td>
-                <td className="py-2 px-3 font-mono text-zinc-500">{row.bVal}</td>
+                <td className="py-2 px-3 font-sans font-semibold text-zinc-200">{row.aVal}</td>
+                <td className="py-2 px-3 font-sans text-zinc-500">{row.bVal}</td>
                 <td className="py-2 px-3 text-lg"><Arrow a={row.a} b={row.b} higherBetter={row.higherBetter !== false} /></td>
               </tr>
             ))}
@@ -2059,10 +2059,10 @@ function TabCompare({ trades, accounts, selAccount }: { trades: Trade[]; account
                   <p className="text-sm font-semibold mb-3" style={{ color }}>{label}</p>
                   {s ? (
                     <div className="space-y-2 text-xs">
-                      <div className="flex justify-between"><span className="text-zinc-500">Win Rate</span><span className="text-zinc-200 font-mono">{s.winRate.toFixed(1)}%</span></div>
-                      <div className="flex justify-between"><span className="text-zinc-500">Total P&L</span><span className={`font-mono font-semibold ${pCls(s.totalPnl)}`}>{f$(s.totalPnl)}</span></div>
-                      <div className="flex justify-between"><span className="text-zinc-500">Trades</span><span className="text-zinc-200 font-mono">{s.n}</span></div>
-                      <div className="flex justify-between"><span className="text-zinc-500">Profit Factor</span><span className="text-zinc-200 font-mono">{s.pf === 999 ? "∞" : s.pf.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span className="text-zinc-500">Win Rate</span><span className="text-zinc-200 font-sans">{s.winRate.toFixed(1)}%</span></div>
+                      <div className="flex justify-between"><span className="text-zinc-500">Total P&L</span><span className={`font-sans font-semibold ${pCls(s.totalPnl)}`}>{f$(s.totalPnl)}</span></div>
+                      <div className="flex justify-between"><span className="text-zinc-500">Trades</span><span className="text-zinc-200 font-sans">{s.n}</span></div>
+                      <div className="flex justify-between"><span className="text-zinc-500">Profit Factor</span><span className="text-zinc-200 font-sans">{s.pf === 999 ? "∞" : s.pf.toFixed(2)}</span></div>
                     </div>
                   ) : <p className="text-zinc-600 text-sm">No trades</p>}
                 </div>

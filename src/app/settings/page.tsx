@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -188,7 +188,7 @@ function ReferralQuickView() {
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Your Code</p>
-            <p className="font-mono font-bold text-[var(--cj-gold)] text-sm">
+            <p className="font-sans font-bold text-[var(--cj-gold)] text-sm">
               {data?.referral_code ?? "—"}
             </p>
           </div>
@@ -648,7 +648,7 @@ export default function SettingsPage() {
                             {account.is_verified ? "Verified" : "Unverified"}
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 font-mono">{account.account_signature}</p>
+                        <p className="text-xs text-zinc-500 font-sans">{account.account_signature}</p>
                         <p className="text-[11px] text-zinc-600 mt-1">
                           {account.sync_method ? `${account.sync_method.toUpperCase()} sync` : "Journal account"}
                           {" "}· Last sync: {timeAgo(account.last_synced_at)}
@@ -683,7 +683,7 @@ export default function SettingsPage() {
                       {account.current_balance != null && (
                         <>
                           <span className="text-zinc-600">Balance</span>
-                          <span className="text-zinc-300 font-mono">
+                          <span className="text-zinc-300 font-sans">
                             {account.current_balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </>
@@ -779,7 +779,7 @@ export default function SettingsPage() {
                           <span className="text-sm font-semibold text-zinc-100">{conn.account_name}</span>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-500 font-mono">
+                      <p className="text-xs text-zinc-500 font-sans">
                         #{conn.mt5_login} · {conn.broker_server}
                       </p>
                     </div>
@@ -816,7 +816,7 @@ export default function SettingsPage() {
                     {conn.account_balance != null && (
                       <>
                         <span className="text-zinc-600">Balance</span>
-                        <span className="text-zinc-300 font-mono">
+                        <span className="text-zinc-300 font-sans">
                           {conn.account_balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
                           {conn.account_currency}
                         </span>
@@ -988,7 +988,7 @@ export default function SettingsPage() {
                         readOnly
                         value={tok.token}
                         className="flex-1 min-w-0 bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-3 py-2
-                                   text-xs font-mono text-zinc-400 focus:outline-none select-all"
+                                   text-xs font-sans text-zinc-400 focus:outline-none select-all"
                       />
                       <button
                         type="button"
@@ -1251,16 +1251,16 @@ export default function SettingsPage() {
                         <tbody>
                           {csvPreview.slice(0, 8).map((row, i) => (
                             <tr key={i} className="border-b border-zinc-800/60 last:border-0">
-                              <td className="px-3 py-2 font-mono font-semibold text-zinc-200">{row.pair}</td>
+                              <td className="px-3 py-2 font-sans font-semibold text-zinc-200">{row.pair}</td>
                               <td className="px-3 py-2">
-                                <span className={`font-mono font-bold text-[10px] ${row.direction === "BUY" ? "text-emerald-400" : "text-rose-400"}`}>
+                                <span className={`font-sans font-bold text-[10px] ${row.direction === "BUY" ? "text-emerald-400" : "text-rose-400"}`}>
                                   {row.direction}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 text-zinc-400 font-mono">{row.lot}</td>
-                              <td className="px-3 py-2 text-zinc-400 font-mono">{row.entry}</td>
-                              <td className="px-3 py-2 text-zinc-400 font-mono">{row.exit}</td>
-                              <td className="px-3 py-2 font-mono font-semibold"
+                              <td className="px-3 py-2 text-zinc-400 font-sans">{row.lot}</td>
+                              <td className="px-3 py-2 text-zinc-400 font-sans">{row.entry}</td>
+                              <td className="px-3 py-2 text-zinc-400 font-sans">{row.exit}</td>
+                              <td className="px-3 py-2 font-sans font-semibold"
                                   style={{ color: row.pnl >= 0 ? "#34d399" : "#f87171" }}>
                                 {row.pnl >= 0 ? "+" : ""}{row.pnl.toFixed(2)}
                               </td>

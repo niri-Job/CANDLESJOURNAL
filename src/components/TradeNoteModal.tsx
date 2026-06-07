@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
@@ -209,7 +209,7 @@ export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModa
               <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
                 Your Notes
               </label>
-              <span className={`text-[10px] font-mono ${overLimit ? "text-rose-400" : "text-zinc-600"}`}>
+              <span className={`text-[10px] font-sans ${overLimit ? "text-rose-400" : "text-zinc-600"}`}>
                 {notes.length}/{MAX_CHARS}
               </span>
             </div>

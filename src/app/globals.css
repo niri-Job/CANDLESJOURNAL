@@ -7,6 +7,10 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @theme {
+  /* ── Single font: Inter for everything ── */
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-inter), system-ui, sans-serif;
+
   /* ── Deep purple-void dark scale — cinematic fintech ── */
   --color-zinc-950: #06000E;   /* page void background               */
   --color-zinc-900: #0C0018;   /* cards, panels                      */
@@ -158,20 +162,21 @@
 body {
   background-color: var(--cj-bg);
   color: var(--cj-text);
-  font-family: var(--font-inter), var(--font-dm-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-dm-sans), var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
+/* All number/stat classes use Inter — no monospace anywhere in the UI */
 .font-mono, code, kbd, pre, [class*="font-mono"] {
-  font-family: var(--font-dm-mono), ui-monospace, "Cascadia Code", monospace;
+  font-family: var(--font-inter), system-ui, sans-serif;
 }
 
 /* ─── Gradient backgrounds ──────────────────────────────────────────────────── */
@@ -212,7 +217,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     border-radius: 8px;
     padding: 10px 12px;
-    font-family: monospace;
+    font-family: var(--font-inter), system-ui, sans-serif;
     font-size: 15px;
     outline: none;
     margin-top: 4px;

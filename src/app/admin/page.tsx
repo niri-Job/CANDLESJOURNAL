@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -517,7 +517,7 @@ export default function AdminPage() {
                 ) : (
                   users.map((u) => (
                     <tr key={u.id} className="border-b border-[var(--cj-border)]/50 hover:bg-[var(--cj-raised)]">
-                      <td className="px-4 py-3 text-[var(--cj-text)] font-mono text-xs">{u.email}</td>
+                      <td className="px-4 py-3 text-[var(--cj-text)] font-sans text-xs">{u.email}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
@@ -602,7 +602,7 @@ export default function AdminPage() {
                 ) : (
                   payouts.map((p) => (
                     <tr key={p.id} className="border-b border-[var(--cj-border)]/50 hover:bg-[var(--cj-raised)]">
-                      <td className="px-4 py-3 text-[var(--cj-text)] text-xs font-mono">{p.referrer_email}</td>
+                      <td className="px-4 py-3 text-[var(--cj-text)] text-xs font-sans">{p.referrer_email}</td>
                       <td className="px-4 py-3 text-[var(--cj-text)]">₦{p.amount_ngn.toLocaleString()}</td>
                       <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">{p.payout_method ?? "—"}</td>
                       <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">{fmt(p.requested_at)}</td>
@@ -871,7 +871,7 @@ export default function AdminPage() {
                     </summary>
                     <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto bg-zinc-900 rounded p-2">
                       {announceResult.errors.map((e, i) => (
-                        <li key={i} className="text-red-400 font-mono break-all">{e}</li>
+                        <li key={i} className="text-red-400 font-sans break-all">{e}</li>
                       ))}
                     </ul>
                   </details>

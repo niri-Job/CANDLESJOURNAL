@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
@@ -74,7 +74,7 @@ function SetupCard({ s }: { s: Setup }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-lg font-bold font-mono text-zinc-100">{s.pair}</p>
+          <p className="text-lg font-bold font-sans text-zinc-100">{s.pair}</p>
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mt-0.5">
             {s.setup_type}
           </p>
@@ -97,7 +97,7 @@ function SetupCard({ s }: { s: Setup }) {
         ].map(({ label, value }) => (
           <div key={label} className="bg-[var(--cj-raised)] rounded-xl p-2.5 text-center">
             <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-0.5">{label}</p>
-            <p className="text-xs font-semibold font-mono text-zinc-200">{value}</p>
+            <p className="text-xs font-semibold font-sans text-zinc-200">{value}</p>
           </div>
         ))}
       </div>
@@ -244,7 +244,7 @@ export default function IntelligencePage() {
                     return (
                       <span
                         key="XAUUSD"
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-[11px] font-semibold"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-sans text-[11px] font-semibold"
                         style={{
                           background: "rgba(245,197,24,0.08)",
                           border: "1px solid rgba(245,197,24,0.22)",
@@ -270,7 +270,7 @@ export default function IntelligencePage() {
                     const isUp = change !== undefined ? change >= 0 : null;
                     const label = key === "BTCUSD" ? "BTC" : key.replace("USD", "");
                     return (
-                      <span key={key} className="flex items-center gap-1 text-[10px] font-mono text-zinc-500">
+                      <span key={key} className="flex items-center gap-1 text-[10px] font-sans text-zinc-500">
                         <span className="text-zinc-700">·</span>
                         <span className="text-zinc-500">{label}</span>
                         <span className="text-zinc-400">
@@ -402,7 +402,7 @@ export default function IntelligencePage() {
                     <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2">Pairs to Watch</p>
                     <div className="flex flex-wrap gap-1.5">
                       {analysis.overview.pairs_to_watch.map((p) => (
-                        <span key={p} className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg
+                        <span key={p} className="text-[11px] font-sans font-semibold px-2.5 py-1 rounded-lg
                                                   bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                           {p}
                         </span>
@@ -413,7 +413,7 @@ export default function IntelligencePage() {
                     <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2">Pairs to Avoid</p>
                     <div className="flex flex-wrap gap-1.5">
                       {analysis.overview.pairs_to_avoid.map((p) => (
-                        <span key={p} className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg
+                        <span key={p} className="text-[11px] font-sans font-semibold px-2.5 py-1 rounded-lg
                                                   bg-rose-500/10 border border-rose-500/20 text-rose-400">
                           {p}
                         </span>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
@@ -168,7 +168,7 @@ function StrategyModal({
             ].map((s) => (
               <div key={s.label} className="bg-[var(--cj-surface)] px-3 py-3 text-center">
                 <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-0.5">{s.label}</p>
-                <p className={`text-sm font-bold font-mono ${s.color}`}>{s.value}</p>
+                <p className={`text-sm font-bold font-sans ${s.color}`}>{s.value}</p>
               </div>
             ))}
           </div>
@@ -186,16 +186,16 @@ function StrategyModal({
               {trades.map((t) => (
                 <div key={t.id} className="flex items-center justify-between px-6 py-3 gap-3 hover:bg-[var(--cj-raised)] transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-sans shrink-0
                       ${t.direction === "BUY" ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"}`}>
                       {t.direction}
                     </span>
-                    <span className="font-mono text-sm font-semibold text-zinc-200 shrink-0">{t.pair}</span>
+                    <span className="font-sans text-sm font-semibold text-zinc-200 shrink-0">{t.pair}</span>
                     <span className="text-xs text-zinc-600 truncate">{fmtDate(t.date)}</span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs text-zinc-600 font-mono">{t.lot}L</span>
-                    <span className={`text-sm font-mono font-semibold ${pnlCls(t.pnl)}`}>{fmt(t.pnl)}</span>
+                    <span className="text-xs text-zinc-600 font-sans">{t.lot}L</span>
+                    <span className={`text-sm font-sans font-semibold ${pnlCls(t.pnl)}`}>{fmt(t.pnl)}</span>
                     <a href="/chart"
                        className="text-[11px] px-2.5 py-1 rounded-lg border border-zinc-700
                                   text-zinc-500 hover:text-[var(--cj-gold)] hover:border-[var(--cj-gold-muted)]
@@ -290,7 +290,7 @@ function StrategyCard({
               {stats.winRate.toFixed(0)}% win rate
             </span>
             <span className="text-zinc-700">·</span>
-            <span className={`font-mono font-semibold ${pnlCls(stats.totalPnl)}`}>
+            <span className={`font-sans font-semibold ${pnlCls(stats.totalPnl)}`}>
               {fmt(stats.totalPnl)} total PnL
             </span>
           </div>
@@ -424,7 +424,7 @@ function StrategyFormPanel({
             onChange={e => setForm(f => ({ ...f, entry_rules: e.target.value }))}
             rows={4}
             placeholder={"Price must be above 200 EMA\nBreak and retest of key level\nConfirmation candle on entry TF"}
-            className={inputCls() + " resize-none font-mono text-xs"}
+            className={inputCls() + " resize-none font-sans text-xs"}
           />
         </div>
 
@@ -436,7 +436,7 @@ function StrategyFormPanel({
             onChange={e => setForm(f => ({ ...f, exit_rules: e.target.value }))}
             rows={3}
             placeholder={"Take partial at 1:2 RR\nTrail stop to breakeven after 1:1"}
-            className={inputCls() + " resize-none font-mono text-xs"}
+            className={inputCls() + " resize-none font-sans text-xs"}
           />
         </div>
 

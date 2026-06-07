@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -614,7 +614,7 @@ export default function CopyTradingPage() {
                     <div className="space-y-2">
                       <p className="text-xs font-medium text-zinc-400">Provider Token</p>
                       <div className="flex items-center gap-2 p-3 rounded-xl" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
-                        <code className="flex-1 text-xs text-[var(--cj-gold)] font-mono break-all select-all">
+                        <code className="flex-1 text-xs text-[var(--cj-gold)] font-sans break-all select-all">
                           {myProvider.provider_token}
                         </code>
                         <button onClick={() => navigator.clipboard.writeText(myProvider!.provider_token!)}

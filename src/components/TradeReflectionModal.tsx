@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 
@@ -167,7 +167,7 @@ export function TradeReflectionModal({ trade, onClose }: TradeReflectionModalPro
               ].map((item) => (
                 <div key={item.label}>
                   <p className="text-[9px] uppercase tracking-wider text-zinc-600 mb-1">{item.label}</p>
-                  <p className={`font-mono text-xs ${item.cls ?? "text-zinc-300"}`}>{item.value}</p>
+                  <p className={`font-sans text-xs ${item.cls ?? "text-zinc-300"}`}>{item.value}</p>
                 </div>
               ))}
             </div>

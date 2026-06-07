@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useEffect, useState } from "react";
 
@@ -150,7 +150,7 @@ export function PerformanceBadge({ trades }: { trades: Trade[] }) {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-2xl leading-none">{badge.icon}</span>
-              <span className="font-mono text-xl font-bold leading-none mt-0.5"
+              <span className="font-sans text-xl font-bold leading-none mt-0.5"
                     style={{ color: "var(--cj-gold)" }}>
                 {score}
               </span>
@@ -180,7 +180,7 @@ export function PerformanceBadge({ trades }: { trades: Trade[] }) {
             <div key={label}>
               <div className="flex justify-between text-[13px] mb-1">
                 <span className="text-zinc-500">{label}</span>
-                <span className="font-mono text-zinc-400">{pts}/{max}</span>
+                <span className="font-sans text-zinc-400">{pts}/{max}</span>
               </div>
               <div className="h-1.5 rounded-full overflow-hidden"
                    style={{ background: "var(--cj-border)" }}>

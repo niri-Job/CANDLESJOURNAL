@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -138,7 +138,7 @@ function Gauge({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span className="text-2xl font-bold font-mono leading-none" style={{ color: col }}>{score}</span>
+        <span className="text-2xl font-bold font-sans leading-none" style={{ color: col }}>{score}</span>
         <span className="text-[10px] text-zinc-600 leading-none">/ 100</span>
         <span className="text-xs font-bold mt-0.5" style={{ color: col }}>{scoreLabel(score)}</span>
       </div>
@@ -153,7 +153,7 @@ function WeekTooltip({ active, payload, label }: {
   return (
     <div className="bg-[var(--cj-raised)] border border-zinc-700 rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-zinc-500 mb-0.5">{label}</p>
-      <p className="font-mono font-semibold" style={{ color: scoreColor(payload[0].value) }}>
+      <p className="font-sans font-semibold" style={{ color: scoreColor(payload[0].value) }}>
         {payload[0].value}/100
       </p>
     </div>
@@ -227,7 +227,7 @@ export function DisciplineScore({ trades }: { trades: Trade[] }) {
             <div key={c.label}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-zinc-400 font-medium">{c.label}</span>
-                <span className="text-xs font-mono font-semibold" style={{ color: scoreColor((c.score / c.max) * 100) }}>
+                <span className="text-xs font-sans font-semibold" style={{ color: scoreColor((c.score / c.max) * 100) }}>
                   {c.score}/{c.max}
                 </span>
               </div>

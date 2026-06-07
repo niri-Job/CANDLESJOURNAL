@@ -199,6 +199,36 @@ function setupBreakdown(trades: Trade[]) {
   })).sort((a, b) => b.pnl - a.pnl);
 }
 
+const ASSET_CLASS_ORDER = ["Forex", "Metals", "Crypto", "Indices", "Other"];
+
+function assetClassBreakdown(trades: Trade[]) {
+  const map: Record<string, { pnl: number; wins: number; n: number; gw: number; gl: number; best: number; worst: number }> = {};
+  trades.forEach(t => {
+    const raw = t.asset_class?.trim();
+    const k = raw && ASSET_CLASS_ORDER.includes(raw) ? raw : "Other";
+    if (!map[k]) map[k] = { pnl: 0, wins: 0, n: 0, gw: 0, gl: 0, best: -1e9, worst: 1e9 };
+    const m = map[k];
+    m.pnl += t.pnl; m.n++;
+    if (t.pnl > 0) { m.wins++; m.gw += t.pnl; } else m.gl += Math.abs(t.pnl);
+    if (t.pnl > m.best) m.best = t.pnl;
+    if (t.pnl < m.worst) m.worst = t.pnl;
+  });
+  return ASSET_CLASS_ORDER
+    .filter(k => map[k])
+    .map(k => {
+      const m = map[k];
+      return {
+        assetClass: k, trades: m.n,
+        winRate:   +(m.wins / m.n * 100).toFixed(1),
+        totalPnl:  +m.pnl.toFixed(2),
+        avgPnl:    +(m.pnl / m.n).toFixed(2),
+        best:      +m.best.toFixed(2),
+        worst:     +m.worst.toFixed(2),
+        pf: m.gl > 0 ? +(m.gw / m.gl).toFixed(2) : m.gw > 0 ? 999 : 0,
+      };
+    });
+}
+
 function hourBreakdown(trades: Trade[]) {
   const map: Record<number, { pnl: number; wins: number; n: number }> = {};
   for (let h = 0; h < 24; h++) map[h] = { pnl: 0, wins: 0, n: 0 };
@@ -604,6 +634,7 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
   const sessions = useMemo(() => sessionBreakdown(trades), [trades]);
   const days     = useMemo(() => dayBreakdown(trades), [trades]);
   const setups   = useMemo(() => setupBreakdown(trades), [trades]);
+  const assets   = useMemo(() => assetClassBreakdown(trades), [trades]);
 
   if (!trades.length) return <Empty />;
 
@@ -771,6 +802,88 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
           </div>
         </div>
       )}
+
+      {/* Asset class breakdown */}
+      {assets.length > 0 && (() => {
+        const best  = [...assets].sort((a, b) => b.winRate - a.winRate)[0];
+        const worst = [...assets].sort((a, b) => a.totalPnl - b.totalPnl)[0];
+        const insightMsg = best.assetClass === worst.assetClass
+          ? `Your strongest asset class is ${best.assetClass} with ${best.winRate}% win rate.`
+          : `Your best asset class is ${best.assetClass} with ${best.winRate}% win rate. You lose most on ${worst.assetClass} — consider reducing exposure.`;
+        return (
+          <div className="space-y-6">
+            <div>
+              <SectionHead>Asset Class Breakdown</SectionHead>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--cj-border)" }}>
+                      {["Asset Class", "Trades", "Win %", "Total P&L", "Avg P&L", "Best", "Worst", "P.Factor"].map(h => (
+                        <th key={h} className="py-2 px-3 text-left text-zinc-500 uppercase tracking-wide font-semibold whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assets.map(row => (
+                      <tr key={row.assetClass}
+                        style={{ borderBottom: "1px solid var(--cj-border)", background: row.totalPnl > 0 ? "rgba(52,211,153,0.04)" : row.totalPnl < 0 ? "rgba(248,113,113,0.04)" : undefined }}>
+                        <td className="py-2 px-3 font-semibold text-zinc-200">{row.assetClass}</td>
+                        <td className="py-2 px-3 text-zinc-400">{row.trades}</td>
+                        <td className={`py-2 px-3 font-mono font-semibold ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
+                        <td className={`py-2 px-3 font-mono font-semibold ${pCls(row.totalPnl)}`}>{f$(row.totalPnl)}</td>
+                        <td className={`py-2 px-3 font-mono ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
+                        <td className="py-2 px-3 font-mono text-emerald-400">{f$(row.best)}</td>
+                        <td className="py-2 px-3 font-mono text-rose-400">{f$(row.worst)}</td>
+                        <td className={`py-2 px-3 font-mono ${row.pf >= 1.5 ? "text-emerald-400" : row.pf >= 1 ? "text-yellow-400" : "text-rose-400"}`}>
+                          {row.pf === 999 ? "∞" : row.pf.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <SectionHead>P&L by Asset Class</SectionHead>
+                <ChartBox height={200}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={assets} margin={{ top: 4, right: 12, left: 0, bottom: 0 }} barSize={36}>
+                      <XAxis dataKey="assetClass" tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} width={60} />
+                      <Tooltip content={<PnlTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                      <ReferenceLine y={0} stroke="#3f3f46" />
+                      <Bar dataKey="totalPnl" radius={[4, 4, 0, 0]}>
+                        {assets.map((a, i) => <Cell key={i} fill={a.totalPnl >= 0 ? GRN : RED} fillOpacity={0.8} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartBox>
+              </div>
+
+              <div>
+                <SectionHead>Win Rate % by Asset Class</SectionHead>
+                <ChartBox height={200}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={assets} margin={{ top: 4, right: 12, left: 0, bottom: 0 }} barSize={36}>
+                      <XAxis dataKey="assetClass" tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis domain={[0, 100]} tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} width={40} />
+                      <Tooltip content={<WrTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                      <ReferenceLine y={50} stroke="#3f3f46" strokeDasharray="3 3" />
+                      <Bar dataKey="winRate" radius={[4, 4, 0, 0]}>
+                        {assets.map((a, i) => <Cell key={i} fill={a.winRate >= 50 ? GRN : RED} fillOpacity={0.75} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartBox>
+              </div>
+            </div>
+
+            <InsightCard icon="›" text={insightMsg} highlight />
+          </div>
+        );
+      })()}
     </div>
   );
 }

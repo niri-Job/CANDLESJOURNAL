@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   AreaChart, Area, BarChart, Bar, ComposedChart, Line,
+  ScatterChart, Scatter,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
 import { Sidebar } from "@/components/Sidebar";
@@ -19,6 +20,7 @@ interface Trade {
   exit_price: number; sl: number | null; tp: number | null;
   pnl: number; notes: string; emotion?: string | null;
   entry_emotion?: string | null; exit_emotion?: string | null;
+  mae?: number | null; mfe?: number | null;
   asset_class: string; session: string; setup: string;
   account_signature?: string | null; account_label?: string | null;
   opened_at?: string | null; closed_at?: string | null;
@@ -32,7 +34,7 @@ interface TradingAccount {
 
 const TABS = [
   "OVERVIEW", "PERFORMANCE", "TIME ANALYSIS", "RISK",
-  "PSYCHOLOGY", "WINS VS LOSSES", "STREAKS", "COMPARE",
+  "PSYCHOLOGY", "WINS VS LOSSES", "STREAKS", "COMPARE", "MAE/MFE",
 ] as const;
 type Tab = typeof TABS[number];
 
@@ -1754,15 +1756,154 @@ function TabStreaks({ trades }: { trades: Trade[] }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// TAB: MAE/MFE
+// ═══════════════════════════════════════════════════════════════
+function computeMaeMfe(t: Trade): { mae: number; mfe: number } | null {
+  if (t.mae != null && t.mfe != null) return { mae: t.mae, mfe: t.mfe };
+  if (!t.sl || !t.tp) return null;
+  const priceMove = t.exit_price - t.entry;
+  if (priceMove === 0 || t.entry === 0) return null;
+  const absRate = Math.abs(t.pnl / priceMove);
+  const maePrice = t.direction === "BUY" ? t.entry - t.sl   : t.sl   - t.entry;
+  const mfePrice = t.direction === "BUY" ? t.tp   - t.entry : t.entry - t.tp;
+  if (maePrice < 0 || mfePrice <= 0) return null;
+  return {
+    mae: +(maePrice * absRate).toFixed(2),
+    mfe: +(mfePrice * absRate).toFixed(2),
+  };
+}
+
+function TabMAEMFE({ trades }: { trades: Trade[] }) {
+  if (!trades.length) return <Empty />;
+
+  const plotData = useMemo(() => {
+    const out: { mfe: number; pnl: number; pair: string; captured: number }[] = [];
+    for (const t of trades) {
+      const mm = computeMaeMfe(t);
+      if (!mm || mm.mfe <= 0) continue;
+      out.push({
+        mfe:      mm.mfe,
+        pnl:      +t.pnl.toFixed(2),
+        pair:     t.pair,
+        captured: +(t.pnl / mm.mfe * 100).toFixed(1),
+      });
+    }
+    return out;
+  }, [trades]);
+
+  const summary = useMemo(() => {
+    if (!plotData.length) return null;
+    const avgMae  = +(plotData.reduce((s, d) => {
+      const mm = computeMaeMfe(trades.find(t => t.pair === d.pair && +t.pnl.toFixed(2) === d.pnl)!);
+      return s + (mm?.mae ?? 0);
+    }, 0) / plotData.length).toFixed(2);
+
+    // Recompute from trades directly for accuracy
+    const rows = trades.map(t => ({ t, mm: computeMaeMfe(t) })).filter(r => r.mm && r.mm.mfe > 0);
+    const avgMaeFinal  = +(rows.reduce((s, r) => s + r.mm!.mae, 0) / rows.length).toFixed(2);
+    const avgMfeFinal  = +(rows.reduce((s, r) => s + r.mm!.mfe, 0) / rows.length).toFixed(2);
+    const captures     = rows.map(r => r.t.pnl / r.mm!.mfe);
+    const avgCapture   = +(captures.reduce((s, c) => s + c, 0) / captures.length * 100).toFixed(1);
+    const bestCapture  = +(Math.max(...captures) * 100).toFixed(1);
+    const hitTp = rows.filter(r => {
+      const t = r.t;
+      return t.direction === "BUY" ? t.exit_price >= (t.tp ?? -Infinity) : t.exit_price <= (t.tp ?? Infinity);
+    }).length;
+    const pctHitTp = +((hitTp / rows.length) * 100).toFixed(1);
+    void avgMae;
+    return { avgMae: avgMaeFinal, avgMfe: avgMfeFinal, avgCapture, bestCapture, pctHitTp, n: rows.length };
+  }, [trades, plotData]);
+
+  const wins   = plotData.filter(d => d.pnl > 0);
+  const losses = plotData.filter(d => d.pnl <= 0);
+
+  const insightMsg = summary
+    ? `On average you capture ${summary.avgCapture}% of your available profit. Your best trades capture ${summary.bestCapture}%. There's ${Math.max(0, +(100 - summary.avgCapture).toFixed(1))}% more profit being left on the table.`
+    : null;
+
+  if (!plotData.length) return (
+    <div className="space-y-4">
+      <SectionHead>MAE / MFE Analysis</SectionHead>
+      <InsightCard icon="›" text="Set SL and TP on your trades to unlock MAE/MFE analysis." />
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      {/* Summary stats */}
+      {summary && (
+        <div>
+          <SectionHead>MAE / MFE Summary</SectionHead>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatCard label="Avg MAE (risk)"    value={f$(summary.avgMae)}               color="text-rose-400"    sub="approx. from SL" />
+            <StatCard label="Avg MFE (potential)" value={f$(summary.avgMfe)}             color="text-emerald-400" sub="approx. from TP" />
+            <StatCard label="Avg Capture Ratio"  value={`${summary.avgCapture}%`}        color={summary.avgCapture >= 60 ? "text-emerald-400" : summary.avgCapture >= 40 ? "text-yellow-400" : "text-rose-400"} sub="actual P&L / MFE" />
+            <StatCard label="% Hit Full TP"      value={`${summary.pctHitTp}%`}          color={summary.pctHitTp >= 50 ? "text-emerald-400" : "text-rose-400"} sub={`${summary.n} trades analysed`} />
+          </div>
+        </div>
+      )}
+
+      {/* Scatter: MFE vs Actual P&L */}
+      <div>
+        <SectionHead>MFE (Potential Profit) vs Actual P&L</SectionHead>
+        <p className="text-[11px] text-zinc-500 -mt-2 mb-3">Green = winning trades · Red = losing trades · Dots higher up relative to the X-axis captured more of the move</p>
+        <ChartBox height={280}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ScatterChart margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+              <XAxis type="number" dataKey="mfe" name="MFE" tickFormatter={v => `$${v}`}
+                tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false}
+                label={{ value: "MFE ($)", position: "insideBottom", offset: -4, fill: "#52525b", fontSize: 10 }} />
+              <YAxis type="number" dataKey="pnl" name="P&L" tickFormatter={v => `$${v}`}
+                tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} width={64} />
+              <Tooltip cursor={{ strokeDasharray: "3 3" }}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload as { mfe: number; pnl: number; pair: string; captured: number };
+                  return (
+                    <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+                      <p className="font-bold text-zinc-100">{d.pair}</p>
+                      <p className="text-zinc-400">MFE: <span className="font-mono text-emerald-400">{f$(d.mfe)}</span></p>
+                      <p className="text-zinc-400">P&L: <span className={`font-mono ${pCls(d.pnl)}`}>{f$(d.pnl)}</span></p>
+                      <p className="text-zinc-400">Captured: <span className="font-mono text-zinc-200">{d.captured}%</span></p>
+                    </div>
+                  );
+                }}
+              />
+              <ReferenceLine y={0} stroke="#3f3f46" strokeDasharray="3 3" />
+              <Scatter name="Wins"   data={wins}   fill={GRN} fillOpacity={0.75} />
+              <Scatter name="Losses" data={losses} fill={RED} fillOpacity={0.75} />
+            </ScatterChart>
+          </ResponsiveContainer>
+        </ChartBox>
+      </div>
+
+      {/* Auto-insight */}
+      {insightMsg && <InsightCard icon="›" text={insightMsg} highlight />}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // TAB: COMPARE
 // ═══════════════════════════════════════════════════════════════
-function TabCompare({ trades, accounts }: { trades: Trade[]; accounts: TradingAccount[] }) {
+function TabCompare({ trades, accounts, selAccount }: { trades: Trade[]; accounts: TradingAccount[]; selAccount: string }) {
   const today = new Date().toISOString().slice(0, 10);
   const [preset, setPreset] = useState<"week" | "month" | "custom">("month");
   const [aFrom, setAFrom] = useState("");
   const [aTo,   setATo]   = useState("");
   const [bFrom, setBFrom] = useState("");
   const [bTo,   setBTo]   = useState("");
+
+  // Respect the top-level account filter
+  const baseTrades = useMemo(() =>
+    selAccount ? trades.filter(t => t.account_signature === selAccount) : trades,
+    [trades, selAccount]
+  );
+
+  const selectedAcctInfo = selAccount ? accounts.find(a => a.account_signature === selAccount) : null;
+  const acctLabel = selectedAcctInfo
+    ? `${selectedAcctInfo.account_login || selectedAcctInfo.account_signature}${selectedAcctInfo.account_label ? ` — ${selectedAcctInfo.account_label}` : ""}`
+    : "All Accounts";
 
   const ranges = useMemo(() => {
     if (preset === "week") {
@@ -1785,8 +1926,8 @@ function TabCompare({ trades, accounts }: { trades: Trade[]; accounts: TradingAc
     return { aFrom, aTo, bFrom, bTo, aLabel: "Period A", bLabel: "Period B" };
   }, [preset, aFrom, aTo, bFrom, bTo, today]);
 
-  const aTradesRaw = useMemo(() => trades.filter(t => inRange(t.date, ranges.aFrom, ranges.aTo)), [trades, ranges]);
-  const bTradesRaw = useMemo(() => trades.filter(t => inRange(t.date, ranges.bFrom, ranges.bTo)), [trades, ranges]);
+  const aTradesRaw = useMemo(() => baseTrades.filter(t => inRange(t.date, ranges.aFrom, ranges.aTo)), [baseTrades, ranges]);
+  const bTradesRaw = useMemo(() => baseTrades.filter(t => inRange(t.date, ranges.bFrom, ranges.bTo)), [baseTrades, ranges]);
   const stA = useMemo(() => coreStats(aTradesRaw), [aTradesRaw]);
   const stB = useMemo(() => coreStats(bTradesRaw), [bTradesRaw]);
 
@@ -1828,6 +1969,9 @@ function TabCompare({ trades, accounts }: { trades: Trade[]; accounts: TradingAc
       {/* Preset selector */}
       <div>
         <SectionHead>Compare Periods</SectionHead>
+        <p className="text-[11px] text-zinc-500 -mt-2 mb-4">
+          Comparing: <span className="text-zinc-300">{acctLabel}</span>
+        </p>
         <div className="flex flex-wrap gap-2 mb-4">
           {([["week","This Week vs Last Week"],["month","This Month vs Last Month"],["custom","Custom"]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setPreset(k)}
@@ -1957,7 +2101,7 @@ export default function ReportsPage() {
       setUser(u);
 
       // Try with opened_at/closed_at; fall back without them if the columns don't exist yet
-      const FULL_COLS     = "id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,entry_emotion,exit_emotion,asset_class,session,setup,account_signature,account_label,opened_at,closed_at";
+      const FULL_COLS     = "id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,entry_emotion,exit_emotion,mae,mfe,asset_class,session,setup,account_signature,account_label,opened_at,closed_at";
       const FALLBACK_COLS = "id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,asset_class,session,setup,account_signature,account_label";
 
       const [tradesRes, { data: aData }] = await Promise.all([
@@ -2100,7 +2244,8 @@ export default function ReportsPage() {
             {tab === "PSYCHOLOGY"    && <TabPsychology    trades={filtered} />}
             {tab === "WINS VS LOSSES" && <TabWinsVsLosses trades={filtered} />}
             {tab === "STREAKS"       && <TabStreaks       trades={filtered} />}
-            {tab === "COMPARE"       && <TabCompare       trades={trades}   accounts={accounts} />}
+            {tab === "COMPARE"       && <TabCompare       trades={trades}   accounts={accounts} selAccount={selAccount} />}
+            {tab === "MAE/MFE"       && <TabMAEMFE        trades={filtered} />}
           </div>
 
         </main>

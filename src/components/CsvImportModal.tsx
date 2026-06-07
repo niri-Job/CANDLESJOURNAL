@@ -20,6 +20,52 @@ interface Props {
 
 function normKey(h: string) { return h.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 
+/** Convert an MT5 HTML report into a CSV string that clientParseCSV understands. */
+function parseHTMLToCSV(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const tables = Array.from(doc.querySelectorAll("table"));
+
+  for (const table of tables) {
+    const rows = Array.from(table.querySelectorAll("tr"));
+    let headerIdx = -1;
+    let headers: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const cells = Array.from(rows[i].querySelectorAll("th,td"))
+        .map((c) => c.textContent?.trim() ?? "");
+      const norm = cells.map((c) => c.toLowerCase().replace(/[^a-z0-9]/g, ""));
+      const hasSymbol = norm.some((c) => c.includes("symbol") || c === "item" || c === "asset");
+      const hasType   = norm.some((c) => c === "type" || c === "direction");
+      const hasTicket = norm.some((c) => c.includes("ticket") || c === "" + i || c === "deal" || c === "order");
+      if (hasSymbol && hasType && cells.length >= 5) {
+        // prefer rows that also have ticket; settle for symbol+type
+        if (hasTicket || headerIdx === -1) {
+          headerIdx = i;
+          headers = cells;
+        }
+        if (hasTicket) break;
+      }
+    }
+
+    if (headerIdx === -1 || headers.length < 4) continue;
+
+    const csvLines: string[] = [headers.map((h) => `"${h}"`).join(",")];
+
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const cells = Array.from(rows[i].querySelectorAll("td"))
+        .map((c) => c.textContent?.trim() ?? "");
+      if (cells.length < Math.floor(headers.length / 2)) continue;
+      // skip summary/totals rows (most cells empty or only 1–2 have values)
+      const filled = cells.filter((c) => c !== "").length;
+      if (filled <= 2) continue;
+      csvLines.push(cells.map((c) => `"${c.replace(/"/g, "'")}"`).join(","));
+    }
+
+    if (csvLines.length > 1) return csvLines.join("\n");
+  }
+  return "";
+}
+
 function clientParseCSV(content: string): PreviewRow[] {
   const lines = content.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("---"));
   if (lines.length < 2) return [];
@@ -125,13 +171,23 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
     setFileName(file.name);
     setError(null);
 
-    const isXlsx = file.name.toLowerCase().endsWith(".xlsx") || file.name.toLowerCase().endsWith(".xls");
+    const ext = file.name.toLowerCase().split(".").pop() ?? "";
+    const isXlsx = ext === "xlsx" || ext === "xls";
+    const isHTML = ext === "htm" || ext === "html";
+    const isPDF  = ext === "pdf";
+
+    if (isPDF) {
+      setError("PDF format is not supported. Please export as CSV or Excel from MT5: Account History → right-click → Save as Report.");
+      setPreview(null);
+      e.target.value = "";
+      return;
+    }
 
     function applyText(text: string) {
       setCsvRaw(text);
       const rows = clientParseCSV(text);
       if (rows.length === 0) {
-        setError("No valid trades found. Export from MT5 → Account History → right-click → Save as Report → CSV or XLSX.");
+        setError("No valid trades found. Export from MT5 → Account History → right-click → Save as Report → CSV, Excel, or HTML.");
         setPreview(null);
       } else {
         setPreview(rows);
@@ -149,11 +205,27 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
           const csv  = XLSX.utils.sheet_to_csv(ws);
           applyText(csv);
         } catch {
-          setError("Could not read XLSX file. Make sure it is a valid Excel export.");
+          setError("Could not read Excel file. Make sure it is a valid MT5 export.");
           setPreview(null);
         }
       };
       reader.readAsArrayBuffer(file);
+    } else if (isHTML) {
+      reader.onload = (ev) => {
+        try {
+          const csv = parseHTMLToCSV(ev.target?.result as string);
+          if (!csv) {
+            setError("Could not find a trade table in this HTML file. Make sure it is an MT5 Account History HTML export.");
+            setPreview(null);
+          } else {
+            applyText(csv);
+          }
+        } catch {
+          setError("Could not parse HTML file. Make sure it is an MT5 Account History export.");
+          setPreview(null);
+        }
+      };
+      reader.readAsText(file);
     } else {
       reader.onload = (ev) => applyText(ev.target?.result as string);
       reader.readAsText(file);
@@ -167,7 +239,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
     setTouched({ login: true, broker: true });
     if (!login.trim())  { setError("MT5 Login Number is required."); return; }
     if (!broker.trim()) { setError("Broker is required."); return; }
-    if (!csvRaw)        { setError("Please select a CSV file."); return; }
+    if (!csvRaw)        { setError("Please select a file first."); return; }
 
     setImporting(true);
     setError(null);
@@ -238,7 +310,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
         }}>
           <div>
             <p style={{ fontWeight: 600, fontSize: 15, color: "#f4f4f5", margin: 0 }}>Import MT5 History</p>
-            <p style={{ fontSize: 12, color: "#71717a", margin: "3px 0 0" }}>Upload your account history export from MT5 (.csv or .xlsx)</p>
+            <p style={{ fontSize: 12, color: "#71717a", margin: "3px 0 0" }}>Upload your MT5 history — CSV, Excel, or HTML format accepted.</p>
           </div>
           <button
             onClick={onClose}
@@ -356,7 +428,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
             padding: "16px 16px 18px",
           }}>
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#C4973E", margin: "0 0 10px" }}>
-              Step 2 — CSV or XLSX File
+              Step 2 — History File
             </p>
 
             <div style={{
@@ -364,7 +436,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
               background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)",
               borderRadius: 10, padding: "10px 12px", marginBottom: 12,
             }}>
-              In MT5: <strong>View → Terminal → Account History</strong> → right-click → <strong>Save as Report → CSV</strong>.
+              In MT5: <strong>View → Terminal → Account History</strong> → right-click → <strong>Save as Report</strong> → choose CSV, HTML, or Excel.
             </div>
 
             <label style={{
@@ -380,9 +452,9 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
                 <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
               <span style={{ fontSize: 13, color: preview ? "#86efac" : "#71717a" }}>
-                {fileName ? fileName : "Click to choose a .csv, .xlsx, or .txt file"}
+                {fileName ? fileName : "Click to choose a .csv, .xlsx, .htm, or .html file"}
               </span>
-              <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" style={{ display: "none" }} onChange={handleFile} />
+              <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.htm,.html,.txt" style={{ display: "none" }} onChange={handleFile} />
             </label>
           </div>
 

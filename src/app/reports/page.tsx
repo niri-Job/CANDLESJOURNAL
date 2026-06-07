@@ -776,6 +776,109 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DAY DRAWER (Time Analysis drill-down)
+// ═══════════════════════════════════════════════════════════════
+function DayDrawer({ date, trades, onClose }: { date: string; trades: Trade[]; onClose: () => void }) {
+  const wins     = trades.filter(t => t.pnl > 0);
+  const totalPnl = trades.reduce((s, t) => s + t.pnl, 0);
+  const winRate  = trades.length ? wins.length / trades.length * 100 : 0;
+  const best     = trades.length ? Math.max(...trades.map(t => t.pnl)) : 0;
+  const worst    = trades.length ? Math.min(...trades.map(t => t.pnl)) : 0;
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("niri:page-message", {
+      detail: { message: "Let's look at what actually happened that day. No excuses, just data." },
+    }));
+  }, []);
+
+  function fmtTime(iso?: string | null) {
+    if (!iso) return "—";
+    try { return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+    catch { return "—"; }
+  }
+
+  const sorted = [...trades].sort((a, b) =>
+    (a.opened_at || a.date) < (b.opened_at || b.date) ? -1 : 1
+  );
+
+  return (
+    <>
+      <style>{`@keyframes cj-slide-right{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
+      {/* backdrop */}
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      {/* drawer */}
+      <div
+        className="fixed top-0 right-0 h-full z-50 flex flex-col overflow-hidden"
+        style={{
+          width: "min(440px, 100vw)",
+          background: "var(--cj-bg)",
+          borderLeft: "1px solid var(--cj-border)",
+          boxShadow: "-12px 0 40px rgba(0,0,0,0.6)",
+          animation: "cj-slide-right 0.22s cubic-bezier(0.16,1,0.3,1) forwards",
+        }}
+      >
+        {/* header */}
+        <div className="flex items-center justify-between px-5 py-4 shrink-0"
+          style={{ borderBottom: "1px solid var(--cj-border)" }}>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500">Day Review</p>
+            <h2 className="text-lg font-bold text-zinc-100 mt-0.5">{date}</h2>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors text-xl leading-none">
+            ×
+          </button>
+        </div>
+
+        {/* summary stats */}
+        <div className="grid grid-cols-2 gap-2 px-5 py-4 shrink-0"
+          style={{ borderBottom: "1px solid var(--cj-border)" }}>
+          <StatCard label="Total P&L"   value={f$(totalPnl)} color={pCls(totalPnl)} />
+          <StatCard label="Trades"      value={String(trades.length)} />
+          <StatCard label="Win Rate"    value={winRate.toFixed(1) + "%"}
+            color={winRate >= 50 ? "text-emerald-400" : "text-rose-400"}
+            sub={`${wins.length}W / ${trades.length - wins.length}L`} />
+          <StatCard label="Best Trade"  value={f$(best)}  color="text-emerald-400" />
+          <StatCard label="Worst Trade" value={f$(worst)} color="text-rose-400" />
+        </div>
+
+        {/* trade list */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Trades That Day</p>
+          <div className="space-y-2">
+            {sorted.map(t => (
+              <div key={t.id} className="rounded-xl px-3 py-2.5"
+                style={{
+                  background: t.pnl > 0 ? "rgba(52,211,153,0.07)" : "rgba(248,113,113,0.07)",
+                  border: `1px solid ${t.pnl > 0 ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}`,
+                }}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-zinc-100">{t.pair}</span>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                      t.direction === "BUY"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-rose-500/20 text-rose-400"
+                    }`}>{t.direction}</span>
+                    <span className="text-[10px] text-zinc-500">{t.lot}L</span>
+                  </div>
+                  <span className={`text-sm font-mono font-bold ${pCls(t.pnl)}`}>{f$(t.pnl)}</span>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] text-zinc-500 flex-wrap">
+                  {t.session  && <span>{t.session}</span>}
+                  {t.emotion  && <span className="capitalize">{EMOTION_LABEL[t.emotion] || t.emotion}</span>}
+                  <span className="font-mono">{fmtTime(t.opened_at)} → {fmtTime(t.closed_at)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // TAB: TIME ANALYSIS
 // ═══════════════════════════════════════════════════════════════
 function TabTime({ trades }: { trades: Trade[] }) {
@@ -802,6 +905,12 @@ function TabTime({ trades }: { trades: Trade[] }) {
   const today    = new Date();
   const [month, setMonth] = useState(today.getMonth());
   const [year,  setYear]  = useState(today.getFullYear());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  const selectedDayTrades = useMemo(() =>
+    selectedDay ? trades.filter(t => t.date.slice(0, 10) === selectedDay) : [],
+    [trades, selectedDay]
+  );
 
   const canNext = year < today.getFullYear() || (year === today.getFullYear() && month < today.getMonth());
   function prevM() { if (month === 0) { setYear(y => y-1); setMonth(11); } else setMonth(m => m-1); }
@@ -916,8 +1025,10 @@ function TabTime({ trades }: { trades: Trade[] }) {
                 : pnl > 0 ? `rgba(52,211,153,${0.15 + intensity * 0.6})`
                 : `rgba(248,113,113,${0.15 + intensity * 0.6})`;
               return (
-                <div key={ds} title={entry ? `${ds}: ${f$(pnl)} (${entry.count} trades)` : ds}
-                  className="rounded h-8 flex items-center justify-center text-[10px] font-medium cursor-default transition-opacity hover:opacity-80"
+                <div key={ds}
+                  title={entry ? `${ds}: ${f$(pnl)} (${entry.count} trades) — click to drill down` : ds}
+                  onClick={() => entry && setSelectedDay(ds)}
+                  className={`rounded h-8 flex items-center justify-center text-[10px] font-medium transition-opacity hover:opacity-80 ${entry ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"}`}
                   style={{ background: bg, color: entry ? (pnl > 0 ? GRN : RED) : "#52525b" }}>
                   {day}
                 </div>
@@ -926,6 +1037,13 @@ function TabTime({ trades }: { trades: Trade[] }) {
           </div>
         </div>
       </div>
+      {selectedDay && (
+        <DayDrawer
+          date={selectedDay}
+          trades={selectedDayTrades}
+          onClose={() => setSelectedDay(null)}
+        />
+      )}
     </div>
   );
 }

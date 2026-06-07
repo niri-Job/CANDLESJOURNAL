@@ -503,7 +503,29 @@ class MT5Manager:
 
             currency = account_data.get("currency") or "USD"
             balance  = float(account_data.get("balance", 0.0))
+            equity   = float(account_data.get("equity",  0.0))
             acc_name = account_data.get("name") or ""
+
+            # ── Balance reconstruction ────────────────────────────────────────
+            # AccountInfoDouble(ACCOUNT_BALANCE) returns 0 for some brokers /
+            # account types in the Wine environment (confirmed on Exness demo).
+            # When balance is 0, reconstruct it from two fallback strategies:
+            #
+            # 1. Equity fallback: equity = balance + open-position float P&L.
+            #    For accounts with no open positions, equity == balance.
+            if balance == 0.0 and equity != 0.0:
+                balance = equity
+            #
+            # 2. Deal-history fallback: the DataExport EA exports ALL deal types
+            #    including DEAL_TYPE_BALANCE (type=2) which represents deposits/
+            #    withdrawals.  Summing all deal profits gives the closed-trade
+            #    running balance regardless of what AccountInfoDouble returns.
+            #    This is reliable for every broker, account type, and platform.
+            if balance == 0.0 and deals_raw:
+                balance = round(
+                    sum(float(d.get("profit", 0)) for d in deals_raw), 2
+                )
+            # ─────────────────────────────────────────────────────────────────
 
             conn_update: dict = {
                 "status":         "connected",
@@ -516,6 +538,10 @@ class MT5Manager:
             if has_real_data:
                 conn_update["account_name"]     = acc_name
                 conn_update["account_currency"] = currency
+                conn_update["account_balance"]  = balance
+            elif balance != 0.0:
+                # Even without real account data, we can update balance
+                # when deal-history reconstruction produced a non-zero result.
                 conn_update["account_balance"]  = balance
 
             self.supabase.table("mt5_connections").update(conn_update)\

@@ -69,40 +69,53 @@ function parseHTMLToCSV(html: string): string {
 function clientParseCSV(content: string): PreviewRow[] {
   const lines = content.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("---"));
   if (lines.length < 2) return [];
-  const delim = lines[0].includes(";") ? ";" : ",";
+  const delim = lines[0].includes("\t") ? "\t" : lines[0].includes(";") ? ";" : ",";
   const headers = lines[0].split(delim).map((h) => normKey(h.replace(/^"|"$/g, "")));
-  function idx(aliases: string[]) {
+
+  // Tier-1 exact, Tier-2 substring (alias ≥4 chars to avoid false hits)
+  function idx(aliases: string[]): number {
     for (const a of aliases) {
-      const i = headers.findIndex((h) => h.includes(a) || a.includes(h));
+      const i = headers.indexOf(a);
+      if (i >= 0) return i;
+    }
+    for (const a of aliases) {
+      if (a.length < 4) continue;
+      const i = headers.findIndex((h) => h.includes(a));
       if (i >= 0) return i;
     }
     return -1;
   }
+
   const COL = {
-    type:       idx(["type"]),
-    volume:     idx(["volume","size","lots"]),
-    symbol:     idx(["symbol","item","instrument"]),
-    openPrice:  idx(["openprice","price"]),
-    closeTime:  idx(["closetime","closedate"]),
-    openTime:   idx(["opentime","opendate"]),
-    closePrice: idx(["closeprice"]),
-    profit:     idx(["profit"]),
+    type:       idx(["type", "direction", "action", "side"]),
+    volume:     idx(["volume", "size", "lots", "qty", "quantity"]),
+    symbol:     idx(["symbol", "item", "instrument", "asset"]),
+    openPrice:  idx(["openprice", "entryprice", "openingprice", "entry"]),
+    closeTime:  idx(["closetime", "closingtime", "exittime", "closedate", "closedtime"]),
+    openTime:   idx(["opentime", "openingtime", "entrytime", "opendate", "time", "date"]),
+    closePrice: idx(["closeprice", "closingprice", "exitprice"]),
+    profit:     idx(["profit", "pnl", "netprofit", "pl", "gain"]),
   };
+  // "price" alone is ambiguous — use only as last-resort for open price
+  if (COL.openPrice < 0) COL.openPrice = idx(["price"]);
+
+  const SKIP_TYPES = new Set(["balance", "credit", "deposit", "withdrawal", "correction"]);
   const rows: PreviewRow[] = [];
   for (let i = 1; i < lines.length && rows.length < 200; i++) {
     const raw = lines[i].split(delim).map((c) => c.trim().replace(/^"|"$/g, ""));
-    if (raw.length < 5) continue;
-    const get = (col: number) => (col >= 0 ? raw[col] ?? "" : "");
-    const num = (col: number) => parseFloat(get(col)) || 0;
-    const symbol  = get(COL.symbol).toUpperCase();
-    const typeStr = get(COL.type).toLowerCase();
+    if (raw.length < 4) continue;
+    const get = (col: number) => (col >= 0 && col < raw.length ? raw[col] ?? "" : "");
+    const num = (col: number) => parseFloat(get(col).replace(/[, ]/g, "")) || 0;
+    const symbol  = get(COL.symbol).toUpperCase().trim();
+    const typeStr = get(COL.type).toLowerCase().trim();
     const dateRaw = get(COL.closeTime) || get(COL.openTime);
-    if (!symbol || !dateRaw) continue;
+    if (!symbol || symbol.length < 2 || !dateRaw) continue;
+    if (SKIP_TYPES.has(typeStr)) continue;
     const clean = dateRaw.trim().replace(/\./g, "-").replace(" ", "T");
     const d = new Date(clean);
     rows.push({
       pair:      symbol,
-      direction: typeStr.startsWith("sell") || typeStr === "s" ? "SELL" : "BUY",
+      direction: (typeStr.startsWith("sell") || typeStr === "s" || typeStr === "out") ? "SELL" : "BUY",
       lot:       num(COL.volume),
       entry:     num(COL.openPrice),
       exit:      num(COL.closePrice),
@@ -186,6 +199,9 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
     function applyText(text: string) {
       setCsvRaw(text);
       const rows = clientParseCSV(text);
+      if (rows.length > 0) {
+        console.log("[Import] First 3 parsed trades:", rows.slice(0, 3));
+      }
       if (rows.length === 0) {
         setError("No valid trades found. Export from MT5 → Account History → right-click → Save as Report → CSV, Excel, or HTML.");
         setPreview(null);
@@ -201,10 +217,39 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
         try {
           const data = ev.target?.result as ArrayBuffer;
           const wb   = XLSX.read(data, { type: "array" });
-          const ws   = wb.Sheets[wb.SheetNames[0]];
-          const csv  = XLSX.utils.sheet_to_csv(ws);
-          applyText(csv);
-        } catch {
+
+          console.log("[XLSX import] Sheets found:", wb.SheetNames);
+
+          const ws      = wb.Sheets[wb.SheetNames[0]];
+          const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
+
+          console.log("[XLSX import] First 5 rows:", allRows.slice(0, 5));
+
+          // Scan first 30 rows for the trade header — needs 3+ MT5 column keyword hits
+          const HEADER_KW = ["ticket","deal","symbol","item","type","direction","volume","size","lots","profit","pnl","price","commission","swap","open","close"];
+          let headerIdx = -1;
+          for (let i = 0; i < Math.min(allRows.length, 30); i++) {
+            const norm = allRows[i].map((c) => String(c ?? "").toLowerCase().replace(/[^a-z0-9]/g, ""));
+            const hits = norm.filter((c) => HEADER_KW.some((kw) => c === kw || (kw.length >= 4 && c.includes(kw)))).length;
+            if (hits >= 3) { headerIdx = i; break; }
+          }
+
+          if (headerIdx === -1) {
+            console.warn("[XLSX import] No header row detected in first 30 rows — using row 0");
+            headerIdx = 0;
+          }
+
+          console.log("[XLSX import] Header row at index", headerIdx, ":", allRows[headerIdx]);
+
+          // Convert from header row onwards; drop fully-empty rows
+          const csvLines = allRows
+            .slice(headerIdx)
+            .filter((row) => row.some((c) => String(c ?? "").trim() !== ""))
+            .map((row) => row.map((c) => `"${String(c ?? "").replace(/"/g, "'")}"`).join(","));
+
+          applyText(csvLines.join("\n"));
+        } catch (err) {
+          console.error("[XLSX import] Parse error:", err);
           setError("Could not read Excel file. Make sure it is a valid MT5 export.");
           setPreview(null);
         }

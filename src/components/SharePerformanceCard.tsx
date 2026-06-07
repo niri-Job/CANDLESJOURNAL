@@ -80,7 +80,7 @@ function drawCard(
 
   ctx.font = "15px 'Segoe UI', Arial, sans-serif";
   ctx.fillStyle = "#4A3E2A";
-  ctx.fillText("AI Trading Journal", 131, 98);
+  ctx.fillText("Master your behaviour, master your trading.", 131, 98);
 
   // Title
   ctx.font = "bold 44px 'Segoe UI', Arial, sans-serif";

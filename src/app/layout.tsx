@@ -22,7 +22,7 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "NIRI — AI Trading Journal for MT5 Traders",
+    default: "NIRI — Master your behaviour, master your trading.",
     template: "%s | NIRI",
   },
   description:
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "NIRI",
     url: "https://niri.live",
-    title: "NIRI — AI Trading Journal for MT5 Traders",
+    title: "NIRI — Master your behaviour, master your trading.",
     description:
       "Connect your MT5, sync trades automatically, and get AI coaching that tells you exactly what behavioral patterns are costing you money.",
     images: [
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "NIRI — AI Trading Journal for MT5 Traders",
+        alt: "NIRI — Master your behaviour, master your trading.",
       },
     ],
   },
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     site: "@niritoday",
     creator: "@niritoday",
-    title: "NIRI — AI Trading Journal for MT5 Traders",
+    title: "NIRI — Master your behaviour, master your trading.",
     description:
       "Connect your MT5, sync trades automatically, and get AI coaching that tells you exactly what behavioral patterns are costing you money.",
     images: ["/og-image.png"],

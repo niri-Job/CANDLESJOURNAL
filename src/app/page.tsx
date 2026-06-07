@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import LandingPage from "./LandingPage";
 
 export const metadata: Metadata = {
-  title: "NIRI — Master your behaviour, master your trading. | AI Trading Journal for MT5 Traders",
+  title: "NIRI — Master your behaviour, master your trading.",
   description:
     "NIRI helps you master your behaviour, master your trading. AI-powered trading journal built for MT5 traders — auto-sync trades, track behaviour, and improve discipline. Start free.",
   alternates: { canonical: "https://niri.live" },

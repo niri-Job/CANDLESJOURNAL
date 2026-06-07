@@ -7,21 +7,33 @@ import type { TradeForNiri, NiriAlert } from "@/hooks/useNiriBehaviour";
 
 export type { TradeForNiri };
 
-// ── Layout constants ─────────────────────────────────────────────────────────
-const ORB_SIZE  = 56;
-const BUBBLE_W  = 224;
-// Offset from orb left edge so bubble appears centered on orb
-const BUBBLE_L  = -(BUBBLE_W / 2) + ORB_SIZE / 2; // = -84
+// ── Constants ─────────────────────────────────────────────────────────────────
+const ORB_SIZE = 64;
+const BUBBLE_W = 240;
+const BUBBLE_L = -(BUBBLE_W / 2) + ORB_SIZE / 2; // centres bubble on orb
 
-// Safe drift bounds (keep bubble fully on screen)
+const PERSONALITY_QUIPS = [
+  "Still here. Still watching. No pressure.",
+  "Your consistency this week is noted.",
+  "The market is lying to you right now. Just so you know.",
+  "Most traders don't last 6 months. You're still here.",
+  "Focus is a skill. Practice it like you practice entries.",
+  "Take a breath. The market will be there in 5 minutes.",
+  "Every discipline compound. Trust the process.",
+];
+
+type EyeMode = "normal" | "concerned" | "wide";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function getBounds() {
   if (typeof window === "undefined") return { minX: 280, maxX: 800, minY: 90, maxY: 500 };
   const sidebar = window.innerWidth >= 1024 ? 264 : 16;
+  const hw = BUBBLE_W / 2;
   return {
-    minX: sidebar + BUBBLE_W / 2,
-    maxX: Math.max(sidebar + BUBBLE_W / 2 + 10, window.innerWidth  - ORB_SIZE - BUBBLE_W / 2),
+    minX: sidebar + hw + 8,
+    maxX: Math.max(sidebar + hw + 20, window.innerWidth  - ORB_SIZE - hw - 8),
     minY: 90,
-    maxY: Math.max(90, window.innerHeight - ORB_SIZE - 100),
+    maxY: Math.max(90, window.innerHeight - ORB_SIZE - 120),
   };
 }
 
@@ -33,8 +45,17 @@ function randomPos() {
   };
 }
 
-// ── Bubble arrow (CSS triangle pointing down) ─────────────────────────────────
-function Arrow() {
+function contentCentre() {
+  if (typeof window === "undefined") return { x: 500, y: 300 };
+  const sidebar = window.innerWidth >= 1024 ? 264 : 0;
+  return {
+    x: sidebar + (window.innerWidth - sidebar) / 2 - ORB_SIZE / 2,
+    y: window.innerHeight / 2 - ORB_SIZE / 2,
+  };
+}
+
+// ── Arrow ─────────────────────────────────────────────────────────────────────
+function Arrow({ gold }: { gold?: boolean }) {
   return (
     <div style={{
       position:    "absolute",
@@ -43,7 +64,7 @@ function Arrow() {
       width:       12,
       height:      12,
       background:  "#0f0f11",
-      border:      "1px solid rgba(45,212,191,0.3)",
+      border:      `1px solid ${gold ? "rgba(245,158,11,0.35)" : "rgba(124,58,237,0.35)"}`,
       borderTop:   "none",
       borderLeft:  "none",
       transform:   "rotate(45deg)",
@@ -51,37 +72,69 @@ function Arrow() {
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-interface Props {
-  trades?: TradeForNiri[];
-}
+// ── Main component ─────────────────────────────────────────────────────────────
+interface Props { trades?: TradeForNiri[]; }
 
 export default function NiriOrb({ trades = [] }: Props) {
-  // ── Visibility ──────────────────────────────────────────────────────────────
-  const [hidden,     setHidden]     = useState(true); // start hidden until localStorage read
-  const [pos,        setPos]        = useState({ x: 400, y: 300 });
-  const [isBlinking, setIsBlinking] = useState(false);
-  const [alert,      setAlert]      = useState<NiriAlert | null>(null);
-  const [showPanel,  setShowPanel]  = useState(false);
-  const [inMsg,      setInMsg]      = useState(false);
+  const [hidden,      setHidden]      = useState(true);
+  const [pos,         setPos]         = useState({ x: 500, y: 300 });
+  const [driftDur,    setDriftDur]    = useState(3);
+  const [bobbing,     setBobbing]     = useState(false);
+  const [eyeMode,     setEyeMode]     = useState<EyeMode>("normal");
+  const [isBlinking,  setIsBlinking]  = useState(false);
+  const [alert,       setAlert]       = useState<NiriAlert | null>(null);
+  const [showPanel,   setShowPanel]   = useState(false);
+  const [inMsg,       setInMsg]       = useState(false);
+  const [isAttention, setIsAttention] = useState(false);
 
-  const inMsgRef     = useRef(false);
-  const msgTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const driftTimerRef= useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inMsgRef      = useRef(false);
+  const msgTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const driftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAction    = useRef(Date.now());
 
-  // Keep ref in sync so timer callbacks see latest value
   useEffect(() => { inMsgRef.current = inMsg; }, [inMsg]);
 
-  // ── Init: check hidden flag ──────────────────────────────────────────────────
+  // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const h = localStorage.getItem("niriOrbHidden") === "1";
     setHidden(h);
     if (!h) setPos(randomPos());
   }, []);
 
+  // ── Core: show alert ─────────────────────────────────────────────────────────
+  const showAlert = useCallback((a: NiriAlert, eye: EyeMode, durationMs: number) => {
+    setAlert(a);
+    setEyeMode(eye);
+    setIsAttention(true);
+    setInMsg(true);
+    inMsgRef.current = true;
+    setShowPanel(false);
+    setBobbing(false);
+    setTimeout(() => setIsAttention(false), 700);
+    if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
+    msgTimerRef.current = setTimeout(() => {
+      setAlert(null);
+      setEyeMode("normal");
+      setInMsg(false);
+      inMsgRef.current = false;
+    }, durationMs);
+  }, []);
+
+  // ── Behaviour hook callback ──────────────────────────────────────────────────
+  const handleAlert = useCallback((a: NiriAlert) => {
+    const bad = ["revenge_trading","overtrading","ignoring_sl","greed"].includes(a.type);
+    const good = ["win_streak","best_trade","first_green_day"].includes(a.type);
+    showAlert(a, bad ? "concerned" : good ? "wide" : "normal", 10000);
+  }, [showAlert]);
+
+  useNiriBehaviour(trades, handleAlert);
+
   // ── Drift ────────────────────────────────────────────────────────────────────
   const drift = useCallback(() => {
     if (inMsgRef.current) return;
+    const roll = Math.random();
+    const dur = roll < 0.15 ? 5 : roll < 0.85 ? 3 : 1.5;
+    setDriftDur(dur);
     setPos(randomPos());
   }, []);
 
@@ -89,7 +142,19 @@ export default function NiriOrb({ trades = [] }: Props) {
     if (hidden) return;
     function schedule() {
       const delay = (15 + Math.random() * 15) * 1000;
-      driftTimerRef.current = setTimeout(() => { drift(); schedule(); }, delay);
+      driftTimerRef.current = setTimeout(() => {
+        if (!inMsgRef.current) {
+          if (Math.random() < 0.2) {
+            // Bob in place for 20-30s
+            setBobbing(true);
+            setTimeout(() => setBobbing(false), (20 + Math.random() * 10) * 1000);
+          } else {
+            setBobbing(false);
+            drift();
+          }
+        }
+        schedule();
+      }, delay);
     }
     schedule();
     return () => { if (driftTimerRef.current) clearTimeout(driftTimerRef.current); };
@@ -102,7 +167,7 @@ export default function NiriOrb({ trades = [] }: Props) {
     function blink() {
       t = setTimeout(() => {
         setIsBlinking(true);
-        setTimeout(() => { setIsBlinking(false); blink(); }, 140);
+        setTimeout(() => { setIsBlinking(false); blink(); }, 130);
       }, (4 + Math.random() * 4) * 1000);
     }
     blink();
@@ -115,50 +180,66 @@ export default function NiriOrb({ trades = [] }: Props) {
     const today = new Date().toISOString().slice(0, 10);
     if (localStorage.getItem("niri_last_checkin") === today) return;
     localStorage.setItem("niri_last_checkin", today);
-
     const t = setTimeout(() => {
-      // Drift to centre of content area
-      const sidebar  = window.innerWidth >= 1024 ? 264 : 0;
-      const cx       = sidebar + (window.innerWidth - sidebar) / 2 - ORB_SIZE / 2;
-      const cy       = window.innerHeight / 2 - ORB_SIZE / 2;
-      setPos({ x: cx, y: cy });
-      setInMsg(true);
-      inMsgRef.current = true;
-      setAlert({
+      setPos(contentCentre());
+      showAlert({
         type:    "daily_checkin",
         message: "Good to see you. Let's make today's trades count. I'll be watching your behaviour — you know I always do.",
-      });
-      if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
-      msgTimerRef.current = setTimeout(() => {
-        setAlert(null);
-        setInMsg(false);
-        inMsgRef.current = false;
-      }, 6000);
+      }, "normal", 6000);
     }, 2000);
-
     return () => clearTimeout(t);
-  }, [hidden]);
+  }, [hidden, showAlert]);
 
-  // ── Behaviour hook ───────────────────────────────────────────────────────────
-  const handleAlert = useCallback((a: NiriAlert) => {
-    setAlert(a);
-    setInMsg(true);
-    inMsgRef.current = true;
-    setShowPanel(false);
-    if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
-    msgTimerRef.current = setTimeout(() => {
-      setAlert(null);
-      setInMsg(false);
-      inMsgRef.current = false;
-    }, 10000);
-  }, []);
+  // ── Personality quips (every 5–10 min) ──────────────────────────────────────
+  useEffect(() => {
+    if (hidden) return;
+    let t: ReturnType<typeof setTimeout>;
+    function scheduleQuip() {
+      t = setTimeout(() => {
+        if (!inMsgRef.current) {
+          const msg = PERSONALITY_QUIPS[Math.floor(Math.random() * PERSONALITY_QUIPS.length)];
+          showAlert({ type: "personality", message: msg }, "normal", 8000);
+        }
+        scheduleQuip();
+      }, (5 + Math.random() * 5) * 60 * 1000);
+    }
+    scheduleQuip();
+    return () => clearTimeout(t);
+  }, [hidden, showAlert]);
 
-  useNiriBehaviour(trades, handleAlert);
+  // ── 5-min inactivity check-in ────────────────────────────────────────────────
+  useEffect(() => {
+    if (hidden) return;
+    const update = () => { lastAction.current = Date.now(); };
+    window.addEventListener("mousemove", update, { passive: true });
+    window.addEventListener("keydown",   update, { passive: true });
+    window.addEventListener("click",     update, { passive: true });
+
+    const interval = setInterval(() => {
+      if (inMsgRef.current) return;
+      if (Date.now() - lastAction.current > 5 * 60 * 1000) {
+        lastAction.current = Date.now(); // prevent repeat
+        setPos(contentCentre());
+        showAlert({
+          type:    "inactivity",
+          message: "Hey, you still there? The market's moving. Don't let it move without you.",
+        }, "normal", 8000);
+      }
+    }, 30_000);
+
+    return () => {
+      window.removeEventListener("mousemove", update);
+      window.removeEventListener("keydown",   update);
+      window.removeEventListener("click",     update);
+      clearInterval(interval);
+    };
+  }, [hidden, showAlert]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
   function dismiss() {
     if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
     setAlert(null);
+    setEyeMode("normal");
     setInMsg(false);
     inMsgRef.current = false;
   }
@@ -168,94 +249,130 @@ export default function NiriOrb({ trades = [] }: Props) {
     setHidden(true);
   }
 
-  // ── Today stats (for idle panel) ─────────────────────────────────────────────
-  const today       = new Date().toISOString().slice(0, 10);
-  const todayTs     = trades.filter((t) => t.date === today);
-  const todayPnl    = todayTs.reduce((s, t) => s + t.pnl, 0);
-  const todayWins   = todayTs.filter((t) => t.pnl > 0).length;
+  // ── Today stats ──────────────────────────────────────────────────────────────
+  const today    = new Date().toISOString().slice(0, 10);
+  const todayTs  = trades.filter((t) => t.date === today);
+  const todayPnl = todayTs.reduce((s, t) => s + t.pnl, 0);
+  const todayWins= todayTs.filter((t) => t.pnl > 0).length;
 
   if (hidden) return null;
+
+  // ── Eye config by mode ───────────────────────────────────────────────────────
+  const eyeCfg = {
+    normal:    { w: 5,   h: 5,   glow: "rgba(255,255,255,0.6)", gap: 5 },
+    concerned: { w: 5,   h: 2.5, glow: "rgba(251,191,36,0.7)", gap: 4 },
+    wide:      { w: 7,   h: 7,   glow: "rgba(167,243,208,0.8)", gap: 6 },
+  }[eyeMode];
+  const eyeH = isBlinking ? 0.3 : eyeCfg.h;
+
+  // ── Bubble / panel border colour ─────────────────────────────────────────────
+  const isBadAlert = alert && ["revenge_trading","overtrading","ignoring_sl","greed"].includes(alert.type);
+  const bubbleBorder = isBadAlert
+    ? "rgba(251,191,36,0.45)"   // amber for warnings
+    : "rgba(124,58,237,0.45)";  // purple for info/celebration
 
   return (
     <motion.div
       style={{ position: "fixed", top: 0, left: 0, zIndex: 9999, width: ORB_SIZE, height: ORB_SIZE }}
-      animate={{ x: pos.x, y: pos.y, scale: inMsg ? 1.15 : 1 }}
+      animate={{
+        x:     pos.x,
+        y:     pos.y,
+        scale: isAttention
+          ? [1, 1.4, 0.88, 1.22, 1.0]
+          : inMsg ? 1.15 : 1,
+      }}
       transition={{
-        x:     { duration: inMsg ? 0.7 : 3, ease: "easeInOut" },
-        y:     { duration: inMsg ? 0.7 : 3, ease: "easeInOut" },
-        scale: { duration: 0.35, ease: "easeOut" },
+        x:     { duration: inMsg ? 0.7 : driftDur, ease: "easeInOut" },
+        y:     { duration: inMsg ? 0.7 : driftDur, ease: "easeInOut" },
+        scale: isAttention
+          ? { duration: 0.65, ease: "easeOut", times: [0, 0.25, 0.5, 0.75, 1] }
+          : { duration: 0.35, ease: "easeOut" },
       }}
     >
-      {/* ── Orb body with pulse ── */}
+      {/* ── Bob wrapper (oscillates when in hover mode) ── */}
       <motion.div
-        style={{ position: "relative", width: "100%", height: "100%", cursor: "pointer" }}
-        animate={{ scale: [1, 1.06, 1] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        onClick={() => { if (!alert) setShowPanel((v) => !v); }}
+        style={{ position: "relative", width: "100%", height: "100%" }}
+        animate={{ y: bobbing ? [0, -10, 0] : 0 }}
+        transition={bobbing
+          ? { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
+          : { duration: 0.5 }}
       >
-        {/* Outer glow ring */}
-        <div style={{
-          position: "absolute", inset: 0, borderRadius: "50%",
-          background: "rgba(20,184,166,0.1)",
-          boxShadow:  "0 0 16px rgba(20,184,166,0.7), 0 0 32px rgba(20,184,166,0.3), 0 0 56px rgba(20,184,166,0.12)",
-        }} />
+        {/* ── Pulse wrapper ── */}
+        <motion.div
+          style={{ position: "relative", width: "100%", height: "100%", cursor: "pointer" }}
+          animate={{ scale: [1, 1.06, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          onClick={() => { if (!alert) setShowPanel((v) => !v); lastAction.current = Date.now(); }}
+        >
+          {/* Gold aura pulse (outermost) */}
+          <motion.div
+            style={{
+              position: "absolute", inset: -6, borderRadius: "50%",
+              background: "transparent",
+              boxShadow: "0 0 28px rgba(245,158,11,0.7), 0 0 56px rgba(245,158,11,0.3)",
+              pointerEvents: "none",
+            }}
+            animate={{ opacity: isAttention ? [0.6, 1, 0.6] : [0.35, 0.85, 0.35] }}
+            transition={{ duration: isAttention ? 0.4 : 2.5, repeat: isAttention ? 3 : Infinity, ease: "easeInOut" }}
+          />
 
-        {/* Middle ring */}
-        <div style={{
-          position: "absolute", inset: 7, borderRadius: "50%",
-          background: "rgba(20,184,166,0.28)",
-        }} />
+          {/* Outer gold-tint ring */}
+          <div style={{
+            position: "absolute", inset: 0, borderRadius: "50%",
+            background: "rgba(245,158,11,0.08)",
+            boxShadow: "0 0 14px rgba(245,158,11,0.5), 0 0 28px rgba(245,158,11,0.2), inset 0 0 12px rgba(124,58,237,0.2)",
+          }} />
 
-        {/* Inner core */}
-        <div style={{
-          position:        "absolute",
-          inset:           14,
-          borderRadius:    "50%",
-          background:      "linear-gradient(140deg, #2dd4bf 0%, #0d9488 60%, #0f766e 100%)",
-          display:         "flex",
-          alignItems:      "center",
-          justifyContent:  "center",
-          boxShadow:       "inset 0 2px 4px rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.2)",
-        }}>
-          {/* Eyes */}
-          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-            <motion.div
-              animate={{ scaleY: isBlinking ? 0.08 : 1 }}
-              transition={{ duration: 0.08, ease: "easeIn" }}
-              style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.92)", boxShadow: "0 0 3px rgba(255,255,255,0.6)" }}
-            />
-            <motion.div
-              animate={{ scaleY: isBlinking ? 0.08 : 1 }}
-              transition={{ duration: 0.08, ease: "easeIn" }}
-              style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.92)", boxShadow: "0 0 3px rgba(255,255,255,0.6)" }}
-            />
+          {/* Middle purple ring */}
+          <div style={{
+            position: "absolute", inset: 8, borderRadius: "50%",
+            background: "rgba(168,85,247,0.35)",
+          }} />
+
+          {/* Inner core — deep purple */}
+          <div style={{
+            position: "absolute", inset: 16, borderRadius: "50%",
+            background: "linear-gradient(140deg, #8B5CF6 0%, #7C3AED 55%, #5B21B6 100%)",
+            display:   "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "inset 0 2px 5px rgba(255,255,255,0.18), inset 0 -2px 5px rgba(0,0,0,0.35)",
+          }}>
+            {/* Eyes */}
+            <div style={{ display: "flex", gap: eyeCfg.gap, alignItems: "center" }}>
+              <motion.div
+                animate={{ scaleY: eyeH / eyeCfg.h }}
+                transition={{ duration: 0.09, ease: "easeIn" }}
+                style={{
+                  width: eyeCfg.w, height: eyeCfg.h, borderRadius: eyeCfg.h / 2,
+                  background: "rgba(255,255,255,0.95)",
+                  boxShadow: `0 0 4px ${eyeCfg.glow}`,
+                }}
+              />
+              <motion.div
+                animate={{ scaleY: eyeH / eyeCfg.h }}
+                transition={{ duration: 0.09, ease: "easeIn" }}
+                style={{
+                  width: eyeCfg.w, height: eyeCfg.h, borderRadius: eyeCfg.h / 2,
+                  background: "rgba(255,255,255,0.95)",
+                  boxShadow: `0 0 4px ${eyeCfg.glow}`,
+                }}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Dismiss × */}
-        <button
-          onClick={(e) => { e.stopPropagation(); hideForSession(); }}
-          style={{
-            position:   "absolute",
-            top:        -3,
-            right:      -3,
-            width:      16,
-            height:     16,
-            borderRadius: "50%",
-            background: "#111113",
-            border:     "1px solid #3f3f46",
-            color:      "#71717a",
-            fontSize:   9,
-            fontWeight: 700,
-            cursor:     "pointer",
-            display:    "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            lineHeight: 1,
-            zIndex:     4,
-            padding:    0,
-          }}
-        >×</button>
+          {/* Dismiss × */}
+          <button
+            onClick={(e) => { e.stopPropagation(); hideForSession(); }}
+            style={{
+              position: "absolute", top: -3, right: -3,
+              width: 16, height: 16, borderRadius: "50%",
+              background: "#111113", border: "1px solid #3f3f46",
+              color: "#71717a", fontSize: 9, fontWeight: 700,
+              cursor: "pointer", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              lineHeight: 1, zIndex: 4, padding: 0,
+            }}
+          >×</button>
+        </motion.div>
       </motion.div>
 
       {/* ── Speech bubble ── */}
@@ -263,36 +380,37 @@ export default function NiriOrb({ trades = [] }: Props) {
         {alert && (
           <motion.div
             key="bubble"
-            initial={{ opacity: 0, scale: 0.86, y: 8 }}
-            animate={{ opacity: 1, scale: 1,    y: 0 }}
-            exit={{    opacity: 0, scale: 0.86, y: 8 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
+            initial={{ opacity: 0, scale: 0.84, y: 10 }}
+            animate={{ opacity: 1, scale: 1,    y: 0  }}
+            exit={{    opacity: 0, scale: 0.84, y: 10 }}
+            transition={{ duration: 0.24, ease: "easeOut" }}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position:     "absolute",
-              bottom:       ORB_SIZE + 10,
-              left:         BUBBLE_L,
-              width:        BUBBLE_W,
-              background:   "#0f0f11",
-              border:       "1px solid rgba(45,212,191,0.32)",
-              borderRadius: 14,
-              padding:      "10px 13px 13px",
-              boxShadow:    "0 16px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(45,212,191,0.08)",
-              zIndex:       5,
-              pointerEvents:"auto",
+              position:      "absolute",
+              bottom:        ORB_SIZE + 12,
+              left:          BUBBLE_L,
+              width:         BUBBLE_W,
+              background:    "#0f0f11",
+              border:        `1px solid ${bubbleBorder}`,
+              borderRadius:  16,
+              padding:       "11px 14px 14px",
+              boxShadow:     `0 20px 48px rgba(0,0,0,0.6), 0 0 0 1px ${isBadAlert ? "rgba(251,191,36,0.08)" : "rgba(124,58,237,0.08)"}`,
+              zIndex:        5,
+              pointerEvents: "auto",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", color: "#2dd4bf", textTransform: "uppercase" }}>NIRI</span>
-              <button
-                onClick={dismiss}
-                style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px" }}
-              >×</button>
+              <span style={{
+                fontSize: 9, fontWeight: 800, letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: isBadAlert ? "#FBBF24" : "#A78BFA",
+              }}>NIRI</span>
+              <button onClick={dismiss} style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px" }}>×</button>
             </div>
             <p style={{ fontSize: 12.5, color: "#e4e4e7", lineHeight: 1.6, margin: 0 }}>
               {alert.message}
             </p>
-            <Arrow />
+            <Arrow gold={!!isBadAlert} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -302,31 +420,28 @@ export default function NiriOrb({ trades = [] }: Props) {
         {showPanel && !alert && (
           <motion.div
             key="panel"
-            initial={{ opacity: 0, scale: 0.86, y: 8 }}
-            animate={{ opacity: 1, scale: 1,    y: 0 }}
-            exit={{    opacity: 0, scale: 0.86, y: 8 }}
+            initial={{ opacity: 0, scale: 0.84, y: 10 }}
+            animate={{ opacity: 1, scale: 1,    y: 0  }}
+            exit={{    opacity: 0, scale: 0.84, y: 10 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position:     "absolute",
-              bottom:       ORB_SIZE + 10,
-              left:         BUBBLE_L,
-              width:        BUBBLE_W,
-              background:   "#0f0f11",
-              border:       "1px solid rgba(45,212,191,0.28)",
-              borderRadius: 14,
-              padding:      "10px 13px 13px",
-              boxShadow:    "0 16px 40px rgba(0,0,0,0.55)",
-              zIndex:       5,
-              pointerEvents:"auto",
+              position:      "absolute",
+              bottom:        ORB_SIZE + 12,
+              left:          BUBBLE_L,
+              width:         BUBBLE_W,
+              background:    "#0f0f11",
+              border:        "1px solid rgba(124,58,237,0.3)",
+              borderRadius:  16,
+              padding:       "11px 14px 14px",
+              boxShadow:     "0 20px 48px rgba(0,0,0,0.6)",
+              zIndex:        5,
+              pointerEvents: "auto",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", color: "#2dd4bf", textTransform: "uppercase" }}>NIRI · Today</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowPanel(false); }}
-                style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px" }}
-              >×</button>
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.18em", color: "#A78BFA", textTransform: "uppercase" }}>NIRI · Today</span>
+              <button onClick={(e) => { e.stopPropagation(); setShowPanel(false); }} style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px" }}>×</button>
             </div>
             {todayTs.length === 0 ? (
               <p style={{ fontSize: 12, color: "#71717a", margin: 0, lineHeight: 1.55 }}>
@@ -334,22 +449,20 @@ export default function NiriOrb({ trades = [] }: Props) {
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
-                <Row label="Trades" value={String(todayTs.length)} />
-                <Row
-                  label="Wins"
-                  value={`${todayWins}/${todayTs.length}`}
-                  colour={todayWins > 0 ? "#34d399" : "#71717a"}
-                />
-                <Row
+                <StatRow label="Trades" value={String(todayTs.length)} />
+                <StatRow label="Wins"   value={`${todayWins}/${todayTs.length}`} colour={todayWins > 0 ? "#34d399" : "#71717a"} />
+                <StatRow
                   label="P&L"
                   value={`${todayPnl >= 0 ? "+" : ""}$${Math.abs(todayPnl).toFixed(2)}`}
                   colour={todayPnl >= 0 ? "#34d399" : "#f87171"}
                   mono
                 />
-                <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid #27272a", fontSize: 11, color: "#52525b" }}>
-                  {todayWins / todayTs.length >= 0.6 ? "Solid day. Stay focused." :
-                   todayWins / todayTs.length >= 0.4 ? "Mixed bag. Watch your setups." :
-                   "Rough session. Breathe first, trade second."}
+                <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid #1f1f23", fontSize: 11, color: "#52525b" }}>
+                  {todayWins / todayTs.length >= 0.6
+                    ? "Solid day. Stay focused."
+                    : todayWins / todayTs.length >= 0.4
+                    ? "Mixed bag. Watch your setups."
+                    : "Rough session. Breathe first, trade second."}
                 </div>
               </div>
             )}
@@ -361,13 +474,11 @@ export default function NiriOrb({ trades = [] }: Props) {
   );
 }
 
-function Row({ label, value, colour, mono }: { label: string; value: string; colour?: string; mono?: boolean }) {
+function StatRow({ label, value, colour, mono }: { label: string; value: string; colour?: string; mono?: boolean }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <span style={{ color: "#71717a" }}>{label}</span>
-      <span style={{ fontWeight: 600, color: colour ?? "#e4e4e7", fontFamily: mono ? "monospace" : undefined }}>
-        {value}
-      </span>
+      <span style={{ fontWeight: 600, color: colour ?? "#e4e4e7", fontFamily: mono ? "monospace" : undefined }}>{value}</span>
     </div>
   );
 }

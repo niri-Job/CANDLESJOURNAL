@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import * as XLSX from "xlsx";
 
 interface PreviewRow {
   pair:      string;
@@ -123,20 +124,42 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
     if (!file) return;
     setFileName(file.name);
     setError(null);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
+
+    const isXlsx = file.name.toLowerCase().endsWith(".xlsx") || file.name.toLowerCase().endsWith(".xls");
+
+    function applyText(text: string) {
       setCsvRaw(text);
       const rows = clientParseCSV(text);
       if (rows.length === 0) {
-        setError("No valid trades found. Export from MT5 → Account History → right-click → Save as Report → CSV.");
+        setError("No valid trades found. Export from MT5 → Account History → right-click → Save as Report → CSV or XLSX.");
         setPreview(null);
       } else {
         setPreview(rows);
       }
-    };
-    reader.readAsText(file);
-    // Reset file input so same file can be re-selected
+    }
+
+    const reader = new FileReader();
+
+    if (isXlsx) {
+      reader.onload = (ev) => {
+        try {
+          const data = ev.target?.result as ArrayBuffer;
+          const wb   = XLSX.read(data, { type: "array" });
+          const ws   = wb.Sheets[wb.SheetNames[0]];
+          const csv  = XLSX.utils.sheet_to_csv(ws);
+          applyText(csv);
+        } catch {
+          setError("Could not read XLSX file. Make sure it is a valid Excel export.");
+          setPreview(null);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = (ev) => applyText(ev.target?.result as string);
+      reader.readAsText(file);
+    }
+
+    // Reset so the same file can be re-selected
     e.target.value = "";
   }
 
@@ -214,8 +237,8 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
           flexShrink: 0,
         }}>
           <div>
-            <p style={{ fontWeight: 600, fontSize: 15, color: "#f4f4f5", margin: 0 }}>Import MT5 CSV</p>
-            <p style={{ fontSize: 12, color: "#71717a", margin: "3px 0 0" }}>Upload your account history export from MT5</p>
+            <p style={{ fontWeight: 600, fontSize: 15, color: "#f4f4f5", margin: 0 }}>Import MT5 History</p>
+            <p style={{ fontSize: 12, color: "#71717a", margin: "3px 0 0" }}>Upload your account history export from MT5 (.csv or .xlsx)</p>
           </div>
           <button
             onClick={onClose}
@@ -333,7 +356,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
             padding: "16px 16px 18px",
           }}>
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#C4973E", margin: "0 0 10px" }}>
-              Step 2 — CSV File
+              Step 2 — CSV or XLSX File
             </p>
 
             <div style={{
@@ -357,9 +380,9 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
                 <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
               <span style={{ fontSize: 13, color: preview ? "#86efac" : "#71717a" }}>
-                {fileName ? fileName : "Click to choose a .csv or .txt file"}
+                {fileName ? fileName : "Click to choose a .csv, .xlsx, or .txt file"}
               </span>
-              <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: "none" }} onChange={handleFile} />
+              <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" style={{ display: "none" }} onChange={handleFile} />
             </label>
           </div>
 
@@ -397,12 +420,12 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
                   <tbody>
                     {preview.slice(0, 10).map((row, i) => (
                       <tr key={i} style={{ borderBottom: i < 9 && i < preview.length - 1 ? "1px solid rgba(39,39,42,0.6)" : "none" }}>
-                        <td style={{ padding: "8px 10px", fontFamily: "monospace", fontWeight: 600, color: "#f4f4f5" }}>{row.pair}</td>
-                        <td style={{ padding: "8px 10px", fontFamily: "monospace", fontWeight: 700, fontSize: 10, color: row.direction === "BUY" ? "#34d399" : "#f87171" }}>{row.direction}</td>
-                        <td style={{ padding: "8px 10px", fontFamily: "monospace", color: "#a1a1aa" }}>{row.lot}</td>
-                        <td style={{ padding: "8px 10px", fontFamily: "monospace", color: "#a1a1aa" }}>{row.entry}</td>
-                        <td style={{ padding: "8px 10px", fontFamily: "monospace", color: "#a1a1aa" }}>{row.exit}</td>
-                        <td style={{ padding: "8px 10px", fontFamily: "monospace", fontWeight: 600, color: row.pnl >= 0 ? "#34d399" : "#f87171" }}>
+                        <td style={{ padding: "8px 10px", fontFamily: "inherit", fontWeight: 600, color: "#f4f4f5" }}>{row.pair}</td>
+                        <td style={{ padding: "8px 10px", fontFamily: "inherit", fontWeight: 700, fontSize: 10, color: row.direction === "BUY" ? "#34d399" : "#f87171" }}>{row.direction}</td>
+                        <td style={{ padding: "8px 10px", fontFamily: "inherit", color: "#a1a1aa" }}>{row.lot}</td>
+                        <td style={{ padding: "8px 10px", fontFamily: "inherit", color: "#a1a1aa" }}>{row.entry}</td>
+                        <td style={{ padding: "8px 10px", fontFamily: "inherit", color: "#a1a1aa" }}>{row.exit}</td>
+                        <td style={{ padding: "8px 10px", fontFamily: "inherit", fontWeight: 600, color: row.pnl >= 0 ? "#34d399" : "#f87171" }}>
                           {row.pnl >= 0 ? "+" : ""}{row.pnl.toFixed(2)}
                         </td>
                         <td style={{ padding: "8px 10px", color: "#71717a" }}>{row.date}</td>

@@ -32,6 +32,8 @@ interface Trade {
   notes: string;
   screenshot_url?: string | null;
   emotion?: string | null;
+  entry_emotion?: string | null;
+  exit_emotion?: string | null;
   asset_class: string;
   session: string;
   setup: string;
@@ -940,10 +942,12 @@ export default function TradingJournal() {
     setDirection("BUY");
   }
 
-  function handleNoteSave(notes: string, screenshotUrl: string | null, emotion: string | null) {
+  function handleNoteSave(notes: string, screenshotUrl: string | null, emotion: string | null, entryEmotion: string | null, exitEmotion: string | null) {
     if (!noteModalTrade) return;
     setTrades((prev) =>
-      prev.map((t) => t.id === noteModalTrade.id ? { ...t, notes, screenshot_url: screenshotUrl, emotion } : t)
+      prev.map((t) => t.id === noteModalTrade.id
+        ? { ...t, notes, screenshot_url: screenshotUrl, emotion, entry_emotion: entryEmotion, exit_emotion: exitEmotion }
+        : t)
     );
   }
 

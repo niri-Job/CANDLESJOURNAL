@@ -18,6 +18,7 @@ interface Trade {
   lot: number; date: string; entry: number;
   exit_price: number; sl: number | null; tp: number | null;
   pnl: number; notes: string; emotion?: string | null;
+  entry_emotion?: string | null; exit_emotion?: string | null;
   asset_class: string; session: string; setup: string;
   account_signature?: string | null; account_label?: string | null;
   opened_at?: string | null; closed_at?: string | null;
@@ -45,8 +46,8 @@ const GRN  = "#34d399";
 const RED  = "#f87171";
 
 const EMOTION_LABEL: Record<string, string> = {
-  revenge: "Revenge", fear: "Fear", greedy: "Greedy",
-  confident: "Confident", bored: "Bored", news: "News",
+  revenge: "Revenge", fear: "Fearful", greedy: "Greedy",
+  confident: "Confident", bored: "Bored", news: "News", neutral: "Neutral",
   untagged: "Untagged",
 };
 
@@ -356,10 +357,15 @@ function streakData(trades: Trade[]) {
   return { current: cur, currentType: curType, bestWin: bestW, worstLoss: worstL, history };
 }
 
-function emotionBreakdown(trades: Trade[]) {
+function emotionBreakdown(trades: Trade[], field: "emotion" | "entry_emotion" | "exit_emotion" = "emotion") {
   const map: Record<string, { pnl: number; wins: number; n: number }> = {};
   trades.forEach(t => {
-    const k = t.emotion || "untagged";
+    const raw = field === "entry_emotion"
+      ? (t.entry_emotion ?? t.emotion)   // backwards compat
+      : field === "exit_emotion"
+        ? t.exit_emotion
+        : t.emotion;
+    const k = raw || "untagged";
     if (!map[k]) map[k] = { pnl: 0, wins: 0, n: 0 };
     map[k].pnl += t.pnl; map[k].n++;
     if (t.pnl > 0) map[k].wins++;
@@ -1438,20 +1444,80 @@ function TabRisk({ trades }: { trades: Trade[] }) {
 // ═══════════════════════════════════════════════════════════════
 // TAB: PSYCHOLOGY
 // ═══════════════════════════════════════════════════════════════
+function EmotionTable({ rows, title }: { rows: ReturnType<typeof emotionBreakdown>; title: string }) {
+  const tagged = rows.filter(e => e.key !== "untagged");
+  return (
+    <div className="flex-1 min-w-0">
+      <SectionHead>{title}</SectionHead>
+      {tagged.length === 0
+        ? <InsightCard icon="›" text="Tag emotions on trades to see this breakdown." />
+        : (
+          <div className="space-y-3">
+            <ChartBox height={160}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={tagged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barSize={24}>
+                  <XAxis dataKey="emotion" tick={{ fill: "#52525b", fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: "#52525b", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} width={34} />
+                  <Tooltip content={<WrTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                  <ReferenceLine y={50} stroke="#3f3f46" strokeDasharray="3 3" />
+                  <Bar dataKey="winRate" radius={[4, 4, 0, 0]}>
+                    {tagged.map((e, i) => <Cell key={i} fill={e.winRate >= 50 ? GRN : RED} fillOpacity={0.75} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartBox>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--cj-border)" }}>
+                    {["Emotion", "Trades", "Win %", "P&L", "Avg"].map(h => (
+                      <th key={h} className="py-2 px-2 text-left text-zinc-500 uppercase tracking-wide font-semibold whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(row => (
+                    <tr key={row.key} style={{ borderBottom: "1px solid var(--cj-border)" }}>
+                      <td className="py-2 px-2 text-zinc-200 whitespace-nowrap">{row.emotion}</td>
+                      <td className="py-2 px-2 text-zinc-400">{row.trades}</td>
+                      <td className={`py-2 px-2 font-mono ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
+                      <td className={`py-2 px-2 font-mono font-semibold ${pCls(row.pnl)}`}>{f$(row.pnl)}</td>
+                      <td className={`py-2 px-2 font-mono ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      }
+    </div>
+  );
+}
+
 function TabPsychology({ trades }: { trades: Trade[] }) {
-  const emotions  = useMemo(() => emotionBreakdown(trades), [trades]);
-  const afterRate = useMemo(() => afterLossRate(trades),    [trades]);
-  const disc      = useMemo(() => disciplineScore(trades),  [trades]);
+  const entryEmotions = useMemo(() => emotionBreakdown(trades, "entry_emotion"), [trades]);
+  const exitEmotions  = useMemo(() => emotionBreakdown(trades, "exit_emotion"),  [trades]);
+  const afterRate     = useMemo(() => afterLossRate(trades),                      [trades]);
+  const disc          = useMemo(() => disciplineScore(trades),                    [trades]);
 
   if (!trades.length) return <Empty />;
 
-  const bestEmotion  = emotions.filter(e => e.key !== "untagged")[0];
-  const worstEmotion = [...emotions].filter(e => e.key !== "untagged").sort((a, b) => a.winRate - b.winRate)[0];
-  const scoreColor   = disc.score >= 80 ? "text-emerald-400" : disc.score >= 60 ? "text-yellow-400" : "text-rose-400";
+  const scoreColor = disc.score >= 80 ? "text-emerald-400" : disc.score >= 60 ? "text-yellow-400" : "text-rose-400";
+
+  const bestEntry  = entryEmotions.filter(e => e.key !== "untagged")[0];
+  const worstExit  = [...exitEmotions].filter(e => e.key !== "untagged").sort((a, b) => a.winRate - b.winRate)[0];
+
+  const entryExitInsight = bestEntry && worstExit
+    ? `You enter best when ${bestEntry.emotion} (${bestEntry.winRate}% win rate). You exit worst when ${worstExit.emotion} — watch your mindset at the close.`
+    : bestEntry
+      ? `Your best entry state is ${bestEntry.emotion} with ${bestEntry.winRate}% win rate.`
+      : null;
 
   const tips: string[] = [];
-  if (bestEmotion)  tips.push(`Trade most when ${bestEmotion.emotion} — your win rate is ${bestEmotion.winRate}% in that state.`);
-  if (worstEmotion && worstEmotion.key !== bestEmotion?.key) tips.push(`Avoid trading when ${worstEmotion.emotion} — only ${worstEmotion.winRate}% win rate.`);
+  if (bestEntry) tips.push(`Trade most when ${bestEntry.emotion} — your win rate is ${bestEntry.winRate}% entering in that state.`);
+  const worstEntry = [...entryEmotions].filter(e => e.key !== "untagged").sort((a, b) => a.winRate - b.winRate)[0];
+  if (worstEntry && worstEntry.key !== bestEntry?.key) tips.push(`Avoid entering when ${worstEntry.emotion} — only ${worstEntry.winRate}% win rate.`);
   if (afterRate !== null) tips.push(`After a losing trade, you win ${afterRate.toFixed(1)}% of the time. ${afterRate < 45 ? "Consider a break before re-entering." : "Good recovery rate — keep it up."}`);
   disc.factors.forEach(f => tips.push(`${f.label}: ${f.detail}`));
 
@@ -1481,52 +1547,18 @@ function TabPsychology({ trades }: { trades: Trade[] }) {
         )}
       </div>
 
-      {/* Emotion performance */}
+      {/* Entry vs Exit emotion side by side */}
       <div>
         <SectionHead>Performance by Emotion</SectionHead>
-        {emotions.length === 0 || emotions.every(e => e.key === "untagged")
-          ? <InsightCard icon="›" text="Tag your emotions on each trade to unlock psychology analysis." />
-          : (
-            <div className="space-y-4">
-              <ChartBox title="Win Rate by Emotion" height={200}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={emotions} margin={{ top: 4, right: 12, left: 0, bottom: 0 }} barSize={32}>
-                    <XAxis dataKey="emotion" tick={{ fill: "#52525b", fontSize: 9 }} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0, 100]} tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} width={40} />
-                    <Tooltip content={<WrTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                    <ReferenceLine y={50} stroke="#3f3f46" strokeDasharray="3 3" />
-                    <Bar dataKey="winRate" radius={[4, 4, 0, 0]}>
-                      {emotions.map((e, i) => <Cell key={i} fill={e.winRate >= 50 ? GRN : RED} fillOpacity={0.75} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartBox>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid var(--cj-border)" }}>
-                      {["Emotion", "Trades", "Win %", "Total P&L", "Avg P&L"].map(h => (
-                        <th key={h} className="py-2 px-3 text-left text-zinc-500 uppercase tracking-wide font-semibold">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {emotions.map(row => (
-                      <tr key={row.key} style={{ borderBottom: "1px solid var(--cj-border)" }}>
-                        <td className="py-2 px-3 text-zinc-200">{row.emotion}</td>
-                        <td className="py-2 px-3 text-zinc-400">{row.trades}</td>
-                        <td className={`py-2 px-3 font-mono ${row.winRate >= 50 ? "text-emerald-400" : "text-rose-400"}`}>{row.winRate}%</td>
-                        <td className={`py-2 px-3 font-mono font-semibold ${pCls(row.pnl)}`}>{f$(row.pnl)}</td>
-                        <td className={`py-2 px-3 font-mono ${pCls(row.avgPnl)}`}>{f$(row.avgPnl)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )
-        }
+        <div className="flex flex-col md:flex-row gap-6">
+          <EmotionTable rows={entryEmotions} title="Entry Emotion Performance" />
+          <EmotionTable rows={exitEmotions}  title="Exit Emotion Performance" />
+        </div>
+        {entryExitInsight && (
+          <div className="mt-4">
+            <InsightCard icon="›" text={entryExitInsight} highlight />
+          </div>
+        )}
       </div>
 
       {/* Behavioral insights */}
@@ -1925,7 +1957,7 @@ export default function ReportsPage() {
       setUser(u);
 
       // Try with opened_at/closed_at; fall back without them if the columns don't exist yet
-      const FULL_COLS     = "id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,asset_class,session,setup,account_signature,account_label,opened_at,closed_at";
+      const FULL_COLS     = "id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,entry_emotion,exit_emotion,asset_class,session,setup,account_signature,account_label,opened_at,closed_at";
       const FALLBACK_COLS = "id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,notes,emotion,asset_class,session,setup,account_signature,account_label";
 
       const [tradesRes, { data: aData }] = await Promise.all([

@@ -9,35 +9,80 @@ interface TradeNoteModalProps {
     notes: string;
     screenshot_url?: string | null;
     emotion?: string | null;
+    entry_emotion?: string | null;
+    exit_emotion?: string | null;
   };
   userId: string;
   onClose: () => void;
-  onSave: (notes: string, screenshotUrl: string | null, emotion: string | null) => void;
+  onSave: (
+    notes: string,
+    screenshotUrl: string | null,
+    emotion: string | null,
+    entryEmotion: string | null,
+    exitEmotion: string | null,
+  ) => void;
 }
 
 const EMOTIONS = [
-  { key: "revenge",   emoji: "😤", label: "Revenge"    },
-  { key: "fear",      emoji: "😰", label: "Fear"       },
-  { key: "greedy",    emoji: "🤑", label: "Greedy"     },
   { key: "confident", emoji: "😎", label: "Confident"  },
+  { key: "fear",      emoji: "😰", label: "Fearful"    },
+  { key: "greedy",    emoji: "🤑", label: "Greedy"     },
+  { key: "revenge",   emoji: "😤", label: "Revenge"    },
   { key: "bored",     emoji: "😴", label: "Bored"      },
+  { key: "neutral",   emoji: "😐", label: "Neutral"    },
   { key: "news",      emoji: "📰", label: "News-based" },
 ];
 
 const MAX_CHARS = 500;
 
+function EmotionPicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
+        {label}
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {EMOTIONS.map(({ key, emoji, label: eLabel }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(value === key ? null : key)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition-all
+              ${value === key
+                ? "bg-blue-500/15 border-blue-500/60 text-blue-300"
+                : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
+          >
+            <span className="text-base leading-none">{emoji}</span>
+            <span>{eLabel}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModalProps) {
   const [notes,         setNotes]         = useState(trade.notes || "");
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(trade.screenshot_url ?? null);
-  const [emotion,       setEmotion]       = useState<string | null>(trade.emotion ?? null);
-  const [uploading,     setUploading]     = useState(false);
-  const [saving,        setSaving]        = useState(false);
-  const [saved,         setSaved]         = useState(false);
-  const [error,         setError]         = useState<string | null>(null);
-  const [dragging,      setDragging]      = useState(false);
+  // entry_emotion falls back to legacy emotion field for backwards compat
+  const [entryEmotion, setEntryEmotion]   = useState<string | null>(trade.entry_emotion ?? trade.emotion ?? null);
+  const [exitEmotion,  setExitEmotion]    = useState<string | null>(trade.exit_emotion  ?? null);
+  const [uploading,    setUploading]      = useState(false);
+  const [saving,       setSaving]         = useState(false);
+  const [saved,        setSaved]          = useState(false);
+  const [error,        setError]          = useState<string | null>(null);
+  const [dragging,     setDragging]       = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Issue 1: Lock body scroll so the page doesn't jump when modal opens or textarea is focused
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -81,31 +126,32 @@ export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModa
     setError(null);
     try {
       const supabase = createClient();
-
-      // Issue 3: Use .select().single() so we get back exactly what landed in the DB.
-      // If the emotion column doesn't exist, this will throw a clear error rather than silently dropping the field.
-      const { data: saved, error: saveErr } = await supabase
+      const { data: savedRow, error: saveErr } = await supabase
         .from("trades")
-        .update({ notes, screenshot_url: screenshotUrl, emotion })
+        .update({
+          notes,
+          screenshot_url: screenshotUrl,
+          emotion:        entryEmotion,   // keep legacy field in sync
+          entry_emotion:  entryEmotion,
+          exit_emotion:   exitEmotion,
+        })
         .eq("id", trade.id)
         .eq("user_id", userId)
-        .select("notes, screenshot_url, emotion")
+        .select("notes, screenshot_url, emotion, entry_emotion, exit_emotion")
         .single();
 
-      if (saveErr) {
-        console.error("[TradeNoteModal] save error:", saveErr);
-        throw saveErr;
-      }
+      if (saveErr) throw saveErr;
 
-      console.log("[TradeNoteModal] saved row:", saved);
-
-      // Use confirmed DB values — not local state — so the table always reflects what was persisted
-      const savedNotes  = (saved as { notes: string; screenshot_url: string | null; emotion: string | null }).notes;
-      const savedScreen = (saved as { notes: string; screenshot_url: string | null; emotion: string | null }).screenshot_url;
-      const savedEmotion = (saved as { notes: string; screenshot_url: string | null; emotion: string | null }).emotion;
+      const r = savedRow as {
+        notes: string;
+        screenshot_url: string | null;
+        emotion: string | null;
+        entry_emotion: string | null;
+        exit_emotion: string | null;
+      };
 
       setSaved(true);
-      onSave(savedNotes, savedScreen, savedEmotion);
+      onSave(r.notes, r.screenshot_url, r.emotion, r.entry_emotion, r.exit_emotion);
       setTimeout(() => { setSaved(false); onClose(); }, 700);
     } catch (e) {
       setError("Save failed: " + (e instanceof Error ? e.message : String(e)));
@@ -117,16 +163,10 @@ export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModa
   const overLimit = notes.length > MAX_CHARS;
 
   return (
-    // Issue 1: overlay is position:fixed so page scroll position is not affected
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75"
       onClick={onClose}
     >
-      {/*
-        Issue 2: flex column — header and footer are shrink-0 (sticky),
-        the middle section scrolls. On mobile: slides up from bottom,
-        max 95vh. On sm+: centred, max 90vh.
-      */}
       <div
         className="bg-[var(--cj-surface)] border border-zinc-700
                    rounded-t-2xl sm:rounded-2xl
@@ -149,32 +189,21 @@ export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModa
         {/* ── Scrollable body ── */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-          {/* Section 1: Emotion (top — always visible on open) */}
-          <div>
-            <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
-              How were you feeling?
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {EMOTIONS.map(({ key, emoji, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setEmotion(emotion === key ? null : key)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs
-                               font-medium transition-all
-                               ${emotion === key
-                                 ? "bg-blue-500/15 border-blue-500/60 text-blue-300"
-                                 : "bg-[var(--cj-raised)] border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
-                               }`}
-                >
-                  <span className="text-base leading-none">{emoji}</span>
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Entry emotion */}
+          <EmotionPicker
+            label="How did you feel entering this trade?"
+            value={entryEmotion}
+            onChange={setEntryEmotion}
+          />
 
-          {/* Section 2: Notes */}
+          {/* Exit emotion */}
+          <EmotionPicker
+            label="How did you feel exiting this trade?"
+            value={exitEmotion}
+            onChange={setExitEmotion}
+          />
+
+          {/* Notes */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
@@ -195,7 +224,7 @@ export function TradeNoteModal({ trade, userId, onClose, onSave }: TradeNoteModa
             />
           </div>
 
-          {/* Section 3: Screenshot */}
+          {/* Screenshot */}
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">
               Trade Screenshot

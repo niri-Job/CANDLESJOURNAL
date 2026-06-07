@@ -83,6 +83,7 @@ export default function NiriOrb({ trades = [] }: Props) {
   const [eyeMode,     setEyeMode]     = useState<EyeMode>("normal");
   const [isBlinking,  setIsBlinking]  = useState(false);
   const [alert,       setAlert]       = useState<NiriAlert | null>(null);
+  const [alertKind,   setAlertKind]   = useState<"normal" | "ai">("normal");
   const [showPanel,   setShowPanel]   = useState(false);
   const [inMsg,       setInMsg]       = useState(false);
   const [isAttention, setIsAttention] = useState(false);
@@ -105,6 +106,7 @@ export default function NiriOrb({ trades = [] }: Props) {
   const showAlert = useCallback((a: NiriAlert, eye: EyeMode, durationMs: number) => {
     console.log("[NIRI] showAlert firing:", a.type, "—", a.message.slice(0, 60));
     setAlert(a);
+    setAlertKind(a.kind ?? "normal");
     setEyeMode(eye);
     setIsAttention(true);
     setInMsg(true);
@@ -121,18 +123,55 @@ export default function NiriOrb({ trades = [] }: Props) {
     }, durationMs);
   }, []);
 
-  // ── Test event (dispatched by "Test NIRI" button on dashboard) ─────────────
+  // ── Test event ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (hidden) return;
     const handler = () => {
       console.log("[NIRI] test event received");
-      showAlert({
-        type:    "test",
-        message: "NIRI is working! If you can see this, the bubble mechanism is fine.",
-      }, "wide", 8000);
+      showAlert({ type: "test", message: "NIRI is working! If you can see this, the bubble mechanism is fine." }, "wide", 8000);
     };
     window.addEventListener("niri:test", handler);
     return () => window.removeEventListener("niri:test", handler);
+  }, [hidden, showAlert]);
+
+  // ── Page-navigation message (from NiriOrbWrapper on route change) ───────────
+  useEffect(() => {
+    if (hidden) return;
+    const handler = (e: Event) => {
+      const msg = (e as CustomEvent<{ message: string }>).detail?.message;
+      if (msg) showAlert({ type: "page_nav", message: msg }, "normal", 8000);
+    };
+    window.addEventListener("niri:page-message", handler);
+    return () => window.removeEventListener("niri:page-message", handler);
+  }, [hidden, showAlert]);
+
+  // ── AI insight (Pro users, from NiriOrbWrapper) ───────────────────────────
+  useEffect(() => {
+    if (hidden) return;
+    const handler = (e: Event) => {
+      const msg = (e as CustomEvent<{ message: string }>).detail?.message;
+      if (msg) showAlert({ type: "ai_insight", message: msg, kind: "ai" }, "wide", 12000);
+    };
+    window.addEventListener("niri:ai-insight", handler);
+    return () => window.removeEventListener("niri:ai-insight", handler);
+  }, [hidden, showAlert]);
+
+  // ── Onboarding step guide (from onboarding page) ─────────────────────────
+  useEffect(() => {
+    if (hidden) return;
+    const ONBOARDING_MSGS: Record<string, string> = {
+      "1":        "Welcome. I'm NIRI — I live in this app and I watch everything. Let's set you up properly.",
+      "2":        "Enter your MT5 login and broker. This is how I'll know which account to watch.",
+      "3":        "Export your trade history from MT5 as a CSV and upload it here. I need your history to understand your patterns.",
+      "complete": "Setup done. Now the real work begins. I'll be watching your every trade from here.",
+    };
+    const handler = (e: Event) => {
+      const step = String((e as CustomEvent<{ step: number | string }>).detail?.step);
+      const msg  = ONBOARDING_MSGS[step];
+      if (msg) showAlert({ type: `onboarding_${step}`, message: msg }, step === "complete" ? "wide" : "normal", 8000);
+    };
+    window.addEventListener("niri:onboarding", handler);
+    return () => window.removeEventListener("niri:onboarding", handler);
   }, [hidden, showAlert]);
 
   // ── Behaviour hook callback ──────────────────────────────────────────────────
@@ -253,6 +292,7 @@ export default function NiriOrb({ trades = [] }: Props) {
   function dismiss() {
     if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
     setAlert(null);
+    setAlertKind("normal");
     setEyeMode("normal");
     setInMsg(false);
     inMsgRef.current = false;
@@ -415,10 +455,12 @@ export default function NiriOrb({ trades = [] }: Props) {
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{
-                fontSize: 9, fontWeight: 800, letterSpacing: "0.18em",
+                fontSize: 9, fontWeight: 800, letterSpacing: "0.14em",
                 textTransform: "uppercase",
-                color: isBadAlert ? "#FBBF24" : "#A78BFA",
-              }}>NIRI</span>
+                color: alertKind === "ai" ? "#34d399" : isBadAlert ? "#FBBF24" : "#A78BFA",
+              }}>
+                {alertKind === "ai" ? "✦ AI Insight" : "NIRI"}
+              </span>
               <button onClick={dismiss} style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px" }}>×</button>
             </div>
             <p style={{ fontSize: 12.5, color: "#e4e4e7", lineHeight: 1.6, margin: 0 }}>

@@ -7,7 +7,6 @@ import {
 } from "recharts";
 import { Sidebar } from "@/components/Sidebar";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
-import NiriOrb from "@/components/NiriOrb";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -1682,7 +1681,6 @@ export default function ReportsPage() {
             {tab === "COMPARE"       && <TabCompare       trades={trades}   accounts={accounts} />}
           </div>
 
-        <NiriOrb trades={trades} />
         </main>
       </div>
     </div>

@@ -84,6 +84,12 @@ export default function OnboardingPage() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
 
+  // Dispatch NIRI guide events when the step changes
+  useEffect(() => {
+    const payload = step <= 4 ? String(step) : "complete";
+    window.dispatchEvent(new CustomEvent("niri:onboarding", { detail: { step: payload } }));
+  }, [step]);
+
   useEffect(() => {
     async function init() {
       const supabase = createClient();
@@ -154,7 +160,8 @@ export default function OnboardingPage() {
 
   async function finish() {
     await upsert({ onboarding_completed: true });
-    window.location.href = "/dashboard";
+    window.dispatchEvent(new CustomEvent("niri:onboarding", { detail: { step: "complete" } }));
+    setTimeout(() => { window.location.href = "/dashboard"; }, 2000);
   }
 
   async function next() {

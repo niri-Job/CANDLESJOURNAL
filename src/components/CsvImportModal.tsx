@@ -106,6 +106,9 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
   const [importing, setImporting] = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const [touched,   setTouched]   = useState({ login: false, broker: false });
+  const [successInfo, setSuccessInfo] = useState<{
+    inserted: number; duplicates: number; label: string;
+  } | null>(null);
 
   const loginMissing  = touched.login  && !login.trim();
   const brokerMissing = touched.broker && !broker.trim();
@@ -156,15 +159,28 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
         }),
       });
       const data = await res.json();
+
       if (!res.ok) {
-        setError(data.error === "FREE_LIMIT_REACHED"
-          ? "Upgrade to Pro to import more trades. Your free trial import has been used."
-          : data.error ?? "Import failed. Please try again.");
+        if (data.error === "FREE_LIMIT_REACHED") {
+          setError("Upgrade to Pro to import more trades. Your free trial import has been used.");
+        } else if (data.error?.includes("Database error")) {
+          setError(`${data.error} — Check browser console for details.`);
+          console.error("[CSV import] server error:", data.error);
+        } else {
+          setError(data.error ?? "Import failed. Please try again.");
+        }
         return;
       }
-      onSuccess(data.inserted ?? 0, data.duplicates ?? 0);
-    } catch {
-      setError("Network error. Please check your connection and try again.");
+
+      // Show success state with account name, then close
+      const label = data.account_label ?? `${login.trim()} — ${broker.trim()}`;
+      setSuccessInfo({ inserted: data.inserted ?? 0, duplicates: data.duplicates ?? 0, label });
+      setTimeout(() => {
+        onSuccess(data.inserted ?? 0, data.duplicates ?? 0);
+      }, 2500);
+    } catch (e) {
+      console.error("[CSV import] network error:", e);
+      setError("Network error — could not reach the server. Check your connection and try again.");
     } finally {
       setImporting(false);
     }
@@ -217,7 +233,42 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
         {/* ── Body ── */}
         <div style={{ overflowY: "auto", flex: 1, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
 
+          {/* ── Success state ── */}
+          {successInfo && (
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              textAlign: "center", padding: "32px 16px", gap: 16,
+            }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: "50%",
+                background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div>
+                <p style={{ fontSize: 16, fontWeight: 700, color: "#f4f4f5", margin: "0 0 6px" }}>
+                  {successInfo.inserted} trade{successInfo.inserted !== 1 ? "s" : ""} imported successfully
+                </p>
+                <p style={{ fontSize: 13, color: "#71717a", margin: 0 }}>
+                  Account: <span style={{ color: "#e4e4e7", fontWeight: 600 }}>{successInfo.label}</span>
+                </p>
+                {successInfo.duplicates > 0 && (
+                  <p style={{ fontSize: 12, color: "#52525b", margin: "6px 0 0" }}>
+                    {successInfo.duplicates} duplicate{successInfo.duplicates !== 1 ? "s" : ""} skipped (already in your journal)
+                  </p>
+                )}
+              </div>
+              <p style={{ fontSize: 12, color: "#52525b", margin: 0 }}>
+                Your account will appear in Synced Accounts on the Settings page.
+              </p>
+            </div>
+          )}
+
           {/* Step 1: Account details */}
+          {!successInfo && (<>
           <div style={{
             background: "#18181b",
             border: "1px solid #3f3f46",
@@ -367,6 +418,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
               </div>
             </div>
           )}
+          </>)}
         </div>
 
         {/* ── Footer ── */}
@@ -377,16 +429,18 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
           flexShrink: 0,
         }}>
           <button
-            onClick={onClose}
+            onClick={successInfo ? () => onSuccess(successInfo.inserted, successInfo.duplicates) : onClose}
             disabled={importing}
             style={{
               padding: "10px 20px", borderRadius: 12, fontSize: 14, fontWeight: 600,
-              background: "none", border: "1px solid #3f3f46", color: "#a1a1aa",
+              background: successInfo ? "rgba(16,185,129,0.1)" : "none",
+              border: successInfo ? "1px solid rgba(16,185,129,0.3)" : "1px solid #3f3f46",
+              color: successInfo ? "#34d399" : "#a1a1aa",
               cursor: "pointer", opacity: importing ? 0.4 : 1,
             }}
-          >Cancel</button>
+          >{successInfo ? "Done ✓" : "Cancel"}</button>
 
-          <button
+          {!successInfo && <button
             onClick={handleConfirm}
             disabled={!canConfirm}
             style={{
@@ -412,7 +466,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
                 Confirm Import
               </>
             )}
-          </button>
+          </button>}
         </div>
       </div>
     </div>

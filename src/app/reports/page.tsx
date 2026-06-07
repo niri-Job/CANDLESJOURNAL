@@ -199,6 +199,48 @@ function setupBreakdown(trades: Trade[]) {
   })).sort((a, b) => b.pnl - a.pnl);
 }
 
+// ── Setup × Session ──────────────────────────────────────────────
+const SESSIONS_LIST = ["London", "New York", "Asian", "Overlap"] as const;
+
+function setupSessionMatrix(trades: Trade[]) {
+  const setupSet = new Set<string>();
+  trades.forEach(t => setupSet.add(t.setup?.trim() || "Untagged"));
+  const setups = [...setupSet].sort();
+  const matrix: Record<string, Record<string, { wins: number; n: number }>> = {};
+  setups.forEach(s => {
+    matrix[s] = {};
+    SESSIONS_LIST.forEach(sess => { matrix[s][sess] = { wins: 0, n: 0 }; });
+  });
+  trades.forEach(t => {
+    const setup = t.setup?.trim() || "Untagged";
+    if (t.session && matrix[setup]?.[t.session as typeof SESSIONS_LIST[number]]) {
+      matrix[setup][t.session].n++;
+      if (t.pnl > 0) matrix[setup][t.session].wins++;
+    }
+  });
+  return { setups, matrix };
+}
+
+// ── P&L histogram ────────────────────────────────────────────────
+const PNL_BUCKETS = [
+  { label: "<-$500",      min: -Infinity, max: -500,     positive: false },
+  { label: "-$200–-$500", min: -500,      max: -200,     positive: false },
+  { label: "-$50–-$200",  min: -200,      max: -50,      positive: false },
+  { label: "-$50–$0",     min: -50,       max: 0,        positive: false },
+  { label: "$0–$50",      min: 0,         max: 50,       positive: true  },
+  { label: "$50–$200",    min: 50,        max: 200,      positive: true  },
+  { label: "$200–$500",   min: 200,       max: 500,      positive: true  },
+  { label: ">$500",       min: 500,       max: Infinity,  positive: true  },
+];
+
+function pnlHistogram(trades: Trade[]) {
+  return PNL_BUCKETS.map(b => ({
+    label:    b.label,
+    count:    trades.filter(t => t.pnl >= b.min && t.pnl < b.max).length,
+    positive: b.positive,
+  }));
+}
+
 const ASSET_CLASS_ORDER = ["Forex", "Metals", "Crypto", "Indices", "Other"];
 
 function assetClassBreakdown(trades: Trade[]) {
@@ -619,6 +661,53 @@ function TabOverview({ trades, onExportCsv }: { trades: Trade[]; onExportCsv: ()
             </ResponsiveContainer>
         }
       </ChartBox>
+
+      {/* P&L Distribution Histogram */}
+      {(() => {
+        const hist    = pnlHistogram(trades);
+        const avgPnl  = st ? +(st.totalPnl / st.n).toFixed(2) : 0;
+        const avgBucket = PNL_BUCKETS.find(b => avgPnl >= b.min && avgPnl < b.max);
+        const winBucket  = [...hist].filter(b => b.positive).sort((a, b) => b.count - a.count)[0];
+        const lossBucket = [...hist].filter(b => !b.positive).sort((a, b) => b.count - a.count)[0];
+        const insight = [
+          winBucket?.count  ? `Most of your wins are in the ${winBucket.label} range.`  : "",
+          lossBucket?.count ? `Most of your losses are in the ${lossBucket.label} range.` : "",
+        ].filter(Boolean).join(" ");
+        return (
+          <div>
+            <SectionHead>P&L Distribution</SectionHead>
+            <ChartBox height={220}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hist} margin={{ top: 4, right: 12, left: 0, bottom: 0 }} barSize={32}>
+                  <XAxis dataKey="label" tick={{ fill: "#52525b", fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} width={28} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0].payload;
+                      return (
+                        <div className="rounded-lg px-3 py-2 text-xs" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+                          <p className="text-zinc-400">{d.label}</p>
+                          <p className="font-mono font-bold text-zinc-100">{d.count} trade{d.count !== 1 ? "s" : ""}</p>
+                        </div>
+                      );
+                    }}
+                  />
+                  {avgBucket && (
+                    <ReferenceLine x={avgBucket.label} stroke={GOLD} strokeDasharray="4 3"
+                      label={{ value: `Avg ${f$(avgPnl)}`, position: "top", fill: GOLD, fontSize: 10 }} />
+                  )}
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {hist.map((b, i) => <Cell key={i} fill={b.positive ? GRN : RED} fillOpacity={0.8} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartBox>
+            {insight && <InsightCard icon="›" text={insight} highlight />}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -802,6 +891,76 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
           </div>
         </div>
       )}
+
+      {/* Setup × Session correlation */}
+      {(() => {
+        const { setups, matrix } = setupSessionMatrix(trades);
+        // only render if at least one cell has ≥ 3 trades
+        const hasSufficient = setups.some(s =>
+          SESSIONS_LIST.some(sess => matrix[s][sess].n >= 3)
+        );
+        if (!hasSufficient) return null;
+
+        // find best and worst combos (≥3 trades)
+        type Combo = { setup: string; session: string; wr: number };
+        let bestCombo:  Combo | null = null;
+        let worstCombo: Combo | null = null;
+        setups.forEach(s => {
+          SESSIONS_LIST.forEach(sess => {
+            const cell = matrix[s][sess];
+            if (cell.n < 3) return;
+            const wr = +(cell.wins / cell.n * 100).toFixed(1);
+            if (!bestCombo  || wr > bestCombo.wr)  bestCombo  = { setup: s, session: sess, wr };
+            if (!worstCombo || wr < worstCombo.wr) worstCombo = { setup: s, session: sess, wr };
+          });
+        });
+        const b = bestCombo  as Combo | null;
+        const w = worstCombo as Combo | null;
+        const insightMsg = b && w && (b.setup !== w.setup || b.session !== w.session)
+          ? `Your ${b.setup} works best in ${b.session} with ${b.wr}% win rate. Avoid running ${w.setup} during ${w.session}.`
+          : b ? `Your best setup-session combo is ${b.setup} in ${b.session} with ${b.wr}% win rate.` : "";
+
+        return (
+          <div>
+            <SectionHead>Setup × Session</SectionHead>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--cj-border)" }}>
+                    <th className="py-2 px-3 text-left text-zinc-500 uppercase tracking-wide font-semibold">Setup</th>
+                    {SESSIONS_LIST.map(sess => (
+                      <th key={sess} className="py-2 px-3 text-center text-zinc-500 uppercase tracking-wide font-semibold whitespace-nowrap">{sess}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {setups.map(setup => (
+                    <tr key={setup} style={{ borderBottom: "1px solid var(--cj-border)" }}>
+                      <td className="py-2 px-3 font-semibold text-zinc-200 whitespace-nowrap">{setup || "—"}</td>
+                      {SESSIONS_LIST.map(sess => {
+                        const cell = matrix[setup][sess];
+                        if (cell.n < 3) return (
+                          <td key={sess} className="py-2 px-3 text-center text-zinc-600 font-mono">—</td>
+                        );
+                        const wr = +(cell.wins / cell.n * 100).toFixed(1);
+                        const cls = wr > 60 ? "text-emerald-400" : wr >= 40 ? "text-yellow-400" : "text-rose-400";
+                        const bg  = wr > 60 ? "rgba(52,211,153,0.08)" : wr >= 40 ? "rgba(234,179,8,0.08)" : "rgba(248,113,113,0.08)";
+                        return (
+                          <td key={sess} className={`py-2 px-3 text-center font-mono font-semibold ${cls}`}
+                            style={{ background: bg }} title={`${cell.n} trades`}>
+                            {wr}%
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {insightMsg && <div className="mt-3"><InsightCard icon="›" text={insightMsg} highlight /></div>}
+          </div>
+        );
+      })()}
 
       {/* Asset class breakdown */}
       {assets.length > 0 && (() => {

@@ -47,10 +47,10 @@ export function useNiriBehaviour(
   alertRef.current = onAlert;
 
   useEffect(() => {
+    console.log("[NIRI] behaviour check — trades:", trades.length, "prev:", prevLen.current);
     if (trades.length === 0) return;
-    const prev = prevLen.current;
     prevLen.current = trades.length;
-    if (prev === 0) return; // skip initial load — only fire on new trades
+    // NOTE: no longer skipping initial load — debounce prevents alert spam.
 
     const sorted = [...trades].sort((a, b) => {
       const at = a.created_at ?? a.date;
@@ -62,8 +62,10 @@ export function useNiriBehaviour(
     const todayTrades  = sorted.filter((t) => t.date === today);
 
     function fire(type: string, msg: string) {
-      if (session.current.has(type)) return;   // no repeats this session
-      if (isDebounced(type)) return;            // no repeats within 1 hour
+      const inSession  = session.current.has(type);
+      const debounced  = isDebounced(type);
+      console.log(`[NIRI] fire candidate: ${type} | session=${inSession} | debounced=${debounced}`);
+      if (inSession || debounced) return;
       session.current.add(type);
       stamp(type);
       alertRef.current({ type, message: msg });

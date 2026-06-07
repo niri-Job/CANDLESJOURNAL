@@ -1878,6 +1878,19 @@ export default function TradingJournal() {
         </div>
       )}
 
+      {/* TEST NIRI — temporary debug trigger, remove after confirming orb works */}
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent("niri:test"))}
+        style={{
+          position: "fixed", bottom: 20, left: 20, zIndex: 10000,
+          fontSize: 10, fontFamily: "monospace", padding: "5px 10px",
+          borderRadius: 6, background: "#18181b", border: "1px solid #3f3f46",
+          color: "#71717a", cursor: "pointer",
+        }}
+      >
+        Test NIRI
+      </button>
+
       {/* NIRI ORB */}
       <NiriOrb trades={trades} />
       </div>

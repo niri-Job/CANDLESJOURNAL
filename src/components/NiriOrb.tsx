@@ -103,6 +103,7 @@ export default function NiriOrb({ trades = [] }: Props) {
 
   // ── Core: show alert ─────────────────────────────────────────────────────────
   const showAlert = useCallback((a: NiriAlert, eye: EyeMode, durationMs: number) => {
+    console.log("[NIRI] showAlert firing:", a.type, "—", a.message.slice(0, 60));
     setAlert(a);
     setEyeMode(eye);
     setIsAttention(true);
@@ -119,6 +120,20 @@ export default function NiriOrb({ trades = [] }: Props) {
       inMsgRef.current = false;
     }, durationMs);
   }, []);
+
+  // ── Test event (dispatched by "Test NIRI" button on dashboard) ─────────────
+  useEffect(() => {
+    if (hidden) return;
+    const handler = () => {
+      console.log("[NIRI] test event received");
+      showAlert({
+        type:    "test",
+        message: "NIRI is working! If you can see this, the bubble mechanism is fine.",
+      }, "wide", 8000);
+    };
+    window.addEventListener("niri:test", handler);
+    return () => window.removeEventListener("niri:test", handler);
+  }, [hidden, showAlert]);
 
   // ── Behaviour hook callback ──────────────────────────────────────────────────
   const handleAlert = useCallback((a: NiriAlert) => {
@@ -174,19 +189,18 @@ export default function NiriOrb({ trades = [] }: Props) {
     return () => clearTimeout(t);
   }, [hidden]);
 
-  // ── Daily check-in ───────────────────────────────────────────────────────────
+  // ── Daily check-in: fires 3 s after every dashboard load (unconditional) ───
   useEffect(() => {
     if (hidden) return;
-    const today = new Date().toISOString().slice(0, 10);
-    if (localStorage.getItem("niri_last_checkin") === today) return;
-    localStorage.setItem("niri_last_checkin", today);
+    console.log("[NIRI] daily check-in scheduled");
     const t = setTimeout(() => {
+      console.log("[NIRI] daily check-in executing — calling showAlert");
       setPos(contentCentre());
       showAlert({
         type:    "daily_checkin",
         message: "Good to see you. Let's make today's trades count. I'll be watching your behaviour — you know I always do.",
       }, "normal", 6000);
-    }, 2000);
+    }, 3000);
     return () => clearTimeout(t);
   }, [hidden, showAlert]);
 

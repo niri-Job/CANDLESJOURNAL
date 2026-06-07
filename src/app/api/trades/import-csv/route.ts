@@ -60,13 +60,11 @@ interface ParsedTrade {
   tp:         number | null;
 }
 
-function parseCSV(content: string): ParsedTrade[] {
+export function parseCSV(content: string): ParsedTrade[] {
   const lines = content.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("---"));
   if (lines.length < 2) return [];
 
-  // Detect delimiter: semicolon or comma
   const delim = lines[0].includes(";") ? ";" : ",";
-
   const rawHeaders = lines[0].split(delim).map((h) => normKey(h.replace(/^"|"$/g, "")));
 
   function idx(aliases: string[]) {
@@ -102,18 +100,18 @@ function parseCSV(content: string): ParsedTrade[] {
     const get = (col: number) => (col >= 0 ? raw[col] ?? "" : "");
     const num = (col: number) => parseFloat(get(col)) || 0;
 
-    const ticket    = get(COL.ticket)  || String(i);
-    const symbol    = get(COL.symbol).toUpperCase();
-    const typeStr   = get(COL.type).toLowerCase();
+    const ticket     = get(COL.ticket)  || String(i);
+    const symbol     = get(COL.symbol).toUpperCase();
+    const typeStr    = get(COL.type).toLowerCase();
     const direction: "BUY" | "SELL" = typeStr.startsWith("sell") || typeStr === "s" ? "SELL" : "BUY";
-    const volume    = num(COL.volume);
-    const openPrice = num(COL.openPrice);
+    const volume     = num(COL.volume);
+    const openPrice  = num(COL.openPrice);
     const closePrice = num(COL.closePrice);
-    const profit    = num(COL.profit);
+    const profit     = num(COL.profit);
     const commission = num(COL.commission);
-    const swap      = num(COL.swap);
-    const rawSL     = num(COL.sl);
-    const rawTP     = num(COL.tp);
+    const swap       = num(COL.swap);
+    const rawSL      = num(COL.sl);
+    const rawTP      = num(COL.tp);
     const closeDateRaw = get(COL.closeTime) || get(COL.openTime);
 
     if (!symbol || !closeDateRaw) continue;
@@ -144,18 +142,45 @@ export async function POST(request: Request) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { csv_content?: string; account_label?: string };
+  let body: { csv_content?: string; account_login?: string; account_broker?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   const csvContent = body.csv_content?.trim();
   if (!csvContent) return NextResponse.json({ error: "csv_content is required" }, { status: 400 });
 
-  const trades = parseCSV(csvContent);
-  if (trades.length === 0)
-    return NextResponse.json({ error: "No valid trades found in CSV. Make sure to export from MT5 as CSV with standard columns." }, { status: 400 });
+  const accountLogin = body.account_login?.trim();
+  const accountBroker = body.account_broker?.trim();
+  if (!accountLogin || !accountBroker) {
+    return NextResponse.json({ error: "MT5 login number and broker name are required." }, { status: 400 });
+  }
 
   const svc = serviceDb();
-  const accountSig = `csv_import_${user.id.slice(0, 8)}`;
+
+  // ── Free user CSV limit ──────────────────────────────────────────────────
+  const { data: profile } = await svc
+    .from("user_profiles")
+    .select("subscription_status, subscription_end, csv_imported")
+    .eq("id", user.id)
+    .single();
+
+  const isPro =
+    profile?.subscription_status === "pro" &&
+    !!profile?.subscription_end &&
+    new Date(profile.subscription_end) > new Date();
+
+  if (!isPro && profile?.csv_imported) {
+    return NextResponse.json(
+      { error: "FREE_LIMIT_REACHED" },
+      { status: 403 }
+    );
+  }
+
+  const trades = parseCSV(csvContent);
+  if (trades.length === 0)
+    return NextResponse.json({ error: "No valid trades found. Make sure to export your trade history from MT5 with standard columns." }, { status: 400 });
+
+  const accountSig   = `${accountLogin}_${accountBroker}`;
+  const accountLabel = `${accountLogin} — ${accountBroker}`;
 
   const tradeRows = trades.map((t) => ({
     user_id:             user.id,
@@ -169,14 +194,14 @@ export async function POST(request: Request) {
     sl:                  t.sl,
     tp:                  t.tp,
     pnl:                 t.profit,
-    notes:               "Imported via CSV",
+    notes:               "Imported from MT5 trade history",
     asset_class:         assetClass(t.symbol),
     session:             "London",
     setup:               "",
     mt5_deal_id:         t.ticket,
-    unique_trade_id:     `csv_${t.ticket}_${t.symbol}_${t.closeTsec}`,
+    unique_trade_id:     `${accountSig}_${t.ticket}_${t.symbol}_${t.closeTsec}`,
     is_verified:         false,
-    verification_method: "CSV",
+    verification_method: "csv_import",
   }));
 
   let inserted  = 0;
@@ -197,13 +222,12 @@ export async function POST(request: Request) {
     }
   }
 
-  // Upsert a trading_accounts shell for CSV imports
   await svc.from("trading_accounts").upsert({
     user_id:             user.id,
     account_signature:   accountSig,
-    account_login:       "CSV Import",
-    account_server:      body.account_label ?? "MT5 CSV",
-    account_label:       body.account_label ?? "MT5 CSV Import",
+    account_login:       accountLogin,
+    account_server:      accountBroker,
+    account_label:       accountLabel,
     sync_method:         "csv",
     sync_status:         "connected",
     last_synced_at:      new Date().toISOString(),
@@ -214,6 +238,14 @@ export async function POST(request: Request) {
     verification_status: "inferred",
     sync_error:          null,
   }, { onConflict: "user_id,account_signature" });
+
+  // ── Mark free user as having used their import ───────────────────────────
+  if (!isPro && inserted > 0) {
+    await svc
+      .from("user_profiles")
+      .update({ csv_imported: true })
+      .eq("id", user.id);
+  }
 
   return NextResponse.json({ success: true, total: trades.length, inserted, duplicates });
 }

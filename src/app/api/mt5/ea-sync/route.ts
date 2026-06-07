@@ -222,6 +222,26 @@ export async function POST(request: Request) {
     }
   }
 
+  // On first-ever EA trade for this user: delete all CSV-imported trades
+  // so the account starts fresh from MT5 data only.
+  if (isNewTrade) {
+    const { count: existingEaTrades } = await svc
+      .from("trades")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("verification_method", "EA")
+      .neq("unique_trade_id", uniqueTradeId);
+
+    if (existingEaTrades === 0) {
+      await svc
+        .from("trades")
+        .delete()
+        .eq("user_id", userId)
+        .eq("verification_method", "csv_import");
+      console.log(`[ea-sync:${requestId}] First EA sync detected — CSV trades removed for user ${userId}`);
+    }
+  }
+
   // Keep trading_accounts in sync with what the EA reports
   await svc.from("trading_accounts").upsert({
     user_id:             userId,

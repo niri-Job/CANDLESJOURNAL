@@ -13,6 +13,7 @@ import { DisciplineScore } from "@/components/DisciplineScore";
 import { TradeReflectionModal } from "@/components/TradeReflectionModal";
 import { SharePerformanceCard } from "@/components/SharePerformanceCard";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
+import CsvImportModal from "@/components/CsvImportModal";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -553,6 +554,7 @@ export default function TradingJournal() {
   const [isSyncing,        setIsSyncing]        = useState(false);
   const [strategies,       setStrategies]       = useState<Strategy[]>([]);
   const [shareOpen,        setShareOpen]        = useState(false);
+  const [showCsvImport,    setShowCsvImport]    = useState(false);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function showToast(msg: string, type: "ok" | "err") { setToast({ msg, type }); }
@@ -1549,6 +1551,16 @@ export default function TradingJournal() {
             <div className="flex items-center justify-between mb-4">
               <p className="card-label">Trade History</p>
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowCsvImport(true)}
+                  className="flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border transition-all"
+                  style={{ borderColor: "rgba(245,197,24,0.25)", color: "var(--cj-gold-muted)", background: "rgba(245,197,24,0.05)" }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Import CSV
+                </button>
                 {accountTrades.length > 0 && (
                   <button onClick={clearAllTrades}
                     className="text-[10px] text-rose-700 hover:text-rose-400 border border-rose-900/50
@@ -1837,6 +1849,20 @@ export default function TradingJournal() {
         <TradeReflectionModal
           trade={reflectionTrade}
           onClose={() => setReflectionTrade(null)}
+        />
+      )}
+
+      {/* CSV IMPORT MODAL */}
+      {showCsvImport && (
+        <CsvImportModal
+          onClose={() => setShowCsvImport(false)}
+          onSuccess={(inserted, duplicates) => {
+            setShowCsvImport(false);
+            showToast(
+              `${inserted} trade${inserted !== 1 ? "s" : ""} imported${duplicates > 0 ? `, ${duplicates} duplicate${duplicates !== 1 ? "s" : ""} skipped` : ""}`,
+              "ok"
+            );
+          }}
         />
       )}
 

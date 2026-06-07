@@ -153,6 +153,7 @@ function ReferralQuickView() {
 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
+  const isDeveloper = user?.email === process.env.NEXT_PUBLIC_DEVELOPER_EMAIL;
 
   async function handleLogout() {
     const supabase = createClient();
@@ -596,6 +597,26 @@ export default function SettingsPage() {
           )}
         </div>
 
+        {/* Notice banner for users who had EA tokens but are not the developer */}
+        {!isDeveloper && eaTokens.length > 0 && (
+          <div className="mb-5 flex items-start gap-3 px-4 py-4 rounded-xl"
+               style={{ background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.2)" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C518" strokeWidth="1.5"
+                 strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p className="text-xs leading-relaxed" style={{ color: "#C4B89A" }}>
+              MT5 auto-sync via EA is being replaced with a simpler CSV import method.{" "}
+              <span className="font-semibold text-zinc-200">Your existing trades are safe.</span>{" "}
+              To add new trades, use the CSV import on your dashboard.
+            </p>
+          </div>
+        )}
+
+        {/* -- MT + EA: visible to developer only -- */}
+        {isDeveloper && (
+        <>
+
         {/* -- MT -- */}
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">A. MT5 Direct Connect</p>
@@ -991,68 +1012,28 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        </> /* end isDeveloper */
+        )}
+
         {/* -- CSV IMPORT -- */}
         <div className="mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">C. CSV Import</p>
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
-            <p className="text-sm font-semibold text-zinc-100 mb-1">Import MT5 History CSV</p>
-            <p className="text-xs text-zinc-500 leading-relaxed mb-4">
-              Upload an MT5 history CSV file. This uses the simple CSV import route and does not require Direct Connect or EA Sync.
-            </p>
-
-            <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
-                 style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="1.5"
-                   strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              <div className="text-xs text-emerald-300 leading-relaxed space-y-1">
-                <p>In MT5: View {"->"} Terminal {"->"} Account History {"->"} right-click {"->"} Save as Report {"->"} choose CSV.</p>
-                <p className="text-zinc-500">Expected columns include ticket, time, type, volume, symbol, price, close time, close price, commission, swap, and profit.</p>
-              </div>
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">CSV Import</p>
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-zinc-100 mb-1">Import MT5 Trade History</p>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Upload a CSV export from your MT5 account history. Free accounts get 1 import; Pro accounts have unlimited imports.
+              </p>
             </div>
-
-            {csvError && (
-              <div className="mb-4 rounded-xl px-4 py-3 bg-rose-500/8 border border-rose-500/20">
-                <p className="text-xs text-rose-400">{csvError}</p>
-              </div>
-            )}
-
-            {csvResult && (
-              <div className="mb-4 rounded-xl px-4 py-3"
-                   style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}>
-                <p className="text-xs text-emerald-400 font-semibold">
-                  {csvResult.inserted} trade{csvResult.inserted !== 1 ? "s" : ""} imported
-                  {csvResult.duplicates > 0 ? `, ${csvResult.duplicates} duplicate${csvResult.duplicates !== 1 ? "s" : ""} skipped` : ""}.
-                </p>
-              </div>
-            )}
-
-            <label className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm
-                               transition-all cursor-pointer ${csvImporting ? "opacity-60 pointer-events-none" : "hover:opacity-90"}`}
-                   style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff" }}>
-              {csvImporting ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                <>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
-                  Select CSV File to Import
-                </>
-              )}
-              <input
-                type="file"
-                accept=".csv,.txt"
-                className="hidden"
-                onChange={handleCsvImport}
-                disabled={csvImporting}
-              />
-            </label>
+            <a href="/dashboard"
+               className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap"
+               style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Import on Dashboard →
+            </a>
           </div>
         </div>
 

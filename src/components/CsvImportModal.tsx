@@ -1,4 +1,4 @@
-// BUILD: 2026-06-08T12:00:00.000Z
+// BUILD: 2026-06-08T18:00:00.000Z
 "use client";
 
 import { useRef, useState } from "react";
@@ -62,6 +62,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
     setPreview(null);
 
     const result = await parseTradeFile(file);
+    console.log("parseTradeFile result:", result);
 
     if (result.error) {
       setError(result.error);

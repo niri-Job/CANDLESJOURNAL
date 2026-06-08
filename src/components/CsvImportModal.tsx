@@ -66,6 +66,83 @@ function parseHTMLToCSV(html: string): string {
   return "";
 }
 
+// ── Smart XLSX column mapper ──────────────────────────────────────────────────
+interface ColumnMapResult {
+  canonical: string[];               // header row with canonical field names
+  found:     Record<string, number>; // canonical field → column index
+  missing:   string[];               // key fields that were not found
+}
+
+function buildXLSXColumnMap(rawHeaders: string[]): ColumnMapResult {
+  // Columns where first vs second occurrence means open vs close
+  const BY_POSITION: Record<string, [string, string]> = {
+    time:  ["opentime",  "closetime"],
+    price: ["openprice", "closeprice"],
+  };
+
+  // Normalized alias → canonical name used by clientParseCSV
+  const ALIAS: Record<string, string> = {
+    // pair / symbol
+    symbol: "symbol", item: "symbol", instrument: "symbol", currency: "symbol", asset: "symbol",
+    // direction / type
+    type: "type", direction: "type", side: "type", action: "type",
+    // lot / volume
+    volume: "volume", size: "volume", lots: "volume", qty: "volume", quantity: "volume",
+    // open time (when already an explicit name, not a bare "Time" duplicate)
+    opentime: "opentime", openingtime: "opentime", entrytime: "opentime", opendate: "opentime", openedtime: "opentime",
+    // close time
+    closetime: "closetime", closingtime: "closetime", exittime: "closetime", closedate: "closetime", closedtime: "closetime",
+    // entry price (explicit headers from some brokers)
+    openprice: "openprice", openingprice: "openprice", entryprice: "openprice", entry: "openprice", open: "openprice",
+    // exit price
+    closeprice: "closeprice", closingprice: "closeprice", exitprice: "closeprice", exit: "closeprice", close: "closeprice",
+    // profit / P&L
+    profit: "profit", pnl: "profit", netprofit: "profit", pl: "profit", gain: "profit",
+    // ticket / id
+    position: "ticket", ticket: "ticket", order: "ticket", deal: "ticket", id: "ticket",
+    // stop loss  — "S / L" → sl, "Stop Loss" → stoploss, "StopLoss" → stoploss
+    sl: "sl", stoploss: "sl",
+    // take profit — "T / P" → tp, "Take Profit" → takeprofit
+    tp: "tp", takeprofit: "tp",
+  };
+
+  const seenCount = new Map<string, number>();
+  const found: Record<string, number> = {};
+  const unmappedCols: string[] = [];
+
+  const canonical = rawHeaders.map((h, colIdx) => {
+    const norm = h.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const occ  = seenCount.get(norm) ?? 0;
+    seenCount.set(norm, occ + 1);
+
+    // Position-sensitive: first "time" → opentime, second → closetime; same for price
+    if (norm in BY_POSITION) {
+      const name = BY_POSITION[norm][occ === 0 ? 0 : 1];
+      if (!(name in found)) found[name] = colIdx;
+      return name;
+    }
+
+    // Standard alias lookup (first match per canonical field wins)
+    if (norm in ALIAS) {
+      const name = ALIAS[norm];
+      if (!(name in found)) found[name] = colIdx;
+      return name;
+    }
+
+    unmappedCols.push(`"${h}"@col${colIdx}`);
+    return h; // keep raw name for unknown columns — not critical
+  });
+
+  const KEY_FIELDS = ["symbol", "type", "volume", "profit", "opentime", "closetime", "openprice", "closeprice"];
+  const missing = KEY_FIELDS.filter((f) => !(f in found));
+
+  if (unmappedCols.length) {
+    console.log("[XLSX import] Columns with no mapping (non-critical):", unmappedCols.join(", "));
+  }
+
+  return { canonical, found, missing };
+}
+
 function clientParseCSV(content: string): PreviewRow[] {
   const lines = content.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("---"));
   if (lines.length < 2) return [];
@@ -224,11 +301,10 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
           const ws      = wb.Sheets[wb.SheetNames[0]];
           const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as string[][];
 
-          // Log enough rows to always see past MT5's metadata header block
           console.log("[XLSX import] First 10 rows:", allRows.slice(0, 10));
 
-          // Find the header row: first row in the first 30 with 3+ MT5 keyword matches
-          const HEADER_KW = ["ticket","deal","symbol","item","type","direction","volume","size","lots","profit","pnl","price","commission","swap","position"];
+          // Scan first 30 rows for the trade header row
+          const HEADER_KW = ["ticket","deal","symbol","item","type","direction","volume","size","lots","profit","pnl","price","commission","swap","position","time","open","close"];
           let headerIdx = -1;
           for (let i = 0; i < Math.min(allRows.length, 30); i++) {
             const norm = allRows[i].map((c) => String(c ?? "").toLowerCase().replace(/[^a-z0-9]/g, ""));
@@ -236,32 +312,32 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
             if (hits >= 3) { headerIdx = i; break; }
           }
           if (headerIdx === -1) {
-            console.warn("[XLSX import] No header row found in first 30 rows — using row 0");
+            console.warn("[XLSX import] No header row found — using row 0");
             headerIdx = 0;
           }
 
-          console.log("[XLSX import] Header row at index", headerIdx, ":", allRows[headerIdx]);
-
-          // MT5 exports duplicate column names: "Time" appears twice (open/close)
-          // and "Price" appears twice (entry/exit). Rename by position so that
-          // clientParseCSV can distinguish them via its alias lists.
           const rawHeaders = allRows[headerIdx].map((c) => String(c ?? ""));
-          const seenNorm = new Map<string, number>();
-          const dedupedHeaders = rawHeaders.map((h) => {
-            const norm = h.toLowerCase().replace(/[^a-z0-9]/g, "");
-            const count = seenNorm.get(norm) ?? 0;
-            seenNorm.set(norm, count + 1);
-            if (norm === "time")     return count === 0 ? "opentime"  : "closetime";
-            if (norm === "price")    return count === 0 ? "openprice" : "closeprice";
-            if (norm === "position") return "ticket";
-            return h;
-          });
+          console.log("[XLSX import] Raw headers at row", headerIdx, ":", rawHeaders);
 
-          console.log("[XLSX import] Deduplicated headers:", dedupedHeaders);
+          // Map every header cell to a canonical field name understood by clientParseCSV.
+          // Handles all broker variants + duplicate Time/Price columns by position.
+          const { canonical, found, missing } = buildXLSXColumnMap(rawHeaders);
+          console.log("[XLSX import] Mapped fields:", found);
+          if (missing.length) console.log("[XLSX import] Fields NOT found:", missing);
 
-          // Build CSV: deduplicated header row + data rows (skip fully-empty rows)
+          // Require at least 3 of the key fields; otherwise the format is unrecognised
+          const KEY_FIELDS = ["symbol","type","volume","profit","opentime","closetime","openprice","closeprice"];
+          const foundCount = KEY_FIELDS.filter((f) => f in found).length;
+          if (foundCount < 3) {
+            console.error("[XLSX import] Only", foundCount, "key fields found — cannot parse. Raw headers:", rawHeaders);
+            setError("Could not read this file format. Please contact support with your broker name.");
+            setPreview(null);
+            return;
+          }
+
+          // Build clean CSV: canonical header + data rows; drop fully-empty rows
           const csvLines: string[] = [
-            dedupedHeaders.map((h) => `"${h.replace(/"/g, "'")}"`).join(","),
+            canonical.map((h) => `"${h.replace(/"/g, "'")}"`).join(","),
             ...allRows
               .slice(headerIdx + 1)
               .filter((row) => row.some((c) => String(c ?? "").trim() !== ""))

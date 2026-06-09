@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
@@ -179,6 +179,7 @@ export default function SettingsPage() {
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<string | null>(null);
   const [showPassword,    setShowPassword]    = useState(false);
+  const autoSynced = useRef(false);
 
   // EA Sync state
   const [eaTokens,      setEaTokens]      = useState<EaTokenRow[]>([]);
@@ -258,6 +259,26 @@ export default function SettingsPage() {
     }
     init();
   }, []);
+
+  // Fire one background sync per page load for every connected MetaAPI account
+  useEffect(() => {
+    if (loading || autoSynced.current || !user) return;
+    const metaapiAccs = tradingAccounts.filter(
+      (a) => a.sync_method === "metaapi" && !!a.metaapi_account_id
+    );
+    if (!metaapiAccs.length) return;
+    autoSynced.current = true;
+    metaapiAccs.forEach((acc) => {
+      fetch("/api/metaapi/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_signature: acc.account_signature }),
+      })
+        .then((res) => (res.ok ? refreshTradingAccounts() : undefined))
+        .catch(() => undefined);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   async function refreshConnections() {
     if (!user) return;
@@ -670,42 +691,49 @@ export default function SettingsPage() {
                         </p>
                       </div>
 
-                      <div className="shrink-0 flex items-center gap-2">
-                        {account.sync_method === "metaapi" && account.metaapi_account_id && (
+                      <div className="shrink-0 flex flex-col items-end gap-1.5">
+                        <div className="flex items-center gap-2">
+                          {account.sync_method === "metaapi" && account.metaapi_account_id && (
+                            <button
+                              type="button"
+                              onClick={() => handleMetaApiSync(account.account_signature)}
+                              disabled={syncingAccount === account.account_signature}
+                              className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
+                                         border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10
+                                         hover:border-emerald-500/50 transition-all disabled:opacity-50">
+                              {syncingAccount === account.account_signature ? (
+                                <span className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                </svg>
+                              )}
+                              Sync Now
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => handleMetaApiSync(account.account_signature)}
-                            disabled={syncingAccount === account.account_signature}
+                            onClick={() => handleDeleteTradingAccount(account)}
+                            disabled={isDeleting}
                             className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
-                                       border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10
-                                       hover:border-emerald-500/50 transition-all disabled:opacity-50">
-                            {syncingAccount === account.account_signature ? (
-                              <span className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                                       border border-rose-500/20 text-rose-400 hover:bg-rose-500/10
+                                       hover:border-rose-500/40 transition-all disabled:opacity-50">
+                            {isDeleting ? (
+                              <span className="w-3 h-3 border border-rose-400 border-t-transparent rounded-full animate-spin" />
                             ) : (
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
                               </svg>
                             )}
-                            Sync Now
+                            Delete
                           </button>
+                        </div>
+                        {account.sync_method === "metaapi" && account.metaapi_account_id && (
+                          <span className="text-[10px] text-zinc-600">
+                            Last synced: {timeAgo(account.last_synced_at)}
+                          </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTradingAccount(account)}
-                          disabled={isDeleting}
-                          className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
-                                     border border-rose-500/20 text-rose-400 hover:bg-rose-500/10
-                                     hover:border-rose-500/40 transition-all disabled:opacity-50">
-                          {isDeleting ? (
-                            <span className="w-3 h-3 border border-rose-400 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
-                            </svg>
-                          )}
-                          Delete
-                        </button>
                       </div>
                     </div>
 
@@ -757,6 +785,47 @@ export default function SettingsPage() {
         {(isPro || isDeveloper) && (
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">MT5 Direct Connect</p>
+
+          {/* Existing MetaAPI-connected accounts — persistent after connect and on every reload */}
+          {tradingAccounts.filter((a) => a.sync_method === "metaapi" && a.metaapi_account_id).map((account) => {
+            const label = account.account_label ||
+              [account.account_login, account.account_server].filter(Boolean).join(" — ") ||
+              account.account_signature;
+            const isSyncing = syncingAccount === account.account_signature;
+            return (
+              <div key={account.id}
+                   className="bg-[var(--cj-surface)] border border-emerald-500/20 rounded-2xl p-4 mb-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                      <p className="text-sm font-semibold text-zinc-100">{label}</p>
+                    </div>
+                    <p className="text-[11px] text-zinc-500">
+                      MetaAPI connected · Last synced: {timeAgo(account.last_synced_at)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleMetaApiSync(account.account_signature)}
+                    disabled={isSyncing}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
+                               border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10
+                               hover:border-emerald-500/50 transition-all disabled:opacity-50">
+                    {isSyncing ? (
+                      <span className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                      </svg>
+                    )}
+                    {isSyncing ? "Syncing…" : "Sync Now"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
 
           {/* Connect form */}
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">

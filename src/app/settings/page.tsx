@@ -32,7 +32,6 @@ interface TradingAccountRow {
   id: string;
   account_signature: string;
   account_label: string | null;
-  broker_name: string | null;
   account_login: string | null;
   account_server: string | null;
   account_currency: string | null;
@@ -242,9 +241,9 @@ export default function SettingsPage() {
           .order("created_at", { ascending: false }),
         supabase
           .from("trading_accounts")
-          .select("id, account_signature, account_label, broker_name, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at, metaapi_account_id")
+          .select("id, account_signature, account_label, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at, metaapi_account_id")
           .eq("user_id", user.id)
-          .order("created_at", { ascending: false }),
+          .order("last_synced_at", { ascending: false, nullsFirst: false }),
       ]);
 
       const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
@@ -253,6 +252,9 @@ export default function SettingsPage() {
 
       if (connectionsRes.data) setMt5Connections(connectionsRes.data as Mt5Connection[]);
       if (tokenRes.data)       setEaTokens(tokenRes.data as EaTokenRow[]);
+      if (accountsRes.error) {
+        console.error("[settings] tradingAccounts query error:", JSON.stringify(accountsRes.error));
+      }
       if (accountsRes.data)    setTradingAccounts(accountsRes.data as TradingAccountRow[]);
 
       setLoading(false);
@@ -306,12 +308,13 @@ export default function SettingsPage() {
   async function refreshTradingAccounts() {
     if (!user) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("trading_accounts")
-      .select("id, account_signature, account_label, broker_name, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at, metaapi_account_id")
+      .select("id, account_signature, account_label, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at, metaapi_account_id")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    if (data) setTradingAccounts(data as TradingAccountRow[]);
+      .order("last_synced_at", { ascending: false, nullsFirst: false });
+    if (error) console.error("[settings] refreshTradingAccounts error:", JSON.stringify(error));
+    if (data)  setTradingAccounts(data as TradingAccountRow[]);
   }
 
   const isPro = sub.status === "pro" && !!sub.end && new Date(sub.end) > new Date();

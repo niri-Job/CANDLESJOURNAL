@@ -167,8 +167,10 @@ export async function POST(request: Request) {
     console.log("[metaapi/sync] MetaAPI account info:", JSON.stringify(accountInfo));
 
     if (accountInfo.state !== "DEPLOYED") {
+      console.log("[metaapi/sync] Account state is", accountInfo.state, "— firing deploy for", accountId);
       await mPost<void>(PROVISIONING, `/users/current/accounts/${accountId}/deploy`, token)
-        .catch(() => { /* ignore if already deploying */ });
+        .then(() => console.log("[metaapi/sync] Deploy triggered successfully"))
+        .catch((e: unknown) => console.warn("[metaapi/sync] Deploy trigger (non-fatal):", (e as { message?: string }).message));
 
       return NextResponse.json(
         { error: "Account is connecting to your broker for the first time. This takes 1–2 minutes. Please try again shortly." },

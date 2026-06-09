@@ -167,17 +167,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Deploy so it starts syncing with the broker
-    try {
-      await mPost<void>(`/users/current/accounts/${accountId}/deploy`, token);
-      console.log("[metaapi/connect] Deployed:", accountId);
-    } catch (deployErr: unknown) {
-      const msg = (deployErr as { message?: string }).message ?? "";
-      if (!msg.toLowerCase().includes("already") && !msg.includes("E_ALREADY")) {
-        console.warn("[metaapi/connect] Deploy warning (non-fatal):", msg);
-      }
-    }
-
+    // Save to DB first so the account_id is persisted before deploy kicks off
     const { error: upsertErr } = await svc.from("trading_accounts").upsert({
       user_id:             user.id,
       account_signature:   accountSig,
@@ -202,6 +192,17 @@ export async function POST(request: Request) {
         { error: `Account provisioned but failed to save: ${upsertErr.message}` },
         { status: 500 }
       );
+    }
+
+    // Deploy after DB is saved
+    try {
+      await mPost<void>(`/users/current/accounts/${accountId}/deploy`, token);
+      console.log("[metaapi/connect] Deployed:", accountId);
+    } catch (deployErr: unknown) {
+      const msg = (deployErr as { message?: string }).message ?? "";
+      if (!msg.toLowerCase().includes("already") && !msg.includes("E_ALREADY")) {
+        console.warn("[metaapi/connect] Deploy warning (non-fatal):", msg);
+      }
     }
 
     return NextResponse.json({

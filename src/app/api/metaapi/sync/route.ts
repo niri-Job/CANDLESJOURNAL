@@ -141,6 +141,8 @@ export async function POST(request: Request) {
     .eq("account_signature", account_signature.trim())
     .maybeSingle();
 
+  console.log("[metaapi/sync] Loaded trading account:", JSON.stringify(tradingAccount));
+
   if (taErr || !tradingAccount) {
     return NextResponse.json({ error: "Account not found" }, { status: 404 });
   }
@@ -161,6 +163,8 @@ export async function POST(request: Request) {
     const accountInfo = await mGet<{ state: string }>(
       PROVISIONING, `/users/current/accounts/${accountId}`, token
     );
+
+    console.log("[metaapi/sync] MetaAPI account info:", JSON.stringify(accountInfo));
 
     if (accountInfo.state !== "DEPLOYED") {
       await mPost<void>(PROVISIONING, `/users/current/accounts/${accountId}/deploy`, token)
@@ -189,6 +193,8 @@ export async function POST(request: Request) {
       : ((historyRes as { deals?: MetaDeal[] }).deals ?? []);
 
     console.log(`[metaapi/sync] Got ${deals.length} deals for account ${account_signature}`);
+    console.log("[metaapi/sync] Raw historyRes type:", Array.isArray(historyRes) ? "array" : typeof historyRes, "keys:", !Array.isArray(historyRes) ? Object.keys(historyRes as object) : "n/a");
+    console.log("[metaapi/sync] First 3 deals:", JSON.stringify(deals.slice(0, 3), null, 2));
 
     // ── Reconstruct closed trades from IN/OUT deal pairs ──────────────────────
     type DealPair = { in?: MetaDeal; out?: MetaDeal };
@@ -238,6 +244,9 @@ export async function POST(request: Request) {
         };
       });
 
+    const totalPositions = Object.keys(positions).length;
+    const pairedPositions = Object.values(positions).filter((p) => p.in && p.out).length;
+    console.log(`[metaapi/sync] Positions: ${totalPositions} total, ${pairedPositions} fully paired (IN+OUT), ${tradeRows.length} mapped`);
     console.log(`[metaapi/sync] Mapped ${tradeRows.length} closed trades`);
 
     // ── Upsert in chunks ──────────────────────────────────────────────────────

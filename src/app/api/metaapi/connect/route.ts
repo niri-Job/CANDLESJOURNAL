@@ -104,34 +104,67 @@ export async function POST(request: Request) {
   const token = process.env.METAAPI_TOKEN;
   if (!token) return NextResponse.json({ error: "MetaAPI is not configured on this server." }, { status: 503 });
 
+  const accountSig   = `${login.trim()}_${server.trim()}`;
+  const accountLabel = `${login.trim()} — ${server.trim()}`;
+
   try {
-    // Check if this login is already provisioned under this MetaAPI token
-    const existing = await mGet<{ id: string; login: string; type: string }[]>(
-      "/users/current/accounts?limit=1000", token
-    );
     let accountId: string | null = null;
 
-    const match = existing.find((a) => a.login === login.trim() && a.type?.startsWith("cloud"));
-    if (match) {
-      console.log("[metaapi/connect] Account already provisioned:", match.id);
-      accountId = match.id;
+    // ── Step 1: check if already provisioned in Supabase ─────────────────────
+    const { data: existingRow } = await svc
+      .from("trading_accounts")
+      .select("metaapi_account_id")
+      .eq("user_id", user.id)
+      .eq("account_signature", accountSig)
+      .maybeSingle();
+
+    if (existingRow?.metaapi_account_id) {
+      accountId = existingRow.metaapi_account_id;
+      console.log("[metaapi/connect] Already provisioned (from DB):", accountId);
     } else {
-      console.log("[metaapi/connect] Provisioning new account for login", login.trim());
-      const created = await mPost<{ id: string }>(
-        "/users/current/accounts",
-        token,
-        {
-          login:    login.trim(),
-          password: password.trim(),
-          server:   server.trim(),
-          platform: (platform?.trim() || "mt5"),
-          type:     "cloud-g2",
-          name:     `NIRI — ${login.trim()} (${server.trim()})`,
-          magic:    0,
-        }
+      // ── Step 2: check MetaAPI for an account with this login ────────────────
+      const existingAccounts = await mGet<Record<string, unknown>[]>(
+        "/users/current/accounts?limit=1000", token
       );
-      accountId = created.id;
-      console.log("[metaapi/connect] Created account:", accountId);
+      console.log(
+        "[metaapi/connect] MetaAPI accounts — count:", existingAccounts.length,
+        "sample:", JSON.stringify(existingAccounts.slice(0, 2))
+      );
+
+      const match = existingAccounts.find(
+        (a) => String(a.login) === login.trim() &&
+               (typeof a.type === "string" ? a.type.startsWith("cloud") : true)
+      );
+
+      if (match) {
+        accountId = (match.id ?? match._id ?? null) as string | null;
+        console.log("[metaapi/connect] Found existing MetaAPI account:", accountId, JSON.stringify(match));
+      } else {
+        // ── Step 3: provision new ──────────────────────────────────────────────
+        console.log("[metaapi/connect] Provisioning new account for login", login.trim());
+        const created = await mPost<Record<string, unknown>>(
+          "/users/current/accounts",
+          token,
+          {
+            login:    login.trim(),
+            password: password.trim(),
+            server:   server.trim(),
+            platform: (platform?.trim() || "mt5"),
+            type:     "cloud-g2",
+            name:     `NIRI — ${login.trim()} (${server.trim()})`,
+            magic:    0,
+          }
+        );
+        accountId = (created.id ?? created._id ?? null) as string | null;
+        console.log("[metaapi/connect] Created account:", accountId, "response:", JSON.stringify(created));
+      }
+    }
+
+    if (!accountId) {
+      return NextResponse.json(
+        { error: "Failed to obtain MetaAPI account ID. Please try again." },
+        { status: 500 }
+      );
     }
 
     // Deploy so it starts syncing with the broker
@@ -139,15 +172,11 @@ export async function POST(request: Request) {
       await mPost<void>(`/users/current/accounts/${accountId}/deploy`, token);
       console.log("[metaapi/connect] Deployed:", accountId);
     } catch (deployErr: unknown) {
-      // Ignore "already deployed" errors
       const msg = (deployErr as { message?: string }).message ?? "";
       if (!msg.toLowerCase().includes("already") && !msg.includes("E_ALREADY")) {
         console.warn("[metaapi/connect] Deploy warning (non-fatal):", msg);
       }
     }
-
-    const accountSig   = `${login.trim()}_${server.trim()}`;
-    const accountLabel = `${login.trim()} — ${server.trim()}`;
 
     const { error: upsertErr } = await svc.from("trading_accounts").upsert({
       user_id:             user.id,
@@ -155,7 +184,6 @@ export async function POST(request: Request) {
       account_login:       login.trim(),
       account_server:      server.trim(),
       account_label:       accountLabel,
-      broker_name:         server.trim(),
       sync_method:         "metaapi",
       sync_status:         "connected",
       last_synced_at:      new Date().toISOString(),

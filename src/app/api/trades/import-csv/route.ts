@@ -127,6 +127,15 @@ export function parseCSV(content: string): { trades: ParsedTrade[]; headers: str
     if (!symbol || !closeDateRaw) continue;
     // Skip rows with suspiciously generic symbols (sometimes MT5 puts "n/a" or "-")
     if (symbol.length < 2 || symbol === "N/A" || symbol === "-") continue;
+    // Skip MT5 order rows: volume is "0.3 / 0.3" format and price is "market"/"filled"
+    if (get(COL.volume).includes("/")) continue;
+    // Skip MT5 deals rows: volume is "in"/"out" (deal direction, not a lot size → parses to 0)
+    const volumeVal = num(COL.volume);
+    if (volumeVal === 0) continue;
+
+    const openPrice = num(COL.openPrice);
+    // Skip rows with no valid entry price (order rows, header rows, summary rows)
+    if (openPrice === 0) continue;
 
     const direction: "BUY" | "SELL" = typeRaw.includes("sell") || typeRaw === "s" ? "SELL" : "BUY";
     const rawSL = num(COL.sl);
@@ -136,8 +145,8 @@ export function parseCSV(content: string): { trades: ParsedTrade[]; headers: str
       ticket:     get(COL.ticket) || String(i),
       symbol,
       direction,
-      volume:     num(COL.volume),
-      openPrice:  num(COL.openPrice),
+      volume:     volumeVal,
+      openPrice,
       closePrice: num(COL.closePrice),
       closeDate:  parseMT5Date(closeDateRaw),
       closeTsec:  parseMT5Timestamp(closeDateRaw),
@@ -176,7 +185,7 @@ export async function POST(request: Request) {
   const { data: profile, error: profileErr } = await svc
     .from("user_profiles")
     .select("subscription_status, subscription_end, csv_imported")
-    .eq("id", user.id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (profileErr) {
@@ -194,6 +203,11 @@ export async function POST(request: Request) {
 
   // ── Parse CSV ────────────────────────────────────────────────────────────────
   const { trades, headers } = parseCSV(csvContent);
+  if (trades.length > 0) {
+    console.log("[import-csv] First 3 parsed pnl values:",
+      trades.slice(0, 3).map((t) => ({ pair: t.symbol, profit: t.profit, openPrice: t.openPrice }))
+    );
+  }
 
   if (trades.length === 0) {
     const foundHeaders = headers.join(", ") || "(no headers detected)";
@@ -231,26 +245,47 @@ export async function POST(request: Request) {
     verification_method:  "csv_import",
   }));
 
+  // ── Pre-filter already-imported deal IDs to avoid constraint 23505 ──────────
+  // trades_mt5_deal_id_unique is a separate constraint from user_id+unique_trade_id,
+  // so ignoreDuplicates on the latter won't silence conflicts on the former.
+  const existingDealIds = new Set<string>();
+  {
+    const { data: existingRows } = await svc
+      .from("trades")
+      .select("mt5_deal_id")
+      .eq("user_id", user.id)
+      .not("mt5_deal_id", "is", null);
+    if (existingRows) {
+      existingRows.forEach((r) => { if (r.mt5_deal_id) existingDealIds.add(String(r.mt5_deal_id)); });
+    }
+  }
+
+  const rowsToInsert = tradeRows.filter((r) => !existingDealIds.has(String(r.mt5_deal_id)));
+
   // ── Insert trades ────────────────────────────────────────────────────────────
   let inserted  = 0;
-  let duplicates = 0;
+  let duplicates = tradeRows.length - rowsToInsert.length; // pre-filtered
   const CHUNK = 100;
 
-  for (let i = 0; i < tradeRows.length; i += CHUNK) {
-    const chunk = tradeRows.slice(i, i + CHUNK);
+  for (let i = 0; i < rowsToInsert.length; i += CHUNK) {
+    const chunk = rowsToInsert.slice(i, i + CHUNK);
     const { data: upserted, error: upsertErr } = await svc
       .from("trades")
       .upsert(chunk, { onConflict: "user_id,unique_trade_id", ignoreDuplicates: true })
       .select("id");
 
     if (upsertErr) {
+      if (upsertErr.code === "23505") {
+        // A different unique constraint fired — count this chunk as duplicates and continue
+        console.warn("[import-csv] 23505 on chunk (duplicate), skipping:", upsertErr.message);
+        duplicates += chunk.length;
+        continue;
+      }
       console.error("[import-csv] upsert error:", upsertErr);
-      // Return the real error so the browser console and user can see it
       return NextResponse.json({
         error: `Database error while saving trades: ${upsertErr.message}` +
-          (upsertErr.hint  ? ` Hint: ${upsertErr.hint}`   : "") +
-          (upsertErr.code  ? ` (code ${upsertErr.code})`  : "") +
-          ". If this persists, please run migration 003 from the /migrations folder in Supabase SQL editor.",
+          (upsertErr.hint ? ` Hint: ${upsertErr.hint}` : "") +
+          (upsertErr.code ? ` (code ${upsertErr.code})` : ""),
       }, { status: 500 });
     }
 
@@ -287,7 +322,7 @@ export async function POST(request: Request) {
     const { error: flagErr } = await svc
       .from("user_profiles")
       .update({ csv_imported: true })
-      .eq("id", user.id);
+      .eq("user_id", user.id);
     if (flagErr) console.error("[import-csv] csv_imported flag error:", flagErr.message);
   }
 

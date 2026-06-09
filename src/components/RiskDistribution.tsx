@@ -64,9 +64,13 @@ export function RiskDistribution({ trades }: { trades: Trade[] }) {
     const bestPair  = pairsSorted[0]  ?? null;
     const worstPair = pairsSorted[pairsSorted.length - 1] ?? null;
 
-    const risked = trades
-      .filter((t) => t.sl != null)
-      .map((t) => Math.abs(t.entry - t.sl!) * 10000);
+    const forexWithSl = trades.filter((t) => {
+      if (t.sl == null) return false;
+      const s = t.pair.toUpperCase();
+      const isNonForex = ["XAU","XAG","BTC","ETH","XRP","LTC","US30","NAS","SPX","DAX","OIL","BRENT"].some((k) => s.includes(k));
+      return !isNonForex;
+    });
+    const risked = forexWithSl.map((t) => Math.abs(t.entry - t.sl!) * 10000);
     const avgPipsRisked = risked.length > 0
       ? risked.reduce((a, b) => a + b) / risked.length
       : null;

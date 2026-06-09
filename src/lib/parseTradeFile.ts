@@ -163,19 +163,26 @@ function parseCSV(content: string): PreviewRow[] {
   for (let i = 1; i < lines.length && rows.length < 200; i++) {
     const raw = lines[i].split(delim).map((c) => c.trim().replace(/^"|"$/g, ""));
     if (raw.length < 4) continue;
-    const get = (col: number) => (col >= 0 && col < raw.length ? raw[col] ?? "" : "");
-    const num = (col: number) => parseFloat(get(col).replace(/[, ]/g, "")) || 0;
+    const get   = (col: number) => (col >= 0 && col < raw.length ? raw[col] ?? "" : "");
+    const toNum = (v: unknown) => parseFloat(String(v ?? "").replace(/[\s,]/g, "")) || 0;
+    const num   = (col: number) => toNum(get(col));
     const symbol  = get(COL.symbol).toUpperCase().trim();
     const typeStr = get(COL.type).toLowerCase().trim();
     const dateRaw = get(COL.closeTime) || get(COL.openTime);
     if (!symbol || symbol.length < 2 || !dateRaw) continue;
     if (SKIP.has(typeStr)) continue;
+    // Skip MT5 order rows (volume like "0.3 / 0.3") and deals rows (volume "in"/"out")
+    if (get(COL.volume).includes("/")) continue;
+    const lotVal = num(COL.volume);
+    if (lotVal === 0) continue;
+    const entry = num(COL.openPrice);
+    if (entry === 0) continue;
     const d = new Date(dateRaw.trim().replace(/\./g, "-").replace(" ", "T"));
     rows.push({
       pair:      symbol,
       direction: (typeStr.startsWith("sell") || typeStr === "s" || typeStr === "out") ? "SELL" : "BUY",
-      lot:       num(COL.volume),
-      entry:     num(COL.openPrice),
+      lot:       lotVal,
+      entry,
       exit:      num(COL.closePrice),
       pnl:       num(COL.profit),
       date:      isNaN(d.getTime()) ? dateRaw : d.toISOString().slice(0, 10),
@@ -223,7 +230,12 @@ function parseXLSX(buffer: ArrayBuffer): ParseResult {
     ...allRows
       .slice(headerIdx + 1)
       .filter((row) => row.some((c) => String(c ?? "").trim() !== ""))
-      .map((row) => row.map((c) => `"${String(c ?? "").replace(/"/g, "'")}"`).join(",")),
+      .map((row) => row.map((c) => {
+        // Strip comma thousands-separators (e.g. "4,714.482" → "4714.482")
+        // before embedding in CSV to prevent column-shift when re-parsing
+        const s = String(c ?? "").replace(/,/g, "").replace(/"/g, "'");
+        return `"${s}"`;
+      }).join(",")),
   ];
   const csv = csvLines.join("\n");
   return fromCSV(csv);

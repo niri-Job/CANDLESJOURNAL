@@ -9,17 +9,18 @@ export type { TradeForNiri };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ORB_SIZE = 64;
-const BUBBLE_W = 240;
-const BUBBLE_L = -(BUBBLE_W / 2) + ORB_SIZE / 2; // centres bubble on orb
+const BUBBLE_W = 260;
+const BUBBLE_L = -(BUBBLE_W / 2) + ORB_SIZE / 2;
 
 const PERSONALITY_QUIPS = [
-  "Still here. Still watching. No pressure.",
-  "Your consistency this week is noted.",
-  "The market is lying to you right now. Just so you know.",
-  "Most traders don't last 6 months. You're still here.",
-  "Focus is a skill. Practice it like you practice entries.",
-  "Take a breath. The market will be there in 5 minutes.",
-  "Every discipline compound. Trust the process.",
+  "Just checking in. The market will always be there. Are YOU okay?",
+  "Still watching. Still in your corner — no matter what today throws at you.",
+  "Before you open that next trade, ask yourself: is this your setup, or are you just bored?",
+  "Most traders quit before they figure themselves out. You're still here. That means something.",
+  "Your best trade today hasn't happened yet. Are you ready for it?",
+  "The discipline you build today compounds into the trader you become. Trust it.",
+  "Take a breath. Seriously — right now. The chart will wait. Your clarity won't.",
+  "Losses are tuition fees. The question is: are you actually learning from the lesson?",
 ];
 
 type EyeMode = "normal" | "concerned" | "wide";
@@ -72,6 +73,45 @@ function Arrow({ gold }: { gold?: boolean }) {
   );
 }
 
+// ── Restore button (shown when orb is minimised) ──────────────────────────────
+function RestoreButton({ onRestore }: { onRestore: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999 }}>
+      <button
+        onClick={onRestore}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        title="Bring NIRI back"
+        style={{
+          width:        32,
+          height:       32,
+          borderRadius: "50%",
+          background:   "linear-gradient(135deg, #F59E0B 0%, #7C3AED 100%)",
+          border:       "none",
+          cursor:       "pointer",
+          display:      "flex",
+          alignItems:   "center",
+          justifyContent: "center",
+          boxShadow:    hovered
+            ? "0 0 16px rgba(245,158,11,0.7), 0 0 32px rgba(124,58,237,0.4)"
+            : "0 0 8px rgba(245,158,11,0.3), 0 0 16px rgba(124,58,237,0.15)",
+          fontSize:     6.5,
+          fontWeight:   900,
+          color:        "#fff",
+          letterSpacing: "0.08em",
+          opacity:      hovered ? 1 : 0.55,
+          transform:    hovered ? "scale(1.18)" : "scale(1)",
+          transition:   "opacity 0.2s, transform 0.2s, box-shadow 0.2s",
+          padding:      0,
+        }}
+      >
+        NIRI
+      </button>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 interface Props { trades?: TradeForNiri[]; }
 
@@ -95,11 +135,10 @@ export default function NiriOrb({ trades = [] }: Props) {
 
   useEffect(() => { inMsgRef.current = inMsg; }, [inMsg]);
 
-  // ── Init ────────────────────────────────────────────────────────────────────
+  // ── Init: position then reveal (no localStorage permanent-hide) ──────────────
   useEffect(() => {
-    const h = localStorage.getItem("niriOrbHidden") === "1";
-    setHidden(h);
-    if (!h) setPos(randomPos());
+    setPos(randomPos());
+    setHidden(false);
   }, []);
 
   // ── Core: show alert ─────────────────────────────────────────────────────────
@@ -128,13 +167,13 @@ export default function NiriOrb({ trades = [] }: Props) {
     if (hidden) return;
     const handler = () => {
       console.log("[NIRI] test event received");
-      showAlert({ type: "test", message: "NIRI is working! If you can see this, the bubble mechanism is fine." }, "wide", 8000);
+      showAlert({ type: "test", message: "NIRI is online and watching. If you can see this, everything is working perfectly." }, "wide", 8000);
     };
     window.addEventListener("niri:test", handler);
     return () => window.removeEventListener("niri:test", handler);
   }, [hidden, showAlert]);
 
-  // ── Page-navigation message (from NiriOrbWrapper on route change) ───────────
+  // ── Page-navigation message ──────────────────────────────────────────────────
   useEffect(() => {
     if (hidden) return;
     const handler = (e: Event) => {
@@ -145,7 +184,7 @@ export default function NiriOrb({ trades = [] }: Props) {
     return () => window.removeEventListener("niri:page-message", handler);
   }, [hidden, showAlert]);
 
-  // ── AI insight (Pro users, from NiriOrbWrapper) ───────────────────────────
+  // ── AI insight ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (hidden) return;
     const handler = (e: Event) => {
@@ -156,19 +195,19 @@ export default function NiriOrb({ trades = [] }: Props) {
     return () => window.removeEventListener("niri:ai-insight", handler);
   }, [hidden, showAlert]);
 
-  // ── Onboarding step guide (from onboarding page) ─────────────────────────
+  // ── Onboarding step guide ─────────────────────────────────────────────────────
   useEffect(() => {
     if (hidden) return;
     const ONBOARDING_MSGS: Record<string, string> = {
-      "1":        "Welcome. I'm NIRI — I live in this app and I watch everything. Let's set you up properly.",
-      "2":        "Enter your MT5 login and broker. This is how I'll know which account to watch.",
-      "3":        "Export your trade history from MT5 as a CSV and upload it here. I need your history to understand your patterns.",
-      "complete": "Setup done. Now the real work begins. I'll be watching your every trade from here.",
+      "1":        "Hey — I'm NIRI, and I live inside this app. I'm not just a widget. I watch how you trade, how you feel, and I'll tell you when I'm worried about you. Let's get you set up.",
+      "2":        "Your MT5 login and broker — these are how I'll know which account to watch. Don't worry, I'm not here to judge the numbers. I'm here to help you understand them.",
+      "3":        "Now I need your history. Export your trade file from MT5 and drop it here. The more context I have, the better I can read your patterns — and help you see yourself clearly.",
+      "complete": "Setup done. This is where the real journey starts. I'll be watching — not to criticize, but because I genuinely want to see you grow. Let's do this.",
     };
     const handler = (e: Event) => {
       const step = String((e as CustomEvent<{ step: number | string }>).detail?.step);
       const msg  = ONBOARDING_MSGS[step];
-      if (msg) showAlert({ type: `onboarding_${step}`, message: msg }, step === "complete" ? "wide" : "normal", 8000);
+      if (msg) showAlert({ type: `onboarding_${step}`, message: msg }, step === "complete" ? "wide" : "normal", 9000);
     };
     window.addEventListener("niri:onboarding", handler);
     return () => window.removeEventListener("niri:onboarding", handler);
@@ -176,9 +215,9 @@ export default function NiriOrb({ trades = [] }: Props) {
 
   // ── Behaviour hook callback ──────────────────────────────────────────────────
   const handleAlert = useCallback((a: NiriAlert) => {
-    const bad = ["revenge_trading","overtrading","ignoring_sl","greed"].includes(a.type);
+    const bad  = ["revenge_trading","overtrading","ignoring_sl","greed"].includes(a.type);
     const good = ["win_streak","best_trade","first_green_day"].includes(a.type);
-    showAlert(a, bad ? "concerned" : good ? "wide" : "normal", 10000);
+    showAlert(a, bad ? "concerned" : good ? "wide" : "normal", 11000);
   }, [showAlert]);
 
   useNiriBehaviour(trades, handleAlert);
@@ -199,7 +238,6 @@ export default function NiriOrb({ trades = [] }: Props) {
       driftTimerRef.current = setTimeout(() => {
         if (!inMsgRef.current) {
           if (Math.random() < 0.2) {
-            // Bob in place for 20-30s
             setBobbing(true);
             setTimeout(() => setBobbing(false), (20 + Math.random() * 10) * 1000);
           } else {
@@ -228,22 +266,22 @@ export default function NiriOrb({ trades = [] }: Props) {
     return () => clearTimeout(t);
   }, [hidden]);
 
-  // ── Daily check-in: fires 3 s after every dashboard load (unconditional) ───
+  // ── Daily check-in (3 s after dashboard load) ────────────────────────────────
   useEffect(() => {
     if (hidden) return;
     console.log("[NIRI] daily check-in scheduled");
     const t = setTimeout(() => {
-      console.log("[NIRI] daily check-in executing — calling showAlert");
+      console.log("[NIRI] daily check-in executing");
       setPos(contentCentre());
       showAlert({
         type:    "daily_checkin",
-        message: "Good to see you. Let's make today's trades count. I'll be watching your behaviour — you know I always do.",
-      }, "normal", 6000);
+        message: "Good morning. Before the charts, before the news — how are you feeling today? Your mindset is your edge, and I want to make sure it's sharp.",
+      }, "normal", 8000);
     }, 3000);
     return () => clearTimeout(t);
   }, [hidden, showAlert]);
 
-  // ── Personality quips (every 5–10 min) ──────────────────────────────────────
+  // ── Personality quips (every 5–10 min) ───────────────────────────────────────
   useEffect(() => {
     if (hidden) return;
     let t: ReturnType<typeof setTimeout>;
@@ -251,7 +289,7 @@ export default function NiriOrb({ trades = [] }: Props) {
       t = setTimeout(() => {
         if (!inMsgRef.current) {
           const msg = PERSONALITY_QUIPS[Math.floor(Math.random() * PERSONALITY_QUIPS.length)];
-          showAlert({ type: "personality", message: msg }, "normal", 8000);
+          showAlert({ type: "personality", message: msg }, "normal", 9000);
         }
         scheduleQuip();
       }, (5 + Math.random() * 5) * 60 * 1000);
@@ -271,12 +309,12 @@ export default function NiriOrb({ trades = [] }: Props) {
     const interval = setInterval(() => {
       if (inMsgRef.current) return;
       if (Date.now() - lastAction.current > 5 * 60 * 1000) {
-        lastAction.current = Date.now(); // prevent repeat
+        lastAction.current = Date.now();
         setPos(contentCentre());
         showAlert({
           type:    "inactivity",
-          message: "Hey, you still there? The market's moving. Don't let it move without you.",
-        }, "normal", 8000);
+          message: "Hey. I noticed you've gone quiet. That's okay — sometimes stepping back IS the smartest trade you can make. Just don't stay away too long.",
+        }, "normal", 9000);
       }
     }, 30_000);
 
@@ -298,9 +336,15 @@ export default function NiriOrb({ trades = [] }: Props) {
     inMsgRef.current = false;
   }
 
-  function hideForSession() {
-    localStorage.setItem("niriOrbHidden", "1");
+  function minimizeOrb() {
+    dismiss();
+    setShowPanel(false);
     setHidden(true);
+  }
+
+  function restoreOrb() {
+    setPos(randomPos());
+    setHidden(false);
   }
 
   // ── Today stats ──────────────────────────────────────────────────────────────
@@ -309,7 +353,8 @@ export default function NiriOrb({ trades = [] }: Props) {
   const todayPnl = todayTs.reduce((s, t) => s + t.pnl, 0);
   const todayWins= todayTs.filter((t) => t.pnl > 0).length;
 
-  if (hidden) return null;
+  // ── Minimised state: show restore button ──────────────────────────────────────
+  if (hidden) return <RestoreButton onRestore={restoreOrb} />;
 
   // ── Eye config by mode ───────────────────────────────────────────────────────
   const eyeCfg = {
@@ -319,11 +364,8 @@ export default function NiriOrb({ trades = [] }: Props) {
   }[eyeMode];
   const eyeH = isBlinking ? 0.3 : eyeCfg.h;
 
-  // ── Bubble / panel border colour ─────────────────────────────────────────────
-  const isBadAlert = alert && ["revenge_trading","overtrading","ignoring_sl","greed"].includes(alert.type);
-  const bubbleBorder = isBadAlert
-    ? "rgba(251,191,36,0.45)"   // amber for warnings
-    : "rgba(124,58,237,0.45)";  // purple for info/celebration
+  const isBadAlert   = alert && ["revenge_trading","overtrading","ignoring_sl","greed"].includes(alert.type);
+  const bubbleBorder = isBadAlert ? "rgba(251,191,36,0.45)" : "rgba(124,58,237,0.45)";
 
   return (
     <motion.div
@@ -343,7 +385,7 @@ export default function NiriOrb({ trades = [] }: Props) {
           : { duration: 0.35, ease: "easeOut" },
       }}
     >
-      {/* ── Bob wrapper (oscillates when in hover mode) ── */}
+      {/* ── Bob wrapper ── */}
       <motion.div
         style={{ position: "relative", width: "100%", height: "100%" }}
         animate={{ y: bobbing ? [0, -10, 0] : 0 }}
@@ -358,7 +400,7 @@ export default function NiriOrb({ trades = [] }: Props) {
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           onClick={() => { if (!alert) setShowPanel((v) => !v); lastAction.current = Date.now(); }}
         >
-          {/* Gold aura pulse (outermost) */}
+          {/* Gold aura pulse */}
           <motion.div
             style={{
               position: "absolute", inset: -6, borderRadius: "50%",
@@ -369,21 +411,18 @@ export default function NiriOrb({ trades = [] }: Props) {
             animate={{ opacity: isAttention ? [0.6, 1, 0.6] : [0.35, 0.85, 0.35] }}
             transition={{ duration: isAttention ? 0.4 : 2.5, repeat: isAttention ? 3 : Infinity, ease: "easeInOut" }}
           />
-
           {/* Outer gold-tint ring */}
           <div style={{
             position: "absolute", inset: 0, borderRadius: "50%",
             background: "rgba(245,158,11,0.08)",
             boxShadow: "0 0 14px rgba(245,158,11,0.5), 0 0 28px rgba(245,158,11,0.2), inset 0 0 12px rgba(124,58,237,0.2)",
           }} />
-
           {/* Middle purple ring */}
           <div style={{
             position: "absolute", inset: 8, borderRadius: "50%",
             background: "rgba(168,85,247,0.35)",
           }} />
-
-          {/* Inner core — deep purple */}
+          {/* Inner core */}
           <div style={{
             position: "absolute", inset: 16, borderRadius: "50%",
             background: "linear-gradient(140deg, #8B5CF6 0%, #7C3AED 55%, #5B21B6 100%)",
@@ -392,30 +431,24 @@ export default function NiriOrb({ trades = [] }: Props) {
           }}>
             {/* Eyes */}
             <div style={{ display: "flex", gap: eyeCfg.gap, alignItems: "center" }}>
-              <motion.div
-                animate={{ scaleY: eyeH / eyeCfg.h }}
-                transition={{ duration: 0.09, ease: "easeIn" }}
-                style={{
-                  width: eyeCfg.w, height: eyeCfg.h, borderRadius: eyeCfg.h / 2,
-                  background: "rgba(255,255,255,0.95)",
-                  boxShadow: `0 0 4px ${eyeCfg.glow}`,
-                }}
-              />
-              <motion.div
-                animate={{ scaleY: eyeH / eyeCfg.h }}
-                transition={{ duration: 0.09, ease: "easeIn" }}
-                style={{
-                  width: eyeCfg.w, height: eyeCfg.h, borderRadius: eyeCfg.h / 2,
-                  background: "rgba(255,255,255,0.95)",
-                  boxShadow: `0 0 4px ${eyeCfg.glow}`,
-                }}
-              />
+              {[0, 1].map((i) => (
+                <motion.div
+                  key={i}
+                  animate={{ scaleY: eyeH / eyeCfg.h }}
+                  transition={{ duration: 0.09, ease: "easeIn" }}
+                  style={{
+                    width: eyeCfg.w, height: eyeCfg.h, borderRadius: eyeCfg.h / 2,
+                    background: "rgba(255,255,255,0.95)",
+                    boxShadow: `0 0 4px ${eyeCfg.glow}`,
+                  }}
+                />
+              ))}
             </div>
           </div>
 
-          {/* Dismiss × */}
+          {/* Minimize × */}
           <button
-            onClick={(e) => { e.stopPropagation(); hideForSession(); }}
+            onClick={(e) => { e.stopPropagation(); minimizeOrb(); }}
             style={{
               position: "absolute", top: -3, right: -3,
               width: 16, height: 16, borderRadius: "50%",
@@ -463,7 +496,7 @@ export default function NiriOrb({ trades = [] }: Props) {
               </span>
               <button onClick={dismiss} style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px" }}>×</button>
             </div>
-            <p style={{ fontSize: 12.5, color: "#e4e4e7", lineHeight: 1.6, margin: 0 }}>
+            <p style={{ fontSize: 12.5, color: "#e4e4e7", lineHeight: 1.65, margin: 0 }}>
               {alert.message}
             </p>
             <Arrow gold={!!isBadAlert} />
@@ -500,8 +533,8 @@ export default function NiriOrb({ trades = [] }: Props) {
               <button onClick={(e) => { e.stopPropagation(); setShowPanel(false); }} style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px" }}>×</button>
             </div>
             {todayTs.length === 0 ? (
-              <p style={{ fontSize: 12, color: "#71717a", margin: 0, lineHeight: 1.55 }}>
-                No trades yet today. What are you waiting for?
+              <p style={{ fontSize: 12, color: "#71717a", margin: 0, lineHeight: 1.6 }}>
+                No trades yet today. Are you waiting for your setup — or holding back? Either way, I&apos;m here.
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
@@ -513,12 +546,12 @@ export default function NiriOrb({ trades = [] }: Props) {
                   colour={todayPnl >= 0 ? "#34d399" : "#f87171"}
                   mono
                 />
-                <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid #1f1f23", fontSize: 11, color: "#52525b" }}>
+                <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid #1f1f23", fontSize: 11, color: "#52525b", lineHeight: 1.55 }}>
                   {todayWins / todayTs.length >= 0.6
-                    ? "Solid day. Stay focused."
+                    ? "Solid day. You're trading with real discipline right now. Stay present."
                     : todayWins / todayTs.length >= 0.4
-                    ? "Mixed bag. Watch your setups."
-                    : "Rough session. Breathe first, trade second."}
+                    ? "Mixed results. Pause for a moment — are your setups clean, or are you forcing it?"
+                    : "Tough session. Before your next trade, take a breath. Your edge is still there. Clear your head first."}
                 </div>
               </div>
             )}

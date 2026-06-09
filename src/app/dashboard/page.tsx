@@ -843,15 +843,9 @@ export default function TradingJournal() {
     if (!form.entry || !form.exit_price) return showToast("Enter entry and exit prices", "err");
     if (!currentUser)                   return;
 
-    let pnl: number;
-    if (form.pnl !== "") {
-      pnl = parseFloat(form.pnl);
-    } else {
-      const diff = direction === "BUY"
-        ? parseFloat(form.exit_price) - parseFloat(form.entry)
-        : parseFloat(form.entry) - parseFloat(form.exit_price);
-      pnl = parseFloat((diff * parseFloat(form.lot) * 10000).toFixed(2));
-    }
+    if (form.pnl === "") return showToast("Enter the P&L (profit/loss in USD)", "err");
+    const pnl = parseFloat(form.pnl);
+    if (isNaN(pnl)) return showToast("P&L must be a number", "err");
 
     const payload = {
       user_id: currentUser.id,
@@ -892,7 +886,7 @@ export default function TradingJournal() {
       pair: trade.pair, lot: String(trade.lot), date: trade.date,
       entry: String(trade.entry), exit_price: String(trade.exit_price),
       sl: trade.sl ? String(trade.sl) : "", tp: trade.tp ? String(trade.tp) : "",
-      pnl: "", notes: trade.notes,
+      pnl: trade.pnl != null ? String(trade.pnl) : "", notes: trade.notes,
       asset_class: trade.asset_class || "Forex", session: trade.session || "London",
       setup: trade.setup || "", strategy_id: trade.strategy_id || "", news_event: trade.news_event || "",
     });
@@ -905,15 +899,9 @@ export default function TradingJournal() {
     if (!form.lot || +form.lot <= 0)    return showToast("Enter a valid lot size", "err");
     if (!form.entry || !form.exit_price) return showToast("Enter entry and exit prices", "err");
 
-    let pnl: number;
-    if (form.pnl !== "") {
-      pnl = parseFloat(form.pnl);
-    } else {
-      const diff = direction === "BUY"
-        ? parseFloat(form.exit_price) - parseFloat(form.entry)
-        : parseFloat(form.entry) - parseFloat(form.exit_price);
-      pnl = parseFloat((diff * parseFloat(form.lot) * 10000).toFixed(2));
-    }
+    if (form.pnl === "") return showToast("Enter the P&L (profit/loss in USD)", "err");
+    const pnl = parseFloat(form.pnl);
+    if (isNaN(pnl)) return showToast("P&L must be a number", "err");
 
     const updates = {
       pair: form.pair.toUpperCase(), direction, lot: parseFloat(form.lot), date: form.date,

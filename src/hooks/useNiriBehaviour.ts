@@ -80,14 +80,14 @@ export function useNiriBehaviour(
       const [a, b, c, d] = sorted.slice(-4);
       if (a.pnl < 0 && b.pnl < 0 && c.pnl < 0 && d.date === c.date) {
         fire("revenge_trading",
-          "Hey, I see what you're doing. 3 losses and you jumped straight back in? That's revenge trading. Step away for 15 minutes. I'll be here.");
+          "Hey, I'm a little worried about you right now. Three losses in a row, and you jumped straight back in? That's your emotions driving, not your plan. Step away for 15 minutes. Take a breath. I'll be right here when you're ready.");
       }
     }
 
     // ── Overtrading ────────────────────────────────────────────────────────────
     if (todayTrades.length >= 6) {
       fire("overtrading",
-        "Okay so... you've opened 6+ trades in 2 hours. That's not a strategy, that's a slot machine. Slow down.");
+        "I need to say something, and I hope you hear it with the care it's meant. You've opened six trades today — and that's not a strategy anymore, that's noise. The best traders know when NOT to trade. Is now really the right moment?");
     }
 
     // ── Ignoring SL ───────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ export function useNiriBehaviour(
       const actDist = Math.abs(recentLoss.exit_price - recentLoss.entry);
       if (slDist > 0 && actDist > slDist * 1.5) {
         fire("ignoring_sl",
-          "You moved your SL didn't you? I saw that. Your rules exist for a reason. Don't do that again.");
+          "I saw that. You moved your stop loss, didn't you? I get it — it's hard to let a trade go. But those rules you set? You wrote them when your head was clear. Trust that version of yourself.");
       }
     }
 
@@ -106,14 +106,14 @@ export function useNiriBehaviour(
       const [w1, w2, w3, next] = sorted.slice(-4);
       if (w1.pnl > 0 && w2.pnl > 0 && w3.pnl > 0 && next.lot > w3.lot * 1.5) {
         fire("greed",
-          "Winning streak and suddenly you're sizing up 50%? That's greed talking, not your plan. Stick to your lot rules.");
+          "I love that you're winning — genuinely. But sizing up 50% after three wins isn't confidence, it's greed wearing confidence as a costume. Stick to your plan. Protect what you've built.");
       }
     }
 
     // ── Win streak ────────────────────────────────────────────────────────────
     if (sorted.length >= 3 && sorted.slice(-3).every((t) => t.pnl > 0)) {
       fire("win_streak",
-        "Three in a row! You're locked in today. Don't let it go to your head though — I'm watching 👀");
+        "YES. That's three in a row and I am HERE for it. You're locked in right now — this is what consistent trading looks like. Keep it exactly like this. Don't change a thing.");
     }
 
     // ── Best trade of the day ─────────────────────────────────────────────────
@@ -122,7 +122,7 @@ export function useNiriBehaviour(
       const latest = sorted[sorted.length - 1];
       if (best.id === latest.id && best.pnl > 0) {
         fire("best_trade",
-          "That right there was your best trade today. Screenshot that setup. That's your edge showing.");
+          "Stop for a second. That trade you just closed? That was textbook. That was YOUR edge on full display. Screenshot that setup — it's proof of what you're capable of.");
       }
     }
 
@@ -137,7 +137,7 @@ export function useNiriBehaviour(
         const prevDays = sorted.filter((t) => t.date >= monStr && t.date < today);
         if (prevDays.length > 0 && prevDays.reduce((s, t) => s + t.pnl, 0) <= 0) {
           fire("first_green_day",
-            "First green day of the week! The market tried you and you held. Let's keep this energy.");
+            "First green day of the week. After everything this week threw at you, you held your ground and came out ahead. That's not luck — that's character. Let's keep this going.");
         }
       }
     }
@@ -155,7 +155,7 @@ export function useNiriBehaviour(
           : recent.entry - recent.exit_price;
         if (tpDist > 0 && exitDist > 0 && exitDist < tpDist * 0.7) {
           fire("closed_early",
-            "You keep closing trades before they hit your TP. Let them breathe — that's literally the plan.");
+            "I see you keep closing before your TP. I know it feels safer — but you planned that target for a reason. Let your trades breathe. Trust the plan you made with a clear head.");
         }
       }
     }
@@ -173,7 +173,7 @@ export function useNiriBehaviour(
         .sort((a, b) => b[1].wins / b[1].total - a[1].wins / a[1].total)[0];
       if (best) {
         const wr = Math.round((best[1].wins / best[1].total) * 100);
-        fire("best_pair", `${best[0]} is your best pair — ${wr}% win rate. Why aren't you trading it more?`);
+        fire("best_pair", `${best[0]} is where you shine — ${wr}% win rate doesn't lie. So I have to ask: why aren't you leaning into your strength more?`);
       }
     }
 
@@ -187,7 +187,7 @@ export function useNiriBehaviour(
       const sessions = Object.entries(sessionPnl).sort((a, b) => b[1] - a[1]);
       if (sessions.length >= 2 && sessions[0][0] !== "Unknown") {
         fire("best_session",
-          `Your ${sessions[0][0]} session is carrying you. The other sessions... not so much.`);
+          `Your ${sessions[0][0]} session is where the real you shows up. The numbers don't lie. Maybe it's worth asking why the other sessions feel different.`);
       }
     }
   }, [trades]);

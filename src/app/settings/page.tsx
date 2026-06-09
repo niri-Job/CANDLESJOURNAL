@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
 import type { User } from "@supabase/supabase-js";
+import { parseTradeFile, type PreviewRow } from "@/lib/parseTradeFile";
 
 interface SubState { status: string; end: string | null; }
 
@@ -41,6 +42,7 @@ interface TradingAccountRow {
   verification_status: string | null;
   current_balance: number | null;
   last_synced_at: string | null;
+  metaapi_account_id: string | null;
 }
 
 function timeAgo(iso: string | null): string {
@@ -84,64 +86,6 @@ function SyncStatusDot({ status }: { status: string | null }) {
       Pending
     </span>
   );
-}
-
-// ── Client-side CSV parser (for inline settings form) ────────────────────────
-interface CsvPreviewRow {
-  pair: string; direction: string; lot: number;
-  entry: number; exit: number; pnl: number; date: string;
-}
-
-function normCsvKey(h: string) { return h.toLowerCase().replace(/[^a-z0-9]/g, ""); }
-
-function settingsParseCSV(content: string): CsvPreviewRow[] {
-  const lines = content.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("---"));
-  if (lines.length < 2) return [];
-  const delim = lines[0].includes(";") ? ";" : ",";
-  const headers = lines[0].split(delim).map((h) => normCsvKey(h.replace(/^"|"$/g, "")));
-
-  function idx(aliases: string[]): number {
-    for (const a of aliases) { const i = headers.findIndex((h) => h === a); if (i >= 0) return i; }
-    for (const a of aliases) { const i = headers.findIndex((h) => h.includes(a) || a.includes(h)); if (i >= 0) return i; }
-    return -1;
-  }
-
-  const SKIP = new Set(["balance","credit","creditin","creditout","deposit","withdrawal","bonus","correction"]);
-  const COL = {
-    type:       idx(["type","direction"]),
-    volume:     idx(["size","volume","lots"]),
-    symbol:     idx(["item","symbol","instrument","pair"]),
-    openPrice:  idx(["price","openprice","open"]),
-    closeTime:  idx(["closetime","closedate"]),
-    openTime:   idx(["opentime","time"]),
-    closePrice: idx(["closeprice","close"]),
-    profit:     idx(["profit","pnl"]),
-  };
-
-  const rows: CsvPreviewRow[] = [];
-  for (let i = 1; i < lines.length && rows.length < 200; i++) {
-    const raw = lines[i].split(delim).map((c) => c.trim().replace(/^"|"$/g, ""));
-    if (raw.length < 5) continue;
-    const get = (c: number) => c >= 0 ? (raw[c] ?? "") : "";
-    const num = (c: number) => { const v = parseFloat(get(c).replace(/\s/g, "")); return isNaN(v) ? 0 : v; };
-    const typeRaw = get(COL.type).toLowerCase().replace(/[^a-z]/g, "");
-    if (SKIP.has(typeRaw)) continue;
-    const symbol = get(COL.symbol).toUpperCase().trim();
-    const dateRaw = get(COL.closeTime) || get(COL.openTime);
-    if (!symbol || symbol.length < 2 || !dateRaw) continue;
-    const clean = dateRaw.trim().replace(/\./g, "-").replace(" ", "T");
-    const d = new Date(clean);
-    rows.push({
-      pair:      symbol,
-      direction: typeRaw.includes("sell") || typeRaw === "s" ? "SELL" : "BUY",
-      lot:       num(COL.volume),
-      entry:     num(COL.openPrice),
-      exit:      num(COL.closePrice),
-      pnl:       num(COL.profit),
-      date:      isNaN(d.getTime()) ? dateRaw : d.toISOString().slice(0, 10),
-    });
-  }
-  return rows;
 }
 
 // ── Referral quick-view ───────────────────────────────────────────────────────
@@ -228,7 +172,10 @@ export default function SettingsPage() {
   const [mt5Login,        setMt5Login]        = useState("");
   const [mt5Password,     setMt5Password]     = useState("");
   const [mt5Server,       setMt5Server]       = useState("");
+  const [mt5Platform,     setMt5Platform]     = useState<"mt5" | "mt4">("mt5");
   const [mt5ConnectError, setMt5ConnectError] = useState<string | null>(null);
+  const [mt5Connecting,   setMt5Connecting]   = useState(false);
+  const [syncingAccount,  setSyncingAccount]  = useState<string | null>(null);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<string | null>(null);
   const [showPassword,    setShowPassword]    = useState(false);
@@ -244,7 +191,7 @@ export default function SettingsPage() {
   // CSV Import state — inline form
   const [csvLogin,    setCsvLogin]    = useState("");
   const [csvBroker,   setCsvBroker]   = useState("");
-  const [csvPreview,  setCsvPreview]  = useState<CsvPreviewRow[] | null>(null);
+  const [csvPreview,  setCsvPreview]  = useState<PreviewRow[] | null>(null);
   const [csvRaw,      setCsvRaw]      = useState("");
   const [csvFileName, setCsvFileName] = useState("");
   const [csvTouched,  setCsvTouched]  = useState({ login: false, broker: false });
@@ -294,13 +241,14 @@ export default function SettingsPage() {
           .order("created_at", { ascending: false }),
         supabase
           .from("trading_accounts")
-          .select("id, account_signature, account_label, broker_name, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at")
+          .select("id, account_signature, account_label, broker_name, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at, metaapi_account_id")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
       ]);
 
       const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
       setSub({ status: subData?.subscription_status ?? "free", end: subData?.subscription_end ?? null });
+      // isPro is derived from sub state after this line via the computed value below
 
       if (connectionsRes.data) setMt5Connections(connectionsRes.data as Mt5Connection[]);
       if (tokenRes.data)       setEaTokens(tokenRes.data as EaTokenRow[]);
@@ -339,15 +287,69 @@ export default function SettingsPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("trading_accounts")
-      .select("id, account_signature, account_label, broker_name, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at")
+      .select("id, account_signature, account_label, broker_name, account_login, account_server, account_currency, account_type, sync_method, is_verified, verification_status, current_balance, last_synced_at, metaapi_account_id")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (data) setTradingAccounts(data as TradingAccountRow[]);
   }
 
+  const isPro = sub.status === "pro" && !!sub.end && new Date(sub.end) > new Date();
+
   async function handleMt5Connect(e: React.FormEvent) {
     e.preventDefault();
-    setMt5ConnectError("MT5 Direct Connect is coming soon. Use EA Sync or CSV Import for now.");
+    if (!mt5Login.trim() || !mt5Password.trim() || !mt5Server.trim()) {
+      setMt5ConnectError("All fields are required.");
+      return;
+    }
+    setMt5Connecting(true);
+    setMt5ConnectError(null);
+    try {
+      const res = await fetch("/api/metaapi/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          login:    mt5Login.trim(),
+          password: mt5Password.trim(),
+          server:   mt5Server.trim(),
+          platform: mt5Platform,
+        }),
+      });
+      const json = await res.json() as { success?: boolean; account_label?: string; error?: string };
+      if (!res.ok) {
+        setMt5ConnectError(json.error ?? "Connection failed. Please try again.");
+      } else {
+        setMt5Login(""); setMt5Password(""); setMt5Server("");
+        showToast(`Connected: ${json.account_label ?? mt5Login.trim()}`);
+        await refreshTradingAccounts();
+      }
+    } catch {
+      setMt5ConnectError("Network error. Check your connection and try again.");
+    } finally {
+      setMt5Connecting(false);
+    }
+  }
+
+  async function handleMetaApiSync(accountSig: string) {
+    setSyncingAccount(accountSig);
+    try {
+      const res = await fetch("/api/metaapi/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_signature: accountSig }),
+      });
+      const json = await res.json() as { success?: boolean; inserted?: number; duplicates?: number; error?: string };
+      if (!res.ok) {
+        showToast(json.error ?? "Sync failed.");
+      } else {
+        const n = json.inserted ?? 0;
+        showToast(`Synced ${n} new trade${n !== 1 ? "s" : ""}.`);
+        await refreshTradingAccounts();
+      }
+    } catch {
+      showToast("Network error — sync failed.");
+    } finally {
+      setSyncingAccount(null);
+    }
   }
 
   async function handleMt5Disconnect(conn: Mt5Connection) {
@@ -450,9 +452,11 @@ export default function SettingsPage() {
     }
   }
 
-  function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+  const handleCsvFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("=== SETTINGS CSV HANDLER FIRED ===");
     const file = e.target.files?.[0];
     if (!file) return;
+    console.log("File:", file.name, file.size);
     if (!csvLogin.trim() || !csvBroker.trim()) {
       setCsvTouched({ login: true, broker: true });
       setCsvError("Fill in your MT5 Login Number and Broker first.");
@@ -460,21 +464,19 @@ export default function SettingsPage() {
     }
     setCsvFileName(file.name);
     setCsvError(null);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      setCsvRaw(text);
-      const rows = settingsParseCSV(text);
-      if (rows.length === 0) {
-        setCsvError("No valid trades found. Export from MT5 → Account History → right-click → Save as Report → CSV.");
-        setCsvPreview(null);
-      } else {
-        setCsvPreview(rows);
-      }
-    };
-    reader.readAsText(file);
+    setCsvPreview(null);
+    const result = await parseTradeFile(file);
+    console.log("parseTradeFile result:", result);
+    if (result.error) {
+      setCsvError(result.error);
+      setCsvPreview(null);
+      setCsvRaw("");
+    } else {
+      setCsvRaw(result.csvRaw);
+      setCsvPreview(result.preview);
+    }
     e.target.value = "";
-  }
+  };
 
   async function handleCsvConfirm() {
     setCsvTouched({ login: true, broker: true });
@@ -558,18 +560,31 @@ export default function SettingsPage() {
                   </svg>
                 </div>
                 <span className="text-xs font-bold text-zinc-200">MT5 Direct Connect</span>
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                      style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
-                  Coming Soon
-                </span>
+                {isPro ? (
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full
+                                   bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                    Available
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                        style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
+                    Pro
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-zinc-500 leading-relaxed">
-                Credentials-based sync is not ready for production yet.
+                {isPro ? "Connect your MT5 account directly using credentials." : "Upgrade to Pro to connect MT5 directly."}
               </p>
               <div className="mt-auto">
-                <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--cj-gold-muted)" }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--cj-gold-muted)" }} />Coming Soon
-                </span>
+                {isPro ? (
+                  <span className="flex items-center gap-1.5 text-[11px] text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Available
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--cj-gold-muted)" }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--cj-gold-muted)" }} />Pro only
+                  </span>
+                )}
               </div>
             </div>
 
@@ -655,22 +670,43 @@ export default function SettingsPage() {
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTradingAccount(account)}
-                        disabled={isDeleting}
-                        className="shrink-0 flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
-                                   border border-rose-500/20 text-rose-400 hover:bg-rose-500/10
-                                   hover:border-rose-500/40 transition-all disabled:opacity-50">
-                        {isDeleting ? (
-                          <span className="w-3 h-3 border border-rose-400 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
-                          </svg>
+                      <div className="shrink-0 flex items-center gap-2">
+                        {account.sync_method === "metaapi" && account.metaapi_account_id && (
+                          <button
+                            type="button"
+                            onClick={() => handleMetaApiSync(account.account_signature)}
+                            disabled={syncingAccount === account.account_signature}
+                            className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
+                                       border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10
+                                       hover:border-emerald-500/50 transition-all disabled:opacity-50">
+                            {syncingAccount === account.account_signature ? (
+                              <span className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                              </svg>
+                            )}
+                            Sync Now
+                          </button>
                         )}
-                        Delete
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTradingAccount(account)}
+                          disabled={isDeleting}
+                          className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
+                                     border border-rose-500/20 text-rose-400 hover:bg-rose-500/10
+                                     hover:border-rose-500/40 transition-all disabled:opacity-50">
+                          {isDeleting ? (
+                            <span className="w-3 h-3 border border-rose-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                            </svg>
+                          )}
+                          Delete
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-4">
@@ -717,132 +753,23 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* -- MT + EA: visible to developer only -- */}
-        {isDeveloper && (
-        <>
-
-        {/* -- MT -- */}
+        {/* -- MT5 Direct Connect: visible to Pro users and developer -- */}
+        {(isPro || isDeveloper) && (
         <div className="mb-5">
-          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">A. MT5 Direct Connect</p>
-
-          {/* Quick-action buttons */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            <a
-              href="https://youtube.com/@niritoday"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
-              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/>
-                <polygon fill="#0A0A0F" points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/>
-              </svg>
-              Watch Setup Video
-            </a>
-            <a
-              href="https://t.me/2349075040851"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
-              style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", color: "#38bdf8" }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.94 8.19-2 9.4c-.14.64-.53.8-.99.5l-2.75-2.03-1.33 1.28c-.15.14-.27.27-.55.27l.2-2.78 5.05-4.56c.22-.2-.05-.3-.34-.1L6.73 15.3l-2.7-.84c-.59-.19-.6-.59.12-.87l10.35-4c.49-.18.92.12.44 1.6z"/>
-              </svg>
-              Need help? Chat with us
-            </a>
-          </div>
-
-          {/* Coming soon notice */}
-          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-4"
-               style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--cj-gold-muted)" strokeWidth="1.5"
-                 strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            <p className="text-xs leading-relaxed" style={{ color: "var(--cj-text-muted)" }}>
-              <span className="font-semibold" style={{ color: "var(--cj-gold-muted)" }}>Coming Soon:</span>{" "}
-              MT5 Direct Connect is not ready for production. Use EA Sync or CSV Import for now.
-            </p>
-          </div>
-
-          {/* Connected accounts */}
-          {mt5Connections.length > 0 && (
-            <div className="space-y-3 mb-4">
-              {mt5Connections.map((conn) => (
-                <div key={conn.id}
-                     className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <SyncStatusDot status={conn.status} />
-                        {conn.account_name && (
-                          <span className="text-sm font-semibold text-zinc-100">{conn.account_name}</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-zinc-500 font-sans">
-                        #{conn.mt5_login} · {conn.broker_server}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleMt5Disconnect(conn)}
-                      disabled={disconnectingId === conn.id}
-                      className="shrink-0 flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
-                                 border border-rose-500/20 text-rose-400 hover:bg-rose-500/10
-                                 hover:border-rose-500/40 transition-all disabled:opacity-50">
-                      {disconnectingId === conn.id ? (
-                        <span className="w-3 h-3 border border-rose-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                      )}
-                      Disconnect
-                    </button>
-                  </div>
-
-                  {conn.sync_error && conn.status === "failed" && (
-                    <div className="mb-3 rounded-lg px-3 py-2 bg-rose-500/8 border border-rose-500/20">
-                      <p className="text-[11px] text-rose-400">{conn.sync_error}</p>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                    {conn.account_currency && (
-                      <>
-                        <span className="text-zinc-600">Currency</span>
-                        <span className="text-zinc-300">{conn.account_currency}</span>
-                      </>
-                    )}
-                    {conn.account_balance != null && (
-                      <>
-                        <span className="text-zinc-600">Balance</span>
-                        <span className="text-zinc-300 font-sans">
-                          {conn.account_balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-                          {conn.account_currency}
-                        </span>
-                      </>
-                    )}
-                    <span className="text-zinc-600">Last sync</span>
-                    <span className="text-zinc-400">{timeAgo(conn.last_synced_at)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">MT5 Direct Connect</p>
 
           {/* Connect form */}
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-sm font-semibold text-zinc-100">
-                MT5 Direct Connect
-              </p>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                    style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
-                Coming Soon
+              <p className="text-sm font-semibold text-zinc-100">Connect MT5 Account</p>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                               bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                Live
               </span>
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed mb-5">
-              This connection method is disabled while we finish production hardening.
+              Enter your MT5 credentials. NIRI connects via MetaAPI and fetches your trade history automatically.
+              Your password is encrypted in transit and never stored by NIRI.
             </p>
 
             <form onSubmit={handleMt5Connect} className="space-y-3">
@@ -855,8 +782,8 @@ export default function SettingsPage() {
                     type="text"
                     inputMode="numeric"
                     value={mt5Login}
-                    onChange={(e) => setMt5Login(e.target.value)}
-                    disabled
+                    onChange={(e) => { setMt5Login(e.target.value); setMt5ConnectError(null); }}
+                    disabled={mt5Connecting}
                     placeholder="e.g. 12345678"
                     className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
                                text-sm text-zinc-100 placeholder-zinc-600
@@ -872,9 +799,9 @@ export default function SettingsPage() {
                   <input
                     type="text"
                     value={mt5Server}
-                    onChange={(e) => setMt5Server(e.target.value)}
-                    disabled
-                    placeholder="e.g. ICMarkets-MT5"
+                    onChange={(e) => { setMt5Server(e.target.value); setMt5ConnectError(null); }}
+                    disabled={mt5Connecting}
+                    placeholder="e.g. Exness-MT5Trial9"
                     className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
                                text-sm text-zinc-100 placeholder-zinc-600
                                focus:outline-none focus:border-[var(--cj-gold-muted)] transition-colors
@@ -892,8 +819,8 @@ export default function SettingsPage() {
                   <input
                     type={showPassword ? "text" : "password"}
                     value={mt5Password}
-                    onChange={(e) => setMt5Password(e.target.value)}
-                    disabled
+                    onChange={(e) => { setMt5Password(e.target.value); setMt5ConnectError(null); }}
+                    disabled={mt5Connecting}
                     placeholder="Your MT5 investor or master password"
                     className="w-full bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-4 py-2.5
                                text-sm text-zinc-100 placeholder-zinc-600 pr-10
@@ -903,7 +830,6 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
                     {showPassword ? (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -918,7 +844,29 @@ export default function SettingsPage() {
                     )}
                   </button>
                 </div>
-                <p className="mt-1.5 text-[11px] text-zinc-600">Encrypted on connection — never stored in plain text</p>
+                <p className="mt-1.5 text-[11px] text-zinc-600">Encrypted in transit — never stored by NIRI</p>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-zinc-600 block mb-1.5">
+                  Platform
+                </label>
+                <div className="flex gap-3">
+                  {(["mt5", "mt4"] as const).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setMt5Platform(p)}
+                      disabled={mt5Connecting}
+                      className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all
+                                 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={mt5Platform === p
+                        ? { background: "rgba(245,197,24,0.15)", border: "1px solid rgba(245,197,24,0.4)", color: "var(--cj-gold)" }
+                        : { background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
+                      {p.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {mt5ConnectError && (
@@ -929,15 +877,25 @@ export default function SettingsPage() {
 
               <button
                 type="submit"
-                disabled
+                disabled={mt5Connecting}
                 className="w-full py-3 rounded-xl font-semibold text-sm transition-all
                            disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
-                Coming Soon
+                style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                {mt5Connecting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-[#0A0A0F] border-t-transparent rounded-full animate-spin" />
+                    Connecting… (may take up to 60s)
+                  </span>
+                ) : "Connect MT5 Account"}
               </button>
             </form>
           </div>
         </div>
+        )}
+
+        {/* -- EA + legacy MT connections: developer only -- */}
+        {isDeveloper && (
+        <>
 
         {/* -- EA SYNC -- */}
         <div className="mb-5">
@@ -1162,8 +1120,8 @@ export default function SettingsPage() {
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
                   <span>
-                    In MT5: <strong>View → Terminal → Account History</strong> → right-click → <strong>Save as Report → CSV</strong>.
-                    Free accounts: 1 import. Pro: unlimited.
+                    In MT5: <strong>View → Terminal → Account History</strong> → right-click → <strong>Save as Report</strong>.
+                    Supports CSV, Excel (.xlsx), and HTML. Free accounts: 1 import. Pro: unlimited.
                   </span>
                 </div>
 
@@ -1208,19 +1166,26 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* File upload */}
-                <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all mb-4
-                                   ${csvPreview ? "border-emerald-500/40 bg-emerald-500/5" : "border-zinc-700 hover:border-zinc-500"}`}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                       stroke={csvPreview ? "#34d399" : "#52525b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                  </svg>
-                  <span className="text-sm" style={{ color: csvPreview ? "#86efac" : "#71717a" }}>
-                    {csvFileName || "Click to choose a .csv file"}
-                  </span>
-                  <input type="file" accept=".csv,.txt" className="hidden" onChange={handleCsvFile} />
-                </label>
+                {/* File upload — plain visible input, no wrappers */}
+                <div className="mb-4">
+                  <label className="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">
+                    Trade History File
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,.htm,.html,.txt"
+                    onChange={handleCsvFile}
+                    style={{
+                      display: "block", width: "100%", padding: "8px 12px",
+                      borderRadius: "10px", border: "1px solid #3f3f46",
+                      background: "var(--cj-raised)", color: "#d4d4d8",
+                      cursor: "pointer", fontSize: "13px",
+                    }}
+                  />
+                  {csvFileName && (
+                    <p className="text-xs text-emerald-400 mt-1.5">Selected: {csvFileName}</p>
+                  )}
+                </div>
 
                 {/* Error */}
                 {csvError && (

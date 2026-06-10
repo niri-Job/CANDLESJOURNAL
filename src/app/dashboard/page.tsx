@@ -580,7 +580,7 @@ export default function TradingJournal() {
       const [profileRes, tradesRes, accountsRes, strategiesRes] = await Promise.all([
         supabase
           .from("user_profiles")
-          .select("subscription_status, subscription_end, ai_credits_used, ai_credits_limit, created_at")
+          .select("subscription_status, subscription_end, ai_credits_used, ai_credits_limit, created_at, onboarding_completed")
           .eq("user_id", user.id).maybeSingle(),
         supabase
           .from("trades")
@@ -609,6 +609,15 @@ export default function TradingJournal() {
         const first = (real.length > 0 ? real : accounts)[0];
         if (first) setSelectedAccountSig(first.account_signature);
       }
+
+      // Onboarding gate: redirect new users who haven't completed setup and have no trades
+      const hasTrades = (tradesRes.data?.length ?? 0) > 0;
+      const profileData = profileRes.data as { onboarding_completed?: boolean } | null;
+      if (!profileData?.onboarding_completed && !hasTrades) {
+        window.location.href = "/onboarding";
+        return;
+      }
+
       if (tradesRes.error) showToast("Failed to load trades", "err");
       setLoading(false);
 

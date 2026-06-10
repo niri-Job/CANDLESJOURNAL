@@ -1,0 +1,3 @@
+ALTER TABLE user_profiles
+ADD COLUMN IF NOT EXISTS ai_analyses_used_this_week INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS ai_week_start DATE;

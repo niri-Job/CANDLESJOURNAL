@@ -7,6 +7,11 @@ import type { User } from "@supabase/supabase-js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface WeeklyLimit {
+  weekly_used:  number;
+  weekly_limit: number;
+}
+
 interface Setup {
   pair: string;
   direction: "BUY" | "SELL";
@@ -30,7 +35,7 @@ interface MarketOverview {
 // live_prices is now a flat { pair: price } map from the server
 type LivePrices = Record<string, number>;
 
-interface IntelligenceData {
+interface IntelligenceData extends WeeklyLimit {
   setups: Setup[];
   overview: MarketOverview;
   generated_at: string;
@@ -146,12 +151,15 @@ function SetupCard({ s }: { s: Setup }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function IntelligencePage() {
-  const [user,         setUser]         = useState<User | null>(null);
-  const [analysis,     setAnalysis]     = useState<IntelligenceData | null>(null);
-  const [loading,      setLoading]      = useState(true);
-  const [lastUpdated,  setLastUpdated]  = useState<Date | null>(null);
-  const [error,        setError]        = useState<string | null>(null);
-  const [trialBlock,   setTrialBlock]   = useState<{ reason: "expired" | "limit_reached"; message: string } | null>(null);
+  const [user,              setUser]              = useState<User | null>(null);
+  const [analysis,          setAnalysis]          = useState<IntelligenceData | null>(null);
+  const [loading,           setLoading]           = useState(true);
+  const [lastUpdated,       setLastUpdated]        = useState<Date | null>(null);
+  const [error,             setError]             = useState<string | null>(null);
+  const [trialBlock,        setTrialBlock]         = useState<{ reason: "expired" | "limit_reached"; message: string } | null>(null);
+  const [weeklyUsed,        setWeeklyUsed]         = useState(0);
+  const [weeklyLimit,       setWeeklyLimit]        = useState(3);
+  const [weeklyLimitHit,    setWeeklyLimitHit]     = useState(false);
 
   async function fetchAnalysis(bust = false) {
     setLoading(true);
@@ -160,7 +168,14 @@ export default function IntelligencePage() {
       const url = bust ? `/api/intelligence?t=${Date.now()}` : "/api/intelligence";
       const res = await fetch(url);
       if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string; trial_reason?: string };
+        const body = await res.json().catch(() => ({})) as { error?: string; trial_reason?: string; weekly_used?: number; weekly_limit?: number };
+        if (res.status === 429) {
+          setWeeklyUsed(body.weekly_used ?? 3);
+          setWeeklyLimit(body.weekly_limit ?? 3);
+          setWeeklyLimitHit(true);
+          setError(body.error ?? "Weekly limit reached.");
+          return;
+        }
         if (res.status === 403 && (body.trial_reason === "expired" || body.trial_reason === "limit_reached")) {
           setTrialBlock({ reason: body.trial_reason, message: body.error ?? "Trial limit reached." });
           return;
@@ -168,6 +183,11 @@ export default function IntelligencePage() {
         throw new Error(body.error ?? `Request failed (${res.status})`);
       }
       const data = await res.json() as IntelligenceData;
+      if (data.weekly_used !== undefined) {
+        setWeeklyUsed(data.weekly_used);
+        setWeeklyLimit(data.weekly_limit ?? 3);
+        setWeeklyLimitHit(data.weekly_used >= (data.weekly_limit ?? 3));
+      }
       setAnalysis(data);
       setLastUpdated(new Date());
     } catch (err) {
@@ -289,15 +309,22 @@ export default function IntelligencePage() {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => fetchAnalysis(true)}
-              disabled={loading}
-              className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm
-                         disabled:opacity-60 disabled:cursor-not-allowed transition-all"
-              style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
-              {loading ? <Spinner /> : null}
-              {loading ? "Analysing…" : "Refresh Analysis"}
-            </button>
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <button
+                onClick={() => fetchAnalysis(true)}
+                disabled={loading || weeklyLimitHit}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm
+                           disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                {loading ? <Spinner /> : null}
+                {loading ? "Analysing…" : "Refresh Analysis"}
+              </button>
+              <p className={`text-[11px] text-right ${weeklyLimitHit ? "text-rose-400" : "text-zinc-500"}`}>
+                {weeklyLimitHit
+                  ? "Limit reached · Resets Monday"
+                  : `${weeklyUsed}/${weeklyLimit} analyses used this week`}
+              </p>
+            </div>
           </div>
 
           {/* ── Trial block (non-dismissable) ───────────────────── */}

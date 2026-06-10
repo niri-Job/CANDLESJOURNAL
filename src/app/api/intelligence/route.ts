@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { checkTrialAccess } from "@/lib/trial";
 import { MARKET_PAIRS, fetchAllPairIndicators, type PairIndicators } from "@/lib/marketPrices";
 
 export const maxDuration = 60;
@@ -24,14 +23,32 @@ function svc() {
   );
 }
 
-async function incrementAiCredits(userId: string) {
+function getMondayStr(d: Date = new Date()): string {
+  const day = d.getDay(); // 0=Sun
+  const diff = day === 0 ? 6 : day - 1;
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - diff);
+  return mon.toISOString().slice(0, 10);
+}
+
+async function incrementWeeklyAnalyses(userId: string): Promise<void> {
   try {
     const db = svc();
-    const { data } = await db.from("user_profiles").select("ai_credits_used").eq("user_id", userId).maybeSingle();
-    const next = ((data as { ai_credits_used?: number } | null)?.ai_credits_used ?? 0) + 1;
-    await db.from("user_profiles").update({ ai_credits_used: next }).eq("user_id", userId);
+    const { data } = await db
+      .from("user_profiles")
+      .select("ai_analyses_used_this_week, ai_week_start")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const p = data as { ai_analyses_used_this_week?: number; ai_week_start?: string | null } | null;
+    const thisMon = getMondayStr();
+    const needsReset = !p?.ai_week_start || p.ai_week_start < thisMon;
+    const next = needsReset ? 1 : (p?.ai_analyses_used_this_week ?? 0) + 1;
+    await db
+      .from("user_profiles")
+      .update({ ai_analyses_used_this_week: next, ai_week_start: thisMon })
+      .eq("user_id", userId);
   } catch (e) {
-    console.warn("[intelligence] ai_credits increment failed:", e);
+    console.warn("[intelligence] weekly increment failed:", e);
   }
 }
 
@@ -71,53 +88,38 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── Pro monthly limit check ──────────────────────────────────────────────────
+  // ── Weekly limit: 3 analyses per week, resets every Monday ──────────────────
+  let weeklyUsed = 0;
   if (user.id !== DEV_USER_ID) {
     const db = svc();
     const { data: prof } = await db
       .from("user_profiles")
-      .select("subscription_status, subscription_end, ai_credits_used, ai_credits_reset_at")
+      .select("ai_analyses_used_this_week, ai_week_start")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const isPro =
-      prof?.subscription_status === "pro" &&
-      !!prof?.subscription_end &&
-      new Date((prof as { subscription_end: string }).subscription_end) > new Date();
+    const p = prof as { ai_analyses_used_this_week?: number; ai_week_start?: string | null } | null;
+    const thisMon = getMondayStr();
+    const needsReset = !p?.ai_week_start || p.ai_week_start < thisMon;
+    weeklyUsed = needsReset ? 0 : (p?.ai_analyses_used_this_week ?? 0);
 
-    if (isPro) {
-      const now = new Date();
-      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-      const resetAt = (prof as { ai_credits_reset_at?: string | null }).ai_credits_reset_at;
-      let used = (prof as { ai_credits_used?: number }).ai_credits_used ?? 0;
+    if (needsReset) {
+      void db.from("user_profiles")
+        .update({ ai_analyses_used_this_week: 0, ai_week_start: thisMon })
+        .eq("user_id", user.id);
+    }
 
-      if (!resetAt || resetAt < monthStart) {
-        await db
-          .from("user_profiles")
-          .update({ ai_credits_used: 0, ai_credits_reset_at: monthStart })
-          .eq("user_id", user.id);
-        used = 0;
-      }
-
-      if (used >= 90) {
-        return NextResponse.json(
-          { error: "You've used your 90 AI analyses for this month. Your limit resets on the 1st of next month." },
-          { status: 429 }
-        );
-      }
+    if (weeklyUsed >= 3) {
+      return NextResponse.json(
+        { error: "You've used all 3 analyses this week. Resets Monday.", weekly_used: 3, weekly_limit: 3 },
+        { status: 429 }
+      );
     }
   }
 
-  // Serve cache for non-expired users
+  // Serve cache
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    const trialExpiry = await checkTrialAccess(user.id, "market_intelligence", { consume: false });
-    if (!trialExpiry.ok && trialExpiry.reason === "expired") {
-      return NextResponse.json(
-        { error: trialExpiry.message, trial_reason: trialExpiry.reason },
-        { status: trialExpiry.httpStatus }
-      );
-    }
-    return NextResponse.json(cached.data);
+    return NextResponse.json({ ...(cached.data as object), weekly_used: weeklyUsed, weekly_limit: 3 });
   }
 
   // Fetch all 10 pairs (shared crumb + single batch quote call)
@@ -128,15 +130,6 @@ export async function GET(request: Request) {
     return NextResponse.json(
       { error: "Unable to fetch market data. Please try again shortly." },
       { status: 502 }
-    );
-  }
-
-  // Trial enforcement
-  const trial = await checkTrialAccess(user.id, "market_intelligence", { consume: true });
-  if (!trial.ok) {
-    return NextResponse.json(
-      { error: trial.message, trial_reason: trial.reason },
-      { status: trial.httpStatus }
     );
   }
 
@@ -227,12 +220,12 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
     const enriched = { ...(data as Record<string, unknown>), price_changes: changeMap };
     cached = { data: enriched, ts: Date.now() };
 
-    // Increment usage counter — best-effort, never blocks the response
+    // Increment weekly usage counter — best-effort, non-blocking
     if (user.id !== DEV_USER_ID) {
-      incrementAiCredits(user.id).catch(() => undefined);
+      incrementWeeklyAnalyses(user.id).catch(() => undefined);
     }
 
-    return NextResponse.json(enriched);
+    return NextResponse.json({ ...enriched, weekly_used: weeklyUsed + 1, weekly_limit: 3 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[intelligence] error:", message);

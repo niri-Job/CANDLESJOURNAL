@@ -584,31 +584,18 @@ export default function SettingsPage() {
                   </svg>
                 </div>
                 <span className="text-xs font-bold text-zinc-200">MT5 Direct Connect</span>
-                {isPro ? (
-                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full
-                                   bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                    Available
-                  </span>
-                ) : (
-                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                        style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
-                    Pro
-                  </span>
-                )}
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                      style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
+                  July 1, 2026
+                </span>
               </div>
               <p className="text-[11px] text-zinc-500 leading-relaxed">
-                {isPro ? "Connect your MT5 account directly using credentials." : "Upgrade to Pro to connect MT5 directly."}
+                Direct credential-based sync. Available July 1, 2026.
               </p>
               <div className="mt-auto">
-                {isPro ? (
-                  <span className="flex items-center gap-1.5 text-[11px] text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Available
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--cj-gold-muted)" }}>
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--cj-gold-muted)" }} />Pro only
-                  </span>
-                )}
+                <span className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--cj-gold-muted)" }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--cj-gold-muted)" }} />Coming soon
+                </span>
               </div>
             </div>
 
@@ -784,8 +771,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* -- MT5 Direct Connect: visible to Pro users and developer -- */}
-        {(isPro || isDeveloper) && (
+        {/* -- MT5 Direct Connect -- */}
         <div className="mb-5">
           <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">MT5 Direct Connect</p>
 
@@ -831,17 +817,26 @@ export default function SettingsPage() {
           })}
 
           {/* Connect form */}
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+          <div className={`bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 ${isDeveloper ? "" : "opacity-50 pointer-events-none select-none"}`}>
             <div className="flex items-center gap-2 mb-1">
               <p className="text-sm font-semibold text-zinc-100">Connect MT5 Account</p>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
-                               bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                Live
-              </span>
+              {isDeveloper ? (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full
+                                 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                  Dev
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                      style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
+                  Available July 1, 2026
+                </span>
+              )}
             </div>
             <p className="text-xs text-zinc-500 leading-relaxed mb-5">
-              Enter your MT5 credentials. NIRI connects via MetaAPI and fetches your trade history automatically.
-              Your password is encrypted in transit and never stored by NIRI.
+              {isDeveloper
+                ? "Enter your MT5 credentials. NIRI connects via MetaAPI and fetches your trade history automatically. Your password is encrypted in transit and never stored by NIRI."
+                : "MT5 Direct Connect launches July 1, 2026. You'll be able to connect your account using credentials and sync trades automatically."
+              }
             </p>
 
             <form onSubmit={handleMt5Connect} className="space-y-3">
@@ -963,7 +958,6 @@ export default function SettingsPage() {
             </form>
           </div>
         </div>
-        )}
 
         {/* -- EA + legacy MT connections: developer only -- */}
         {isDeveloper && (

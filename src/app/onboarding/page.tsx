@@ -493,16 +493,17 @@ export default function OnboardingPage() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-zinc-800 bg-[var(--cj-raised)] p-4 opacity-70">
+              <div className="rounded-xl border border-zinc-800 bg-[var(--cj-raised)] p-4 opacity-60 cursor-not-allowed"
+                   title="Available July 1, 2026">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm font-semibold text-zinc-200">MT5 Direct Connect</p>
                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
                         style={{ background: "var(--cj-gold-glow)", border: "1px solid var(--cj-card-border)", color: "var(--cj-gold-muted)" }}>
-                    Coming Soon
+                    July 1, 2026
                   </span>
                 </div>
                 <p className="text-xs text-zinc-500">
-                  Direct credential-based connection is disabled until it is production-ready.
+                  Direct credential-based sync launches July 1, 2026.
                 </p>
               </div>
             </div>

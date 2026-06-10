@@ -64,6 +64,17 @@ interface AdminNotification {
   is_active: boolean;
 }
 
+interface ActivityRow {
+  id:                   string;
+  email:                string;
+  signup_date:          string;
+  total_trades:         number;
+  csv_imports:          number;
+  has_metaapi:          boolean;
+  last_active:          string | null;
+  onboarding_completed: boolean;
+}
+
 interface AiUsageData {
   anthropic_key_present: boolean;
   total_analyses: number;
@@ -109,6 +120,7 @@ export default function AdminPage() {
   const [calResult,          setCalResult]          = useState<{ ok: boolean; text: string } | null>(null);
   const [aiUsage,            setAiUsage]            = useState<AiUsageData | null>(null);
 
+  const [activity,           setActivity]           = useState<ActivityRow[]>([]);
   const [ctStats,            setCtStats]            = useState<{
     total_providers: number; total_subscriptions: number; copied_trades_today: number;
     providers: { id: string; name: string; grade: string; win_rate: number; total_trades: number; total_subscribers: number; is_active: boolean; is_verified: boolean }[];
@@ -138,12 +150,13 @@ export default function AdminPage() {
   }
 
   const loadDashboard = useCallback(async () => {
-    const [statsRes, usersRes, payoutsRes, aiUsageRes, ctRes] = await Promise.all([
+    const [statsRes, usersRes, payoutsRes, aiUsageRes, ctRes, activityRes] = await Promise.all([
       fetch("/api/admin/stats"),
       fetch("/api/admin/users"),
       fetch("/api/admin/payouts"),
       fetch("/api/admin/ai-usage"),
       fetch("/api/copy-trading/grading"),
+      fetch("/api/admin/activity"),
     ]);
 
     if (statsRes.status === 401) {
@@ -155,6 +168,7 @@ export default function AdminPage() {
     if (usersRes.ok) setUsers(((await usersRes.json()) as { users: AdminUser[] }).users ?? []);
     if (aiUsageRes.ok) setAiUsage((await aiUsageRes.json()) as AiUsageData);
     if (ctRes.ok) setCtStats(await ctRes.json());
+    if (activityRes.ok) setActivity(((await activityRes.json()) as { activity: ActivityRow[] }).activity ?? []);
     if (payoutsRes.ok) {
       const d = (await payoutsRes.json()) as { payouts: Payout[]; in_payout_window: boolean };
       setPayouts(d.payouts ?? []);
@@ -560,6 +574,59 @@ export default function AdminPage() {
                             +3d Trial
                           </button>
                         </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* User Activity */}
+        <section>
+          <h2 className="text-xs font-medium text-[var(--cj-gold-muted)] uppercase tracking-wider mb-4">
+            User Activity ({activity.length})
+          </h2>
+          <div className="overflow-x-auto rounded-xl border border-[var(--cj-border)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--cj-border)] text-[var(--cj-text-muted)]">
+                  <th className="text-left px-4 py-3 font-medium">Email</th>
+                  <th className="text-left px-4 py-3 font-medium">Signed up</th>
+                  <th className="text-right px-4 py-3 font-medium">Trades</th>
+                  <th className="text-right px-4 py-3 font-medium">CSV imports</th>
+                  <th className="text-left px-4 py-3 font-medium">MetaAPI</th>
+                  <th className="text-left px-4 py-3 font-medium">Last active</th>
+                  <th className="text-left px-4 py-3 font-medium">Onboarded</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activity.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-[var(--cj-text-muted)]">No data</td>
+                  </tr>
+                ) : (
+                  activity.map((row) => (
+                    <tr key={row.id} className="border-b border-[var(--cj-border)]/50 hover:bg-[var(--cj-raised)]">
+                      <td className="px-4 py-3 text-[var(--cj-text)] font-sans text-xs max-w-[200px] truncate">{row.email}</td>
+                      <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">{fmt(row.signup_date)}</td>
+                      <td className="px-4 py-3 text-right text-xs font-medium">{row.total_trades}</td>
+                      <td className="px-4 py-3 text-right text-xs text-[var(--cj-text-muted)]">{row.csv_imports}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {row.has_metaapi ? (
+                          <span className="text-emerald-400">Yes</span>
+                        ) : (
+                          <span className="text-[var(--cj-text-muted)]">No</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--cj-text-muted)] text-xs">{fmt(row.last_active)}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {row.onboarding_completed ? (
+                          <span className="text-emerald-400">Yes</span>
+                        ) : (
+                          <span className="text-amber-400">No</span>
+                        )}
                       </td>
                     </tr>
                   ))

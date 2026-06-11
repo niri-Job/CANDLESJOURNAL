@@ -128,12 +128,23 @@ export default function NiriOrb({ trades = [] }: Props) {
   const [inMsg,       setInMsg]       = useState(false);
   const [isAttention, setIsAttention] = useState(false);
 
+  // ── Ask NIRI state ─────────────────────────────────────────────────────────
+  const [askOpen,     setAskOpen]     = useState(false);
+  const [askInput,    setAskInput]    = useState("");
+  const [askThinking, setAskThinking] = useState(false);
+  const [askUsed,     setAskUsed]     = useState(0);
+  const askLimit = 10;
+
   const inMsgRef      = useRef(false);
   const msgTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const driftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAction    = useRef(Date.now());
+  const askOpenRef    = useRef(false);
+  const alertQueue    = useRef<{ a: NiriAlert; eye: EyeMode; dur: number }[]>([]);
+  const askInputRef   = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inMsgRef.current = inMsg; }, [inMsg]);
+  useEffect(() => { askOpenRef.current = askOpen; }, [askOpen]);
 
   // ── Init: position then reveal (no localStorage permanent-hide) ──────────────
   useEffect(() => {
@@ -143,6 +154,10 @@ export default function NiriOrb({ trades = [] }: Props) {
 
   // ── Core: show alert ─────────────────────────────────────────────────────────
   const showAlert = useCallback((a: NiriAlert, eye: EyeMode, durationMs: number) => {
+    if (askOpenRef.current) {
+      alertQueue.current.push({ a, eye, dur: durationMs });
+      return;
+    }
     console.log("[NIRI] showAlert firing:", a.type, "—", a.message.slice(0, 60));
     setAlert(a);
     setAlertKind(a.kind ?? "normal");
@@ -326,6 +341,22 @@ export default function NiriOrb({ trades = [] }: Props) {
     };
   }, [hidden, showAlert]);
 
+  // ── Ask: close on outside click ──────────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!askOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (!(e.target as HTMLElement).closest("[data-niri-orb]")) closeAsk(true);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [askOpen]);
+
+  // ── Ask: auto-focus input ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (askOpen) setTimeout(() => askInputRef.current?.focus(), 80);
+  }, [askOpen]);
+
   // ── Actions ──────────────────────────────────────────────────────────────────
   function dismiss() {
     if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
@@ -334,6 +365,44 @@ export default function NiriOrb({ trades = [] }: Props) {
     setEyeMode("normal");
     setInMsg(false);
     inMsgRef.current = false;
+  }
+
+  function closeAsk(drainQueue = true) {
+    setAskOpen(false);
+    setAskInput("");
+    askOpenRef.current = false;
+    if (drainQueue) {
+      const queued = alertQueue.current.shift();
+      if (queued) setTimeout(() => showAlert(queued.a, queued.eye, queued.dur), 300);
+    } else {
+      alertQueue.current = [];
+    }
+  }
+
+  async function handleAsk() {
+    const q = askInput.trim();
+    if (!q || askThinking) return;
+    setAskInput("");
+    setAskThinking(true);
+    try {
+      const res  = await fetch("/api/niri/ask", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ question: q }),
+      });
+      const data = await res.json() as { answer?: string; error?: string; questions_used?: number };
+      if (data.questions_used !== undefined) setAskUsed(data.questions_used);
+      const msg = res.ok
+        ? (data.answer  ?? "I couldn't formulate a response. Try asking differently.")
+        : (data.error   ?? "I'm having trouble connecting right now. Try again in a moment.");
+      closeAsk(false);
+      showAlert({ type: "ask_answer", message: msg, kind: "ai" }, "wide", 15000);
+    } catch {
+      closeAsk(false);
+      showAlert({ type: "ask_answer", message: "I'm having trouble connecting right now. Try again in a moment.", kind: "ai" }, "normal", 6000);
+    } finally {
+      setAskThinking(false);
+    }
   }
 
   function minimizeOrb() {
@@ -369,6 +438,7 @@ export default function NiriOrb({ trades = [] }: Props) {
 
   return (
     <motion.div
+      data-niri-orb=""
       style={{ position: "fixed", top: 0, left: 0, zIndex: 9999, width: ORB_SIZE, height: ORB_SIZE }}
       animate={{
         x:     pos.x,
@@ -393,12 +463,33 @@ export default function NiriOrb({ trades = [] }: Props) {
           ? { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
           : { duration: 0.5 }}
       >
+        {/* ── Magnifying glass ── */}
+        {!alert && !askOpen && !inMsg && (
+          <motion.div
+            style={{ position: "absolute", top: -28, left: ORB_SIZE / 2 - 8, cursor: "pointer", zIndex: 6 }}
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+            onClick={(e) => { e.stopPropagation(); setAskOpen(true); lastAction.current = Date.now(); }}
+            title="Ask NIRI"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.65)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </motion.div>
+        )}
+
         {/* ── Pulse wrapper ── */}
         <motion.div
           style={{ position: "relative", width: "100%", height: "100%", cursor: "pointer" }}
-          animate={{ scale: [1, 1.06, 1] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          onClick={() => { if (!alert) setShowPanel((v) => !v); lastAction.current = Date.now(); }}
+          animate={{ scale: askThinking ? [1, 1.18, 1] : [1, 1.06, 1] }}
+          transition={{ duration: askThinking ? 0.5 : 3, repeat: Infinity, ease: "easeInOut" }}
+          onClick={() => {
+            lastAction.current = Date.now();
+            if (alert) return;
+            if (showPanel) setShowPanel(false);
+            setAskOpen((v) => !v);
+          }}
         >
           {/* Gold aura pulse */}
           <motion.div
@@ -462,6 +553,77 @@ export default function NiriOrb({ trades = [] }: Props) {
         </motion.div>
       </motion.div>
 
+      {/* ── Ask NIRI input bar ── */}
+      <AnimatePresence>
+        {askOpen && (
+          <motion.div
+            key="ask-bar"
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0,  scale: 1 }}
+            exit={{    opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position:     "absolute",
+              top:          ORB_SIZE + 10,
+              left:         BUBBLE_L,
+              width:        BUBBLE_W,
+              background:   "#0f0f11",
+              border:       "1px solid rgba(124,58,237,0.4)",
+              borderRadius: 14,
+              padding:      "9px 12px 8px",
+              boxShadow:    "0 16px 40px rgba(0,0,0,0.6)",
+              zIndex:       5,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                ref={askInputRef}
+                value={askInput}
+                onChange={(e) => setAskInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && askInput.trim() && !askThinking) { void handleAsk(); }
+                  if (e.key === "Escape") { closeAsk(true); }
+                  e.stopPropagation();
+                }}
+                placeholder="Ask me about your trading..."
+                disabled={askThinking}
+                style={{
+                  flex:       1,
+                  background: "none",
+                  border:     "none",
+                  outline:    "none",
+                  color:      "#e4e4e7",
+                  fontSize:   12,
+                  minWidth:   0,
+                }}
+              />
+              {askThinking && (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                  style={{
+                    width:        13,
+                    height:       13,
+                    borderRadius: "50%",
+                    border:       "2px solid rgba(124,58,237,0.3)",
+                    borderTopColor: "#A78BFA",
+                    flexShrink:   0,
+                  }}
+                />
+              )}
+            </div>
+            <p style={{ fontSize: 10, color: "#3f3f46", marginTop: 6, marginBottom: 0, textAlign: "right" }}>
+              {askUsed}/{askLimit} today
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Speech bubble ── */}
       <AnimatePresence>
         {alert && (
@@ -496,7 +658,14 @@ export default function NiriOrb({ trades = [] }: Props) {
               </span>
               <button onClick={dismiss} style={{ background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px" }}>×</button>
             </div>
-            <p style={{ fontSize: 12.5, color: "#e4e4e7", lineHeight: 1.65, margin: 0 }}>
+            <p style={{
+              fontSize:   12.5,
+              color:      "#e4e4e7",
+              lineHeight: 1.65,
+              margin:     0,
+              maxHeight:  alertKind === "ai" ? 180 : undefined,
+              overflowY:  alertKind === "ai" ? "auto"  : undefined,
+            }}>
               {alert.message}
             </p>
             <Arrow gold={!!isBadAlert} />

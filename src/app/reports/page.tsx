@@ -693,7 +693,8 @@ function WaterfallChart({ data }: { data: ReturnType<typeof weeklyWaterfall> }) 
   function ty(v: number) { return PT + cH - ((v - minV) / range) * cH; }
   function fmtW(v: number) { const s = v >= 0 ? "+" : "−", a = Math.abs(v); return a >= 1000 ? `${s}${(a / 1000).toFixed(1)}k` : `${s}${a.toFixed(0)}`; }
   return (
-    <div>
+    /* max-width caps height: at 580px wide, height = 580*(170/400) ≈ 246px */
+    <div style={{ maxWidth: 580 }}>
       <style>{`@keyframes cj-fadeIn{from{opacity:0}to{opacity:1}}`}</style>
       <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ height: "auto", display: "block" }}>
         <line x1={PL} y1={ty(0)} x2={VW - PR} y2={ty(0)} stroke="#3f3f46" strokeWidth={1} />
@@ -719,31 +720,45 @@ function WaterfallChart({ data }: { data: ReturnType<typeof weeklyWaterfall> }) 
 }
 
 function DisciplineRadar({ axes }: { axes: { short: string; label: string; score: number }[] }) {
-  const CX = 130, CY = 115, R = 80, MAX = 25;
+  // Layout: viewBox 280×240, center (140,120), radius 80
+  // i=0→top, i=1→right, i=2→bottom, i=3→left
+  const CX = 140, CY = 120, R = 80, MAX = 25;
   function ap(i: number, r: number): [number, number] {
     const a = (i / axes.length) * 2 * Math.PI - Math.PI / 2;
     return [+(CX + r * Math.cos(a)).toFixed(2), +(CY + r * Math.sin(a)).toFixed(2)];
   }
   const rings = [MAX * 0.5, MAX];
-  const dataPts = axes.map((ax, i) => ap(i, (ax.score / MAX) * R).join(",")).join(" ");
+  // Clamp to 1.5 minimum so zero-score axes still show a small visible vertex
+  const dataPts = axes.map((ax, i) => ap(i, (Math.max(ax.score, 1.5) / MAX) * R).join(",")).join(" ");
   return (
-    <div>
+    /* maxWidth caps the SVG so labels stay legible (~11-13px rendered) */
+    <div style={{ maxWidth: 320, margin: "0 auto" }}>
       <style>{`@keyframes cj-radar{from{transform:scale(0)}to{transform:scale(1)}}`}</style>
-      <svg viewBox="0 0 260 230" width="100%" style={{ height: "auto", display: "block" }}>
+      <svg viewBox="0 0 280 240" width="100%" style={{ height: "auto", display: "block" }}>
         {rings.map(ring => (
           <polygon key={ring} points={axes.map((_, i) => ap(i, (ring / MAX) * R).join(",")).join(" ")}
-                   fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
+                   fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
         ))}
-        {axes.map((_, i) => { const [x, y] = ap(i, R); return <line key={i} x1={CX} y1={CY} x2={x} y2={y} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />; })}
+        {axes.map((_, i) => {
+          const [x, y] = ap(i, R);
+          return <line key={i} x1={CX} y1={CY} x2={x} y2={y} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />;
+        })}
         <polygon points={dataPts} fill="#AFA9EC" fillOpacity={0.55} stroke="#534AB7" strokeWidth={2}
                  style={{ transformOrigin: `${CX}px ${CY}px`, animation: "cj-radar 0.8s cubic-bezier(0.16,1,0.3,1) both" }} />
-        {axes.map((ax, i) => { const [x, y] = ap(i, (ax.score / MAX) * R); return <circle key={i} cx={x} cy={y} r={4} fill="#D4A017" />; })}
         {axes.map((ax, i) => {
-          const [lx, ly] = ap(i, R + 18);
+          const [x, y] = ap(i, (Math.max(ax.score, 1.5) / MAX) * R);
+          return <circle key={i} cx={x} cy={y} r={4} fill="#D4A017" />;
+        })}
+        {axes.map((ax, i) => {
+          const [lx, ly] = ap(i, R + 20);
+          // top: text hangs up (auto=alphabetic baseline at ly, cap extends above)
+          // bottom: text hangs down (hanging = top of text at ly)
+          // left/right: vertically centered
           const anchor   = i === 1 ? "start" : i === 3 ? "end" : "middle";
-          const baseline = i === 0 ? "auto"  : i === 2 ? "hanging" : "middle";
+          const baseline = i === 2 ? "hanging" : i === 0 ? "auto" : "middle";
           return (
-            <text key={i} x={lx} y={ly} textAnchor={anchor} dominantBaseline={baseline} fontSize={10} fill="#71717a">
+            <text key={i} x={lx} y={ly} textAnchor={anchor} dominantBaseline={baseline}
+                  fontSize={11} fill="#71717a">
               {ax.short} {ax.score}
             </text>
           );

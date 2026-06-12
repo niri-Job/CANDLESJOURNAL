@@ -28,6 +28,11 @@ const NAV_ITEMS = [
       <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
     </svg>
   )},
+  { href: "/replay",       label: "Replay",       icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3"/>
+    </svg>
+  )},
   { href: "/intelligence", label: "Intelligence", icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>

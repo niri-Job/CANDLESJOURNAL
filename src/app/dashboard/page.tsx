@@ -16,6 +16,7 @@ import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { PremiumEquityCurve } from "@/components/EquityCurve";
 import { PremiumWinRateChart } from "@/components/PremiumWinRateChart";
 import CsvImportModal from "@/components/CsvImportModal";
+import { TradeDetailModal, type ReplayTrade } from "@/components/TradeDetailModal";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -44,6 +45,8 @@ interface Trade {
   mt5_deal_id?: string | null;
   account_signature?: string | null;
   account_label?: string | null;
+  opened_at?: string | null;
+  closed_at?: string | null;
 }
 
 interface Strategy {
@@ -522,6 +525,7 @@ export default function TradingJournal() {
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const [noteModalTrade,       setNoteModalTrade]       = useState<Trade | null>(null);
   const [reflectionTrade,      setReflectionTrade]      = useState<Trade | null>(null);
+  const [drilldownTrade,       setDrilldownTrade]       = useState<ReplayTrade | null>(null);
   const [aiCreditsUsed,    setAiCreditsUsed]    = useState<number>(0);
   const [aiCreditsLimit,   setAiCreditsLimit]   = useState<number>(3);
   const [trialDaysLeft,    setTrialDaysLeft]    = useState<number | null>(null);
@@ -1811,6 +1815,10 @@ export default function TradingJournal() {
                                 Reflect
                               </button>
                             )}
+                            <button onClick={() => setDrilldownTrade(t as unknown as ReplayTrade)}
+                              className="text-zinc-500 hover:text-[#D4A017] border border-zinc-800
+                                         hover:border-yellow-500/50 rounded-md px-2 py-1 text-xs transition-all"
+                              title="Analyse this trade">▷</button>
                             <button onClick={() => startEdit(t)}
                               className="text-zinc-500 hover:text-blue-400 border border-zinc-800
                                          hover:border-blue-500/50 rounded-md px-2 py-1 text-xs transition-all">Edit</button>
@@ -1882,6 +1890,17 @@ export default function TradingJournal() {
         <TradeReflectionModal
           trade={reflectionTrade}
           onClose={() => setReflectionTrade(null)}
+        />
+      )}
+
+      {/* TRADE DETAIL MODAL */}
+      {drilldownTrade && (
+        <TradeDetailModal
+          trade={drilldownTrade}
+          allDayTrades={accountTrades
+            .filter(t => t.date === drilldownTrade.date)
+            .map(t => t as unknown as ReplayTrade)}
+          onClose={() => setDrilldownTrade(null)}
         />
       )}
 

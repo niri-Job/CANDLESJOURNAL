@@ -38,8 +38,8 @@ export function PremiumWinRateChart({ data }: { data: WinRateRow[] }) {
           <div key={d.pair} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{
               width: 74, flexShrink: 0,
-              fontSize: 13, fontWeight: 600,
-              color: "#e4e4e7",
+              fontSize: 13, fontWeight: 500,
+              color: "#1A1916",
               fontFamily: "monospace",
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>

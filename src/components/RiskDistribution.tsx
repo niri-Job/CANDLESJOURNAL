@@ -70,8 +70,9 @@ function NightingaleRose({
   });
 
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-      <svg viewBox="0 0 260 260" width={190} height={190} style={{ flexShrink: 0 }}>
+    <div style={{ maxWidth: "100%" }}>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+      <svg viewBox="0 0 260 260" width={176} height={176} style={{ display: "block" }}>
         {[52, 72, 92].map(r => (
           <circle key={r} cx={CX} cy={CY} r={r}
             fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
@@ -108,32 +109,34 @@ function NightingaleRose({
           TRADES
         </text>
       </svg>
+      </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 9, paddingTop: 6 }}>
+      {/* Legend — stacked below the rose, full column width */}
+      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 7 }}>
         {data.slice(0, 6).map((d, i) => {
           const color = ROSE_COLORS[Math.min(i, ROSE_COLORS.length - 1)];
           const pnlPos = d.pnl >= 0;
           return (
-            <div key={d.pair} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <div key={d.pair} style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
               <span style={{
-                display: "inline-block", width: 9, height: 9,
-                borderRadius: "50%", background: color, flexShrink: 0,
+                display: "inline-block", width: 9, height: 9, flexShrink: 0,
+                borderRadius: "50%", background: color,
               }} />
               <span style={{
                 fontSize: 12, color: "#e4e4e7", fontFamily: "monospace",
-                minWidth: 50, flexShrink: 0,
+                width: 58, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>
                 {d.pair}
               </span>
-              <span style={{ fontSize: 12, color: "var(--cj-gold)", marginRight: 4 }}>
+              <span style={{ fontSize: 12, color: "var(--cj-gold)", flexShrink: 0, minWidth: 28 }}>
                 {d.pct}%
               </span>
               <div style={{
-                padding: "1px 6px", borderRadius: 100, fontSize: 10, fontWeight: 600,
+                padding: "1px 6px", borderRadius: 100, fontSize: 10, fontWeight: 600, flexShrink: 0,
                 background: pnlPos ? "rgba(29,158,117,0.15)" : "rgba(226,75,74,0.15)",
                 color: pnlPos ? "#1D9E75" : "#E24B4A",
               }}>
-                {pnlPos ? "+" : ""}{d.pnl >= 0 ? "$" : "-$"}{Math.abs(d.pnl).toFixed(0)}
+                {pnlPos ? "+$" : "-$"}{Math.abs(d.pnl).toFixed(0)}
               </div>
             </div>
           );

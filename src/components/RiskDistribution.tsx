@@ -119,22 +119,23 @@ function NightingaleRose({
           return (
             <div key={d.pair} style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
               <span style={{
-                display: "inline-block", width: 9, height: 9, flexShrink: 0,
-                borderRadius: "50%", background: color,
+                display: "inline-block", width: 10, height: 10, flexShrink: 0,
+                borderRadius: 3, background: color,
               }} />
               <span style={{
-                fontSize: 12, color: "#e4e4e7", fontFamily: "monospace",
+                fontSize: 13, fontWeight: 500, color: "#1A1916",
+                fontFamily: "monospace",
                 width: 58, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>
                 {d.pair}
               </span>
-              <span style={{ fontSize: 12, color: "var(--cj-gold)", flexShrink: 0, minWidth: 28 }}>
+              <span style={{ fontSize: 12, color: "#5F5E5A", flexShrink: 0, minWidth: 28 }}>
                 {d.pct}%
               </span>
               <div style={{
                 padding: "1px 6px", borderRadius: 100, fontSize: 10, fontWeight: 600, flexShrink: 0,
-                background: pnlPos ? "rgba(29,158,117,0.15)" : "rgba(226,75,74,0.15)",
-                color: pnlPos ? "#1D9E75" : "#E24B4A",
+                background: pnlPos ? "#E8F4EE" : "#FCEBE8",
+                color: pnlPos ? "#0F6E56" : "#A32D2D",
               }}>
                 {pnlPos ? "+$" : "-$"}{Math.abs(d.pnl).toFixed(0)}
               </div>

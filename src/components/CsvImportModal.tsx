@@ -99,9 +99,7 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.error === "FREE_LIMIT_REACHED") {
-          setError("Upgrade to Pro to import more trades. Your free trial import has been used.");
-        } else if (data.error?.includes("Database error")) {
+        if (data.error?.includes("Database error")) {
           setError(`${data.error} — Check browser console for details.`);
           console.error("[import] server error:", data.error);
         } else {
@@ -173,16 +171,12 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
               </div>
               <div>
                 <p style={{ fontSize: 16, fontWeight: 700, color: "#f4f4f5", margin: "0 0 6px" }}>
-                  {successInfo.inserted} trade{successInfo.inserted !== 1 ? "s" : ""} imported successfully
+                  {successInfo.inserted} new trade{successInfo.inserted !== 1 ? "s" : ""} added
+                  {successInfo.duplicates > 0 ? `, ${successInfo.duplicates} duplicate${successInfo.duplicates !== 1 ? "s" : ""} skipped` : ""}
                 </p>
                 <p style={{ fontSize: 13, color: "#71717a", margin: 0 }}>
                   Account: <span style={{ color: "#e4e4e7", fontWeight: 600 }}>{successInfo.label}</span>
                 </p>
-                {successInfo.duplicates > 0 && (
-                  <p style={{ fontSize: 12, color: "#52525b", margin: "6px 0 0" }}>
-                    {successInfo.duplicates} duplicate{successInfo.duplicates !== 1 ? "s" : ""} skipped
-                  </p>
-                )}
               </div>
               <p style={{ fontSize: 12, color: "#52525b", margin: 0 }}>
                 Your account will appear in Synced Accounts on the Settings page.

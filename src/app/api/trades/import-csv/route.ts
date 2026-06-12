@@ -181,26 +181,6 @@ export async function POST(request: Request) {
 
   const svc = serviceDb();
 
-  // ── Free user CSV limit ──────────────────────────────────────────────────────
-  const { data: profile, error: profileErr } = await svc
-    .from("user_profiles")
-    .select("subscription_status, subscription_end, csv_imported")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (profileErr) {
-    console.error("[import-csv] profile fetch error:", profileErr.message, "— continuing without limit check");
-  }
-
-  const isPro =
-    profile?.subscription_status === "pro" &&
-    !!profile?.subscription_end &&
-    new Date(profile.subscription_end) > new Date();
-
-  if (!isPro && profile?.csv_imported === true) {
-    return NextResponse.json({ error: "FREE_LIMIT_REACHED" }, { status: 403 });
-  }
-
   // ── Parse CSV ────────────────────────────────────────────────────────────────
   const { trades, headers } = parseCSV(csvContent);
   if (trades.length > 0) {
@@ -315,15 +295,6 @@ export async function POST(request: Request) {
   if (accErr) {
     console.error("[import-csv] trading_accounts upsert error:", accErr.message);
     // Non-fatal: trades were inserted, just account record failed
-  }
-
-  // ── Mark free user as having used their import ───────────────────────────────
-  if (!isPro && inserted > 0) {
-    const { error: flagErr } = await svc
-      .from("user_profiles")
-      .update({ csv_imported: true })
-      .eq("user_id", user.id);
-    if (flagErr) console.error("[import-csv] csv_imported flag error:", flagErr.message);
   }
 
   return NextResponse.json({

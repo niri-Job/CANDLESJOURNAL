@@ -9,6 +9,7 @@ import {
 import { Sidebar } from "@/components/Sidebar";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { PremiumEquityCurve } from "@/components/EquityCurve";
+import { PremiumWinRateChart } from "@/components/PremiumWinRateChart";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -1092,6 +1093,17 @@ function TabPerformance({ trades }: { trades: Trade[] }) {
 
   return (
     <div className="space-y-8">
+      {/* Win Rate by Pair — premium bars */}
+      <div>
+        <SectionHead>Win Rate by Pair</SectionHead>
+        <PremiumWinRateChart
+          data={pairs
+            .slice()
+            .sort((a, b) => b.winRate - a.winRate)
+            .map(p => ({ pair: p.pair, winRate: p.winRate, total: p.trades, pnl: p.totalPnl }))}
+        />
+      </div>
+
       {/* Pair breakdown table */}
       <div>
         <SectionHead>Performance by Pair</SectionHead>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useEffect, useState } from "react";
 
@@ -7,36 +7,28 @@ interface Trade {
   date: string;
 }
 
-interface BadgeInfo {
-  min: number;
-  max: number;
-  icon: string;
-  name: string;
-  color: string;
-  tagline: string;
-}
-
-const BADGES: BadgeInfo[] = [
-  { min: 0,  max: 30,  icon: "🥉", name: "Bronze Trader",  color: "text-amber-500",  tagline: "Keep pushing"        },
-  { min: 31, max: 50,  icon: "🥈", name: "Silver Trader",  color: "text-zinc-300",   tagline: "Getting consistent"  },
-  { min: 51, max: 70,  icon: "🥇", name: "Gold Trader",    color: "text-[#F5C518]",  tagline: "Strong performance"  },
-  { min: 71, max: 85,  icon: "💎", name: "Diamond Trader", color: "text-[#F5C518]",  tagline: "Elite level"         },
-  { min: 86, max: 100, icon: "👑", name: "Legend",          color: "text-[#F5C518]",  tagline: "Top 1% trader"       },
+const TIERS = [
+  { min: 0,  max: 25,  name: "BRONZE",  label: "Bronze Trader",  tagline: "Keep pushing",       tier: 1, gFrom: "#CD7F32", gTo: "#8B4513", color: "#CD7F32" },
+  { min: 26, max: 45,  name: "SILVER",  label: "Silver Trader",  tagline: "Getting consistent", tier: 2, gFrom: "#C8C8C8", gTo: "#808080", color: "#C0C0C0" },
+  { min: 46, max: 70,  name: "GOLD",    label: "Gold Trader",    tagline: "Strong performance", tier: 3, gFrom: "#EF9F27", gTo: "#B07908", color: "#D4A017" },
+  { min: 71, max: 100, name: "DIAMOND", label: "Diamond Trader", tagline: "Elite level",        tier: 4, gFrom: "#89D4FF", gTo: "#4096CC", color: "#89D4FF" },
 ];
 
-function getBadge(score: number): BadgeInfo {
-  return BADGES.find((b) => score >= b.min && score <= b.max) ?? BADGES[0];
+function getTier(score: number) {
+  return TIERS.find(t => score >= t.min && score <= t.max) ?? TIERS[0];
 }
 
-function getNextBadge(score: number): BadgeInfo | null {
-  const idx = BADGES.findIndex((b) => score >= b.min && score <= b.max);
-  return idx >= 0 && idx < BADGES.length - 1 ? BADGES[idx + 1] : null;
+function hexPoints(cx: number, cy: number, r: number): string {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (i * 60 * Math.PI) / 180;
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  }).join(" ");
 }
 
 export function PerformanceBadge({ trades }: { trades: Trade[] }) {
-  const [animatedScore, setAnimatedScore] = useState(0);
+  const [animated, setAnimated] = useState(false);
 
-  const { score, breakdown } = useMemo(() => {
+  const { score } = useMemo(() => {
     if (trades.length === 0) {
       return {
         score: 0,
@@ -92,26 +84,19 @@ export function PerformanceBadge({ trades }: { trades: Trade[] }) {
   }, [trades]);
 
   useEffect(() => {
-    const t = setTimeout(() => setAnimatedScore(score), 150);
-    return () => clearTimeout(t);
+    const id = requestAnimationFrame(() => setAnimated(true));
+    return () => cancelAnimationFrame(id);
   }, [score]);
 
-  const badge    = getBadge(score);
-  const nextBadge = getNextBadge(score);
+  const tier = getTier(score);
+  const isDiamond = tier.name === "DIAMOND";
+  const xpCurrent = isDiamond ? tier.max - tier.min : score - tier.min;
+  const xpTotal = tier.max - tier.min;
+  const xpPct = xpTotal > 0 ? Math.round((xpCurrent / xpTotal) * 100) : 100;
+  const toDiamond = Math.max(0, 71 - score);
 
-  const RADIUS      = 44;
-  const STROKE      = 6;
-  const SIZE        = (RADIUS + STROKE) * 2;
-  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-  const dashOffset  = CIRCUMFERENCE - (animatedScore / 100) * CIRCUMFERENCE;
-
-  const breakdownItems = [
-    { label: "Win Rate",      pts: breakdown.winRate,        max: 30 },
-    { label: "Profit Factor", pts: breakdown.profitFactor,   max: 25 },
-    { label: "Consistency",   pts: breakdown.consistency,    max: 20 },
-    { label: "Risk Mgmt",     pts: breakdown.riskManagement, max: 15 },
-    { label: "Trade Count",   pts: breakdown.tradeCount,     max: 10 },
-  ];
+  const CX = 60, CY = 65;
+  const gradId = `hexGrad-${tier.name}`;
 
   return (
     <div className="bg-[var(--cj-surface)] rounded-2xl p-6 mb-5"
@@ -120,81 +105,79 @@ export function PerformanceBadge({ trades }: { trades: Trade[] }) {
 
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
 
-        {/* Progress ring — gold gradient */}
-        <div className="flex flex-col items-center gap-2 shrink-0">
-          <div className="relative" style={{ width: SIZE, height: SIZE }}>
-            <svg width={SIZE} height={SIZE} style={{ transform: "rotate(-90deg)" }}>
-              <defs>
-                <linearGradient id="goldRingGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%"   stopColor="#F5C518" />
-                  <stop offset="100%" stopColor="#C9A227" />
-                </linearGradient>
-              </defs>
-              <circle
-                cx={SIZE / 2} cy={SIZE / 2} r={RADIUS}
-                fill="none" stroke="var(--cj-border)" strokeWidth={STROKE}
-              />
-              <circle
-                cx={SIZE / 2} cy={SIZE / 2} r={RADIUS}
-                fill="none"
-                stroke="url(#goldRingGrad)"
-                strokeWidth={STROKE}
-                strokeLinecap="round"
-                strokeDasharray={CIRCUMFERENCE}
-                strokeDashoffset={dashOffset}
-                style={{
-                  transition: "stroke-dashoffset 1.2s ease-out",
-                  filter: "drop-shadow(0 0 6px rgba(245,197,24,0.45))",
-                }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl leading-none">{badge.icon}</span>
-              <span className="font-sans text-xl font-bold leading-none mt-0.5"
-                    style={{ color: "var(--cj-gold)" }}>
-                {score}
-              </span>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <p className={`font-semibold text-xl ${badge.color}`}>{badge.name}</p>
-            <p className="text-sm text-zinc-600 mt-0.5">{badge.tagline}</p>
-          </div>
-
-          {nextBadge && (
-            <p className="text-[13px] text-zinc-600 text-center">
-              {nextBadge.min - score} pts to {nextBadge.icon} {nextBadge.name}
-            </p>
-          )}
-          {!nextBadge && score >= 86 && (
-            <p className="text-[13px] text-center" style={{ color: "var(--cj-gold-muted)" }}>
-              Maximum rank achieved
-            </p>
-          )}
+        {/* Hex emblem */}
+        <div style={{ flexShrink: 0 }}>
+          <svg width={120} height={130} viewBox="0 0 120 130" style={{ display: "block", overflow: "visible" }}>
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stopColor={tier.gFrom} />
+                <stop offset="100%" stopColor={tier.gTo} />
+              </linearGradient>
+            </defs>
+            {/* Outer hex — gradient fill */}
+            <polygon
+              points={hexPoints(CX, CY, 54)}
+              fill={`url(#${gradId})`}
+              style={{ filter: `drop-shadow(0 0 8px ${tier.color}55)` }}
+            />
+            {/* Inner hex — dark fill */}
+            <polygon
+              points={hexPoints(CX, CY, 44)}
+              fill="#0d0f14"
+            />
+            {/* Score */}
+            <text x={CX} y={CY - 6} textAnchor="middle" fontSize={24}
+              fontWeight="700" fontFamily="sans-serif" fill={tier.color}>
+              {score}
+            </text>
+            {/* Tier label */}
+            <text x={CX} y={CY + 13} textAnchor="middle" fontSize={8}
+              fontFamily="sans-serif" fontWeight="600" letterSpacing="1.5"
+              fill={tier.color} fillOpacity={0.8}>
+              {tier.name}
+            </text>
+          </svg>
         </div>
 
-        {/* Score breakdown bars */}
-        <div className="flex-1 w-full space-y-3">
-          {breakdownItems.map(({ label, pts, max }) => (
-            <div key={label}>
-              <div className="flex justify-between text-[13px] mb-1">
-                <span className="text-zinc-500">{label}</span>
-                <span className="font-sans text-zinc-400">{pts}/{max}</span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden"
-                   style={{ background: "var(--cj-border)" }}>
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${(pts / max) * 100}%`,
-                    background: "linear-gradient(90deg, #F5C518, #C9A227)",
-                    opacity: 0.85,
-                  }}
-                />
-              </div>
-            </div>
-          ))}
+        {/* Right: tier info + XP bar */}
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 18, fontWeight: 700, color: tier.color, lineHeight: 1.2 }}>
+            {tier.label}
+          </p>
+          <p style={{ fontSize: 12, color: "#71717a", marginTop: 2, marginBottom: 16 }}>
+            {tier.tagline} · Tier {tier.tier} of 4
+          </p>
+
+          {/* XP bar label */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "#71717a" }}>
+              {isDiamond ? "XP" : `${tier.name} progress`}
+            </span>
+            <span style={{ fontSize: 11, color: "#a1a1aa" }}>
+              {xpCurrent}/{xpTotal} XP
+            </span>
+          </div>
+
+          {/* XP bar */}
+          <div style={{
+            width: 140, height: 8, borderRadius: 4,
+            background: "rgba(255,255,255,0.06)", overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%",
+              width: animated ? `${xpPct}%` : "0%",
+              borderRadius: 4,
+              background: `linear-gradient(90deg, ${tier.gFrom}, ${tier.gTo})`,
+              transition: "width 1s cubic-bezier(0.16,1,0.3,1)",
+            }} />
+          </div>
+
+          {/* To Diamond / max rank */}
+          <p style={{ fontSize: 11, color: "#71717a", marginTop: 8 }}>
+            {isDiamond
+              ? "🏆 Maximum rank achieved"
+              : `${toDiamond} pts to ◆ Diamond`}
+          </p>
         </div>
       </div>
     </div>

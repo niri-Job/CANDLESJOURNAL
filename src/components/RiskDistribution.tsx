@@ -1,29 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useMemo } from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-
-const PAIR_COLOR_MAP: Record<string, string> = {
-  BTCUSDM: "#F7931A",
-  BTCUSD:  "#F7931A",
-  XAUUSD:  "#FFD700",
-  XAGUSD:  "#C0C0C0",
-  EURUSD:  "#3B82F6",
-  GBPUSD:  "#8B5CF6",
-  USDJPY:  "#EF4444",
-  USDCHF:  "#10B981",
-  USDCAD:  "#F59E0B",
-  US30:    "#06B6D4",
-};
-
-const FALLBACK_COLORS = [
-  "#6B7280","#9333EA","#7C3AED","#2563EB","#0891B2",
-  "#047857","#B45309","#DC2626","#9D174D","#1D4ED8",
-];
-
-function getPairColor(pair: string, index: number): string {
-  return PAIR_COLOR_MAP[pair.toUpperCase()] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
-}
+import { useMemo, useState, useEffect } from "react";
 
 interface Trade {
   pair: string;
@@ -32,6 +9,138 @@ interface Trade {
   pnl: number;
   sl: number | null;
   entry: number;
+}
+
+const ROSE_COLORS = ["#D4A017", "#534AB7", "#AFA9EC", "#CDC9F2"];
+
+function petalPath(
+  cx: number, cy: number,
+  r_inner: number, r_outer: number,
+  a1: number, a2: number,
+): string {
+  const spanDeg = (a2 - a1) * 180 / Math.PI;
+  const la = spanDeg > 180 ? 1 : 0;
+  const ox1 = cx + r_outer * Math.cos(a1), oy1 = cy + r_outer * Math.sin(a1);
+  const ox2 = cx + r_outer * Math.cos(a2), oy2 = cy + r_outer * Math.sin(a2);
+  const ix1 = cx + r_inner * Math.cos(a1), iy1 = cy + r_inner * Math.sin(a1);
+  const ix2 = cx + r_inner * Math.cos(a2), iy2 = cy + r_inner * Math.sin(a2);
+  return [
+    `M ${ox1.toFixed(2)} ${oy1.toFixed(2)}`,
+    `A ${r_outer.toFixed(2)} ${r_outer.toFixed(2)} 0 ${la} 1 ${ox2.toFixed(2)} ${oy2.toFixed(2)}`,
+    `L ${ix2.toFixed(2)} ${iy2.toFixed(2)}`,
+    `A ${r_inner} ${r_inner} 0 ${la} 0 ${ix1.toFixed(2)} ${iy1.toFixed(2)}`,
+    "Z",
+  ].join(" ");
+}
+
+function NightingaleRose({
+  data,
+}: {
+  data: { pair: string; count: number; pct: number; pnl: number }[];
+}) {
+  const [animated, setAnimated] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAnimated(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  if (data.length === 0) return null;
+
+  const CX = 130, CY = 130, R_HUB = 36, R_MAX = 92;
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const maxCount = data[0].count;
+
+  let accDeg = -90;
+  const petals = data.map((d, i) => {
+    const spanDeg = Math.max(4, (d.count / total) * 360 - 2.5);
+    const r_outer = Math.max(42, Math.sqrt(d.count / maxCount) * R_MAX);
+    const a1 = (accDeg * Math.PI) / 180;
+    const a2 = ((accDeg + spanDeg) * Math.PI) / 180;
+    const midRad = ((accDeg + spanDeg / 2) * Math.PI) / 180;
+    accDeg += spanDeg + 2.5;
+    const labelR = r_outer + 13;
+    return {
+      path: petalPath(CX, CY, R_HUB, r_outer, a1, a2),
+      labelX: CX + labelR * Math.cos(midRad),
+      labelY: CY + labelR * Math.sin(midRad),
+      pct: d.pct,
+      color: ROSE_COLORS[Math.min(i, ROSE_COLORS.length - 1)],
+      spanDeg,
+    };
+  });
+
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+      <svg viewBox="0 0 260 260" width={190} height={190} style={{ flexShrink: 0 }}>
+        {[52, 72, 92].map(r => (
+          <circle key={r} cx={CX} cy={CY} r={r}
+            fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
+        ))}
+
+        {petals.map((p, i) => (
+          <g key={i} style={{
+            transformOrigin: `${CX}px ${CY}px`,
+            transformBox: "view-box",
+            transform: animated ? "scale(1)" : "scale(0)",
+            transition: `transform 0.9s cubic-bezier(0.16,1,0.3,1) ${i * 120}ms`,
+          } as React.CSSProperties}>
+            <path d={p.path} fill={p.color} fillOpacity={0.85} />
+          </g>
+        ))}
+
+        {petals.filter(p => p.spanDeg > 18).map((p, i) => (
+          <text key={i}
+            x={p.labelX.toFixed(1)} y={p.labelY.toFixed(1)}
+            textAnchor="middle" dominantBaseline="central"
+            fontSize={9} fill="#a1a1aa" fontFamily="sans-serif">
+            {p.pct}%
+          </text>
+        ))}
+
+        <circle cx={CX} cy={CY} r={R_HUB}
+          fill="#0d0f14" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+        <text x={CX} y={CY - 5} textAnchor="middle" fontSize={20}
+          fill="#e4e4e7" fontFamily="sans-serif" fontWeight="700">
+          {total}
+        </text>
+        <text x={CX} y={CY + 11} textAnchor="middle" fontSize={8}
+          fill="#71717a" fontFamily="sans-serif" letterSpacing="1">
+          TRADES
+        </text>
+      </svg>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 9, paddingTop: 6 }}>
+        {data.slice(0, 6).map((d, i) => {
+          const color = ROSE_COLORS[Math.min(i, ROSE_COLORS.length - 1)];
+          const pnlPos = d.pnl >= 0;
+          return (
+            <div key={d.pair} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{
+                display: "inline-block", width: 9, height: 9,
+                borderRadius: "50%", background: color, flexShrink: 0,
+              }} />
+              <span style={{
+                fontSize: 12, color: "#e4e4e7", fontFamily: "monospace",
+                minWidth: 50, flexShrink: 0,
+              }}>
+                {d.pair}
+              </span>
+              <span style={{ fontSize: 12, color: "var(--cj-gold)", marginRight: 4 }}>
+                {d.pct}%
+              </span>
+              <div style={{
+                padding: "1px 6px", borderRadius: 100, fontSize: 10, fontWeight: 600,
+                background: pnlPos ? "rgba(29,158,117,0.15)" : "rgba(226,75,74,0.15)",
+                color: pnlPos ? "#1D9E75" : "#E24B4A",
+              }}>
+                {pnlPos ? "+" : ""}{d.pnl >= 0 ? "$" : "-$"}{Math.abs(d.pnl).toFixed(0)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function RiskDistribution({ trades }: { trades: Trade[] }) {
@@ -95,50 +204,15 @@ export function RiskDistribution({ trades }: { trades: Trade[] }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        {/* ── Pair distribution donut ── */}
+        {/* ── Pair distribution — Nightingale Rose ── */}
         <div>
-          <p className="text-[13px] uppercase tracking-widest text-zinc-600 mb-3">Pair Distribution</p>
-          <div className="flex items-center gap-4">
-            <div style={{ width: 96, height: 96, flexShrink: 0 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.pairData}
-                    dataKey="count"
-                    nameKey="pair"
-                    cx="50%" cy="50%"
-                    innerRadius={26} outerRadius={44}
-                    paddingAngle={2}
-                  >
-                    {stats.pairData.map((entry, i) => (
-                      <Cell key={i} fill={getPairColor(entry.pair, i)} fillOpacity={0.9} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    content={({ active, payload }) =>
-                      active && payload?.length ? (
-                        <div className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs">
-                          <p className="font-sans font-semibold text-zinc-200">{payload[0].payload.pair}</p>
-                          <p className="text-zinc-400">{payload[0].payload.count} trades · {payload[0].payload.pct}%</p>
-                        </div>
-                      ) : null
-                    }
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-2 min-w-0">
-              {stats.pairData.slice(0, 5).map((p, i) => (
-                <div key={p.pair} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ background: getPairColor(p.pair, i) }} />
-                  <span className="font-sans text-[13px] text-zinc-100 truncate">{p.pair}</span>
-                  <span className="text-[13px] font-sans ml-auto shrink-0"
-                        style={{ color: "var(--cj-gold)" }}>{p.pct}%</span>
-                </div>
-              ))}
-            </div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+              Pair Distribution
+            </p>
+            <p className="text-[11px] text-zinc-600">last 30 days</p>
           </div>
+          <NightingaleRose data={stats.pairData} />
         </div>
 
         {/* ── Direction + lot size ── */}

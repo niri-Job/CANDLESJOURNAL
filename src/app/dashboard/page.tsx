@@ -14,6 +14,7 @@ import { TradeReflectionModal } from "@/components/TradeReflectionModal";
 import { SharePerformanceCard } from "@/components/SharePerformanceCard";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { PremiumEquityCurve } from "@/components/EquityCurve";
+import { PremiumWinRateChart } from "@/components/PremiumWinRateChart";
 import CsvImportModal from "@/components/CsvImportModal";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
@@ -162,42 +163,6 @@ function EquityCurveChart({ data }: { data: { date: string; value: number }[] })
   );
 }
 
-// ─── Win Rate by Pair ─────────────────────────────────────────────────────────
-function WinRateChart({ data }: { data: { pair: string; winRate: number; total: number }[] }) {
-  if (data.length === 0) {
-    return <div className="flex items-center justify-center py-8 text-zinc-600 text-sm">No pair data yet</div>;
-  }
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-      {data.map((d) => {
-        const win = d.winRate >= 50;
-        return (
-          <div key={d.pair} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <span style={{ width: 80, fontSize: "0.75rem", fontWeight: 600, color: "var(--cj-text-muted)", flexShrink: 0, fontFamily: "monospace" }}>
-              {d.pair.replace("M", "")}
-            </span>
-            <div style={{ flex: 1, height: 8, borderRadius: 4, background: "var(--cj-raised)", overflow: "hidden" }}>
-              <div style={{
-                height: "100%",
-                width: `${d.winRate}%`,
-                borderRadius: 4,
-                background: win ? "#34d399" : "#f87171",
-                opacity: 0.85,
-                transition: "width 0.4s ease",
-              }} />
-            </div>
-            <span style={{ width: 38, textAlign: "right", fontSize: "0.8125rem", fontWeight: 700, color: win ? "#34d399" : "#f87171", flexShrink: 0 }}>
-              {d.winRate.toFixed(0)}%
-            </span>
-            <span style={{ width: 32, textAlign: "right", fontSize: "0.6875rem", color: "var(--cj-text-muted)", flexShrink: 0 }}>
-              {d.total}t
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 // ─── Calendar Heatmap ─────────────────────────────────────────────────────────
 function CalendarHeatmap({ dailyData, trades, compact }: {
@@ -759,10 +724,11 @@ export default function TradingJournal() {
   }, [accountTrades]);
 
   const pairWinRateData = useMemo(() => {
-    const map: Record<string, { wins: number; total: number }> = {};
+    const map: Record<string, { wins: number; total: number; pnl: number }> = {};
     for (const t of accountTrades) {
-      if (!map[t.pair]) map[t.pair] = { wins: 0, total: 0 };
+      if (!map[t.pair]) map[t.pair] = { wins: 0, total: 0, pnl: 0 };
       map[t.pair].total++;
+      map[t.pair].pnl = parseFloat((map[t.pair].pnl + t.pnl).toFixed(2));
       if (t.pnl > 0) map[t.pair].wins++;
     }
     return Object.entries(map)
@@ -770,6 +736,7 @@ export default function TradingJournal() {
         pair,
         winRate: parseFloat(((s.wins / s.total) * 100).toFixed(1)),
         total: s.total,
+        pnl: s.pnl,
       }))
       .sort((a, b) => b.winRate - a.winRate);
   }, [accountTrades]);
@@ -1321,7 +1288,7 @@ export default function TradingJournal() {
 
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
             <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">Win Rate by Pair</p>
-            <WinRateChart data={pairWinRateData} />
+            <PremiumWinRateChart data={pairWinRateData} />
           </div>
         </div>
 

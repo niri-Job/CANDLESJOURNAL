@@ -200,9 +200,10 @@ function WinRateChart({ data }: { data: { pair: string; winRate: number; total: 
 }
 
 // ─── Calendar Heatmap ─────────────────────────────────────────────────────────
-function CalendarHeatmap({ dailyData, trades }: {
+function CalendarHeatmap({ dailyData, trades, compact }: {
   dailyData: Record<string, { pnl: number; count: number }>;
   trades: Trade[];
+  compact?: boolean;
 }) {
   const today = new Date();
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
@@ -259,30 +260,30 @@ function CalendarHeatmap({ dailyData, trades }: {
 
   return (
     <div>
-      {/* ── Monthly summary ─────────────────────────────────────── */}
-      <div className="mb-4 space-y-1.5">
-        {/* Total P&L — full-width prominent card */}
-        <div className="bg-[var(--cj-raised)] rounded-lg px-4 py-2.5 flex items-center justify-between">
-          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Total P&L</p>
-          <p className={`text-sm font-sans font-bold ${totalMonthPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-            {monthEntries.length > 0 ? fmt(totalMonthPnl) : "—"}
-          </p>
+      {/* ── Monthly summary — hidden in compact mode ─────────────── */}
+      {!compact && (
+        <div className="mb-4 space-y-1.5">
+          <div className="bg-[var(--cj-raised)] rounded-lg px-4 py-2.5 flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Total P&L</p>
+            <p className={`text-sm font-sans font-bold ${totalMonthPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              {monthEntries.length > 0 ? fmt(totalMonthPnl) : "—"}
+            </p>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              { label: "Green Days", value: monthEntries.length > 0 ? String(greenDays)  : "—", color: "text-emerald-400" },
+              { label: "Red Days",   value: monthEntries.length > 0 ? String(redDays)    : "—", color: "text-rose-400"    },
+              { label: "Best Day",   value: bestDay  ? fmt(parseFloat(bestDay[1].pnl.toFixed(2)))  : "—", color: "text-emerald-400" },
+              { label: "Worst Day",  value: worstDay ? fmt(parseFloat(worstDay[1].pnl.toFixed(2))) : "—", color: "text-rose-400"    },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-2 text-center">
+                <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">{label}</p>
+                <p className={`text-xs font-sans font-semibold ${color}`}>{value}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        {/* Four stats in a row */}
-        <div className="grid grid-cols-4 gap-1.5">
-          {[
-            { label: "Green Days", value: monthEntries.length > 0 ? String(greenDays)  : "—", color: "text-emerald-400" },
-            { label: "Red Days",   value: monthEntries.length > 0 ? String(redDays)    : "—", color: "text-rose-400"    },
-            { label: "Best Day",   value: bestDay  ? fmt(parseFloat(bestDay[1].pnl.toFixed(2)))  : "—", color: "text-emerald-400" },
-            { label: "Worst Day",  value: worstDay ? fmt(parseFloat(worstDay[1].pnl.toFixed(2))) : "—", color: "text-rose-400"    },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-2 text-center">
-              <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">{label}</p>
-              <p className={`text-xs font-sans font-semibold ${color}`}>{value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* ── Navigation ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-2">
@@ -335,23 +336,21 @@ function CalendarHeatmap({ dailyData, trades }: {
             border = "1px solid rgba(113,113,122,0.15)";
           }
 
+          const cellH = compact ? "h-[44px]" : "h-[76px]";
           return (
             <div key={i}
-              className={`h-[76px] rounded-lg flex flex-col p-1.5 select-none overflow-hidden
+              className={`${cellH} rounded-lg flex flex-col p-1 select-none overflow-hidden
                           ${entry ? "cursor-pointer" : "cursor-default"}
                           ${isToday ? "outline outline-2 outline-[var(--cj-gold)] outline-offset-[-2px]" : ""}
                           ${isSel ? "ring-2 ring-[var(--cj-text)] ring-offset-1 ring-offset-transparent" : ""}`}
               style={{ background: bg, border }}
               onClick={() => entry ? setSelected(isSel ? null : ds) : undefined}
             >
-              {/* Day number */}
-              <span className={`text-[11px] font-semibold leading-none
+              <span className={`text-[10px] font-semibold leading-none
                                 ${entry ? "text-[var(--cj-text)]" : "text-[var(--cj-text-muted)]"}`}>
                 {day}
               </span>
-
-              {/* PnL + trade count — color adapts to theme */}
-              {entry && (
+              {entry && !compact && (
                 <div className="mt-auto flex flex-col gap-[2px] overflow-hidden">
                   <span className="text-[10px] font-sans font-extrabold leading-none whitespace-nowrap overflow-hidden"
                         style={{ color: "var(--cj-text)" }}>
@@ -360,6 +359,14 @@ function CalendarHeatmap({ dailyData, trades }: {
                   <span className="text-[9px] font-medium leading-none whitespace-nowrap"
                         style={{ color: "var(--cj-text-muted)" }}>
                     {entry.count} trade{entry.count !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              )}
+              {entry && compact && (
+                <div className="mt-auto overflow-hidden">
+                  <span className="text-[9px] font-sans font-bold leading-none whitespace-nowrap overflow-hidden"
+                        style={{ color: "var(--cj-text)" }}>
+                    {fmt(parseFloat(entry.pnl.toFixed(2)))}
                   </span>
                 </div>
               )}
@@ -798,6 +805,47 @@ export default function TradingJournal() {
     return map;
   }, [accountTrades]);
 
+  const niriInsight = useMemo(() => {
+    if (accountTrades.length < 5) return null;
+    const sorted = [...accountTrades].sort((a, b) => a.date.localeCompare(b.date));
+
+    // Revenge trades — most behaviorally severe
+    const dayPairHadLoss: Record<string, Set<string>> = {};
+    const revengeTrades: typeof accountTrades = [];
+    for (const t of sorted) {
+      if (!dayPairHadLoss[t.date]) dayPairHadLoss[t.date] = new Set();
+      if (dayPairHadLoss[t.date].has(t.pair) && t.pnl < 0) revengeTrades.push(t);
+      if (t.pnl < 0) dayPairHadLoss[t.date].add(t.pair);
+    }
+    if (revengeTrades.length > 0) {
+      const impact = revengeTrades.reduce((s, t) => s + t.pnl, 0);
+      const a = Math.abs(impact);
+      const impactStr = impact < 0
+        ? `−$${a >= 1000 ? (a / 1000).toFixed(1) + "k" : a.toFixed(0)}`
+        : `+$${a.toFixed(0)}`;
+      return `⚡ ${revengeTrades.length} likely revenge trade${revengeTrades.length > 1 ? "s" : ""} detected — they account for ${impactStr} of your P&L.`;
+    }
+
+    // Overtrading
+    const byDay: Record<string, number> = {};
+    for (const t of accountTrades) byDay[t.date] = (byDay[t.date] || 0) + 1;
+    const overtradeDays = Object.values(byDay).filter(c => c > 3).length;
+    if (overtradeDays > 0) {
+      return `📈 ${overtradeDays} day${overtradeDays > 1 ? "s" : ""} with 4+ trades this period — overtrading can erode your edge over time.`;
+    }
+
+    // Risk variance
+    const lots = accountTrades.map(t => t.lot);
+    const avg = lots.reduce((s, l) => s + l, 0) / lots.length;
+    const stdDev = Math.sqrt(lots.reduce((s, l) => s + (l - avg) ** 2, 0) / lots.length);
+    const cv = avg > 0 ? stdDev / avg : 0;
+    if (cv > 0.3) {
+      return `⚖️ High lot-size variance (${(cv * 100).toFixed(0)}% CV) — inconsistent risk sizing makes your edge hard to measure.`;
+    }
+
+    return null;
+  }, [accountTrades]);
+
   // ── Filtered trades (account filter + table filters) ─────────────────────
   const strategyMap = useMemo(() =>
     new Map(strategies.map((s) => [s.id, s.name])),
@@ -1197,9 +1245,9 @@ export default function TradingJournal() {
           </div>
         )}
 
-        {/* STAT CARDS */}
+        {/* ── ROW 1: Stat strip ── */}
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-medium text-zinc-600 uppercase tracking-widest">Stats</p>
+          <p className="text-xs font-medium text-zinc-600 uppercase tracking-widest">Overview</p>
           {accountTrades.length > 0 && (
             <button
               onClick={() => setShareOpen(true)}
@@ -1210,11 +1258,11 @@ export default function TradingJournal() {
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                 <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
               </svg>
-              Share Performance
+              Share
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[
             {
               label: tradingAccounts.length > 0
@@ -1246,37 +1294,44 @@ export default function TradingJournal() {
             <div key={card.label}
               className="bg-[var(--cj-surface)] border border-zinc-800 rounded-xl px-5 py-4
                          hover:border-zinc-700 transition-colors">
-              <p className="text-sm uppercase tracking-widest text-zinc-500 font-semibold mb-2">{card.label}</p>
+              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">{card.label}</p>
               <p className={`font-sans text-2xl font-semibold ${card.cls}`}>{card.value}</p>
               <p className="text-xs text-zinc-500 mt-1">{card.sub}</p>
             </div>
           ))}
         </div>
 
-        {/* EQUITY CURVE + DISCIPLINE SCORE — side by side */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-            <p className="card-label mb-4">Equity Curve</p>
-            <PremiumEquityCurve data={equityCurveData} />
-          </div>
-          <DisciplineScore trades={accountTrades} />
+        {/* ── ROW 2: Equity curve — full-width hero ── */}
+        <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 mb-6">
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Equity Curve</p>
+          {equityCurveData.length < 2
+            ? <div className="flex items-center justify-center py-16 text-zinc-600 text-sm">Add at least 2 trades to see your equity curve</div>
+            : <PremiumEquityCurve data={equityCurveData} />
+          }
         </div>
 
-        {/* WIN RATE + CALENDAR — side by side, each self-sizing */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* ── ROW 3: Discipline | Calendar | Win Rate — 3 equal-height columns ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6 items-start">
+          <DisciplineScore trades={accountTrades} hideTrend />
 
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-            <p className="card-label mb-4">Win Rate by Pair</p>
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Daily P&L Calendar</p>
+            <CalendarHeatmap dailyData={dailyData} trades={accountTrades} compact />
+          </div>
+
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">Win Rate by Pair</p>
             <WinRateChart data={pairWinRateData} />
           </div>
-
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-            <p className="card-label mb-4">Daily P&L Calendar</p>
-            {/* No fixed height — CalendarHeatmap uses fixed h-8 cells, no overflow */}
-            <CalendarHeatmap dailyData={dailyData} trades={accountTrades} />
-          </div>
-
         </div>
+
+        {/* ── ROW 4: NIRI Insight strip ── */}
+        {niriInsight && (
+          <div className="mb-6 px-4 py-3.5 rounded-xl flex items-start gap-3"
+               style={{ background: "#FBF4E4", border: "1px dashed #C9A227" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "#7A5C1E" }}>{niriInsight}</p>
+          </div>
+        )}
 
         {/* RISK & DISTRIBUTION + PERFORMANCE BADGE — side by side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">

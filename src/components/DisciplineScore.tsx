@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -28,14 +28,12 @@ function computeComponents(trades: Trade[]): { total: number; components: Compon
 
   const sorted = [...trades].sort((a, b) => a.date.localeCompare(b.date));
 
-  // 1 — No Overtrading (25 pts): penalise days with > 3 trades
   const byDay: Record<string, number> = {};
   for (const t of trades) byDay[t.date] = (byDay[t.date] || 0) + 1;
-  const tradingDays  = Object.keys(byDay).length;
+  const tradingDays   = Object.keys(byDay).length;
   const overtradeDays = Object.values(byDay).filter((c) => c > 3).length;
   const overtradeScore = Math.round(25 * Math.max(0, 1 - overtradeDays / Math.max(tradingDays, 1)));
 
-  // 2 — No Revenge Trading (25 pts): loss on same pair same day as prior loss
   const dayPairHadLoss: Record<string, Set<string>> = {};
   let revengeCount = 0;
   for (const t of sorted) {
@@ -47,14 +45,12 @@ function computeComponents(trades: Trade[]): { total: number; components: Compon
     25 * Math.max(0, 1 - Math.min(1, revengeCount / Math.max(trades.length * 0.15, 1)))
   );
 
-  // 3 — Risk Consistency (25 pts): low coefficient of variation in lot sizes
-  const lots  = trades.map((t) => t.lot);
-  const avg   = lots.reduce((s, l) => s + l, 0) / lots.length;
+  const lots   = trades.map((t) => t.lot);
+  const avg    = lots.reduce((s, l) => s + l, 0) / lots.length;
   const stdDev = Math.sqrt(lots.reduce((s, l) => s + (l - avg) ** 2, 0) / lots.length);
-  const cv    = avg > 0 ? stdDev / avg : 0;
+  const cv     = avg > 0 ? stdDev / avg : 0;
   const riskScore = Math.round(25 * Math.max(0, 1 - Math.min(cv * 1.5, 1)));
 
-  // 4 — TP Discipline (25 pts): of trades with TP set, what % actually reached it?
   const withTp = trades.filter((t) => t.tp !== null && t.tp !== 0);
   let tpHit = 0;
   for (const t of withTp) {
@@ -66,7 +62,7 @@ function computeComponents(trades: Trade[]): { total: number; components: Compon
   }
   const tpScore = withTp.length >= 3
     ? Math.round(25 * (tpHit / withTp.length))
-    : 18; // not enough data → neutral
+    : 18;
 
   const total = Math.min(100, overtradeScore + revengeScore + riskScore + tpScore);
 
@@ -121,7 +117,9 @@ function Speedometer({ score }: { score: number }) {
     return () => cancelAnimationFrame(id);
   }, [score]);
 
-  const cx = 90, cy = 88, r = 70, sw = 12, nLen = 56;
+  // Needle shortened to 65% of arc radius (r=70 → nLen=46)
+  // viewBox taller (130) to give room for score below the pivot
+  const cx = 90, cy = 82, r = 70, sw = 12, nLen = 46;
 
   function pt(s: number): [number, number] {
     const a = Math.PI * (1 - s / 100);
@@ -144,7 +142,8 @@ function Speedometer({ score }: { score: number }) {
   const [rx, ry] = pt(100);
 
   return (
-    <svg viewBox="0 0 180 110" width={180} height={110} style={{ display: "block", overflow: "visible" }}>
+    // viewBox extended to 130 so the score label below the pivot is fully visible
+    <svg viewBox="0 0 180 130" width={180} height={130} style={{ display: "block", overflow: "visible" }}>
       <path d={arc(100, 0)}  fill="none" stroke="#1a1a2e" strokeWidth={sw} strokeLinecap="butt" />
       <path d={arc(100, 67)} fill="none" stroke="#5DCAA5" strokeWidth={sw} strokeLinecap="butt" />
       <path d={arc(67, 33)}  fill="none" stroke="#FAC775" strokeWidth={sw} strokeLinecap="butt" />
@@ -155,12 +154,14 @@ function Speedometer({ score }: { score: number }) {
         transition: "transform 1.2s cubic-bezier(0.16,1,0.3,1)",
       }}>
         <line x1={cx} y1={cy} x2={cx - nLen} y2={cy}
-              stroke="#1A1916" strokeWidth={2.5} strokeLinecap="round" />
+              stroke="#C8C2B8" strokeWidth={2.5} strokeLinecap="round" />
       </g>
       <circle cx={cx} cy={cy} r={5} fill="#1A1916" />
+      {/* Scale labels */}
       <text x={lx - 2} y={ly + 14} textAnchor="middle" fontSize={8} fill="#52525b">0</text>
       <text x={rx + 2} y={ry + 14} textAnchor="middle" fontSize={8} fill="#52525b">100</text>
-      <text x={cx} y={cy + 18} textAnchor="middle" fontSize={22} fontWeight="700"
+      {/* Score number — well below the pivot so the needle never sweeps over it */}
+      <text x={cx} y={cy + 34} textAnchor="middle" fontSize={26} fontWeight="700"
             fontFamily="sans-serif" fill={col}>{score}</text>
     </svg>
   );
@@ -180,11 +181,10 @@ function WeekTooltip({ active, payload, label }: {
   );
 }
 
-export function DisciplineScore({ trades }: { trades: Trade[] }) {
+export function DisciplineScore({ trades, hideTrend }: { trades: Trade[]; hideTrend?: boolean }) {
   const result = useMemo(() => {
     const main = computeComponents(trades);
 
-    // Weekly trend — last 8 completed weeks
     const now = new Date();
     const weekly: { week: string; score: number }[] = [];
     for (let w = 7; w >= 0; w--) {
@@ -219,20 +219,18 @@ export function DisciplineScore({ trades }: { trades: Trade[] }) {
     );
   }
 
-  const col = scoreColor(result.total);
-
   return (
     <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
       <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-5">
         Discipline Score
       </p>
 
-      <div className="flex flex-col sm:flex-row gap-6 items-start">
+      <div className="flex flex-col items-center gap-4">
 
-        {/* Speedometer */}
+        {/* Speedometer centered */}
         <div className="flex flex-col items-center gap-1 shrink-0">
           <Speedometer score={result.total} />
-          <p className="text-[11px] text-zinc-600 text-center">
+          <p className="text-[11px] text-zinc-600 text-center -mt-1">
             {result.total >= 80
               ? "Excellent discipline"
               : result.total >= 50
@@ -241,35 +239,41 @@ export function DisciplineScore({ trades }: { trades: Trade[] }) {
           </p>
         </div>
 
-        {/* Battery bars */}
-        <div className="flex-1 space-y-3 w-full">
+        {/* Battery bars — label left (140px), 5 cells right */}
+        <div className="w-full space-y-3">
           {result.components.map((c) => {
             const pct    = (c.score / c.max) * 100;
             const fill   = pct >= 72 ? "#34d399" : pct >= 36 ? "#F5C518" : "#f87171";
             const filled = Math.round((c.score / c.max) * 5);
             return (
               <div key={c.label}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-zinc-400">{c.label}</span>
-                  <div className="flex gap-1">
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 140, flexShrink: 0 }}>
+                    <span style={{ fontSize: 12, color: "#a1a1aa" }}>{c.label}</span>
+                    {c.issue && (
+                      <p style={{ fontSize: 11, color: "rgba(251,113,133,0.85)", marginTop: 2, lineHeight: 1.3 }}>
+                        {c.issue}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                     {Array.from({ length: 5 }).map((_, i) => (
                       <div key={i} style={{
-                        width: 14, height: 10, borderRadius: 3,
+                        width: 14, height: 10, borderRadius: 3, flexShrink: 0,
                         background: i < filled ? fill : "rgba(255,255,255,0.06)",
                         transition: `background 0.3s ease ${i * 0.08}s`,
                       }} />
                     ))}
                   </div>
                 </div>
-                {c.issue && <p className="text-[10px] text-rose-400/80">{c.issue}</p>}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Weekly trend */}
-      {result.weekly.length >= 2 && (
+      {/* Weekly trend — hidden on dashboard via hideTrend prop */}
+      {!hideTrend && result.weekly.length >= 2 && (
         <div className="mt-6 pt-5 border-t border-zinc-800">
           <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-3">Weekly Trend</p>
           <div style={{ height: 72 }}>

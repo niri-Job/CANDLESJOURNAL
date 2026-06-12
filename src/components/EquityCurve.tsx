@@ -44,35 +44,36 @@ export function PremiumEquityCurve({ data }: { data: Point[] }) {
   const pts = data.map((d, i): [number, number] => [tx(i), ty(d.value)]);
   const linePath = smoothPath(pts);
 
-  // ATH tracking
-  const { peakIdx, peakVal, maxDD, drawdownBands, nowVal, highVal } = useMemo(() => {
+  const { peakIdx, peakVal, maxDDDollar, drawdownBands, nowVal, highVal } = useMemo(() => {
     let pk = data[0]?.value ?? 0;
     let pkIdx = 0;
-    let maxDD = 0;
+    let maxDDDollar = 0;
     const bands: { x0: number; x1: number; y: number }[] = [];
     let inDD = false;
     let ddStart = 0;
+    let bandPeak = pk;
 
     for (let i = 0; i < data.length; i++) {
       const v = data[i].value;
       if (v > pk) { pk = v; pkIdx = i; }
-      const dd = pk > 0 ? (pk - v) / pk : 0;
-      if (dd > maxDD) maxDD = dd;
-      if (dd > 0.15) {
-        if (!inDD) { inDD = true; ddStart = i; }
+      const ddDollar = Math.max(0, pk - v);
+      if (ddDollar > maxDDDollar) maxDDDollar = ddDollar;
+      const ddPct = pk > 0 ? ddDollar / pk : 0;
+      if (ddPct > 0.15) {
+        if (!inDD) { inDD = true; ddStart = i; bandPeak = pk; }
       } else {
         if (inDD) {
-          bands.push({ x0: tx(ddStart), x1: tx(i), y: ty(pk) });
+          bands.push({ x0: tx(ddStart), x1: tx(i), y: ty(bandPeak) });
           inDD = false;
         }
       }
     }
-    if (inDD) bands.push({ x0: tx(ddStart), x1: tx(data.length - 1), y: ty(pk) });
+    if (inDD) bands.push({ x0: tx(ddStart), x1: tx(data.length - 1), y: ty(bandPeak) });
 
     return {
       peakIdx: pkIdx,
       peakVal: pk,
-      maxDD,
+      maxDDDollar,
       drawdownBands: bands,
       nowVal: data[data.length - 1]?.value ?? 0,
       highVal: pk,
@@ -87,11 +88,9 @@ export function PremiumEquityCurve({ data }: { data: Point[] }) {
   const px = tx(peakIdx), py = ty(peakVal);
   const lastX = tx(data.length - 1), lastY = ty(nowVal);
   const nowColor = nowVal >= 0 ? "#5DCAA5" : "#F09595";
-  const maxDDPct = (maxDD * 100).toFixed(1);
+  const maxDDStr = fmt$(maxDDDollar === 0 ? 0 : -maxDDDollar);
 
-  // Grid lines at 25% intervals
   const gridVals = [0, 0.25, 0.5, 0.75, 1].map(f => minV + f * range);
-
   const areaPath = linePath + ` L ${tx(data.length - 1)} ${ty(minV)} L ${tx(0)} ${ty(minV)} Z`;
 
   return (
@@ -100,7 +99,7 @@ export function PremiumEquityCurve({ data }: { data: Point[] }) {
       <div className="flex justify-end gap-4 mb-2 text-[11px] tabular-nums font-sans">
         <span className="text-zinc-500">High <span className="text-[var(--cj-gold)]">{fmt$(highVal)}</span></span>
         <span className="text-zinc-500">Now <span style={{ color: nowColor }}>{fmt$(nowVal)}</span></span>
-        <span className="text-zinc-500">Max DD <span className="text-rose-400">−{maxDDPct}%</span></span>
+        <span className="text-zinc-500">Max DD <span className="text-rose-400">{maxDDStr}</span></span>
       </div>
 
       <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ height: "auto", display: "block" }}>
@@ -120,14 +119,10 @@ export function PremiumEquityCurve({ data }: { data: Point[] }) {
                 stroke="rgba(0,0,0,0.05)" strokeWidth={1} />
         ))}
 
-        {/* Drawdown bands */}
+        {/* Drawdown bands — soft fill only, no floating cap lines */}
         {drawdownBands.map((b, i) => (
-          <g key={i} clipPath="url(#eqClip)">
-            <rect x={b.x0} y={b.y} width={b.x1 - b.x0} height={ty(minV) - b.y}
-                  fill="rgba(248,113,113,0.05)" />
-            <line x1={b.x0} y1={b.y} x2={b.x1} y2={b.y}
-                  stroke="#f87171" strokeWidth={3} />
-          </g>
+          <rect key={i} x={b.x0} y={b.y} width={b.x1 - b.x0} height={ty(minV) - b.y}
+                fill="rgba(248,113,113,0.07)" clipPath="url(#eqClip)" />
         ))}
 
         {/* ATH dotted line */}
@@ -157,9 +152,9 @@ export function PremiumEquityCurve({ data }: { data: Point[] }) {
 
         {/* Current value chip */}
         <g>
-          <rect x={lastX - 28} y={lastY - 10} width={56} height={18} rx={9}
+          <rect x={lastX - 30} y={lastY - 10} width={60} height={18} rx={9}
                 fill={nowColor} fillOpacity={0.15} />
-          <rect x={lastX - 28} y={lastY - 10} width={56} height={18} rx={9}
+          <rect x={lastX - 30} y={lastY - 10} width={60} height={18} rx={9}
                 fill="none" stroke={nowColor} strokeWidth={1} strokeOpacity={0.4} />
           <text x={lastX} y={lastY + 1} textAnchor="middle" fontSize={9} fill={nowColor}
                 fontFamily="sans-serif" fontWeight="600">{fmt$(nowVal)}</text>

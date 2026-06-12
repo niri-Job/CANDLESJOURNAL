@@ -13,6 +13,7 @@ import { DisciplineScore } from "@/components/DisciplineScore";
 import { TradeReflectionModal } from "@/components/TradeReflectionModal";
 import { SharePerformanceCard } from "@/components/SharePerformanceCard";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { PremiumEquityCurve } from "@/components/EquityCurve";
 import CsvImportModal from "@/components/CsvImportModal";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
@@ -744,9 +745,9 @@ export default function TradingJournal() {
   // ── Chart data ─────────────────────────────────────────────────────────────
   const equityCurveData = useMemo(() => {
     const sorted = [...accountTrades].sort((a, b) => a.date.localeCompare(b.date));
-    return sorted.reduce<{ date: string; value: number }[]>((acc, t) => {
+    return sorted.reduce<{ label: string; value: number }[]>((acc, t) => {
       const prev = acc.length > 0 ? acc[acc.length - 1].value : 0;
-      return [...acc, { date: t.date, value: parseFloat((prev + t.pnl).toFixed(2)) }];
+      return [...acc, { label: t.date, value: parseFloat((prev + t.pnl).toFixed(2)) }];
     }, []);
   }, [accountTrades]);
 
@@ -1256,9 +1257,7 @@ export default function TradingJournal() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 items-start">
           <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
             <p className="card-label mb-4">Equity Curve</p>
-            <div style={{ height: 200 }}>
-              <EquityCurveChart data={equityCurveData} />
-            </div>
+            <PremiumEquityCurve data={equityCurveData} />
           </div>
           <DisciplineScore trades={accountTrades} />
         </div>

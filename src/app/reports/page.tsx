@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { Sidebar } from "@/components/Sidebar";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { PremiumEquityCurve } from "@/components/EquityCurve";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -624,15 +625,20 @@ function weeklyWaterfall(trades: Trade[]) {
   const ms = `${yr}-${String(mo + 1).padStart(2, "0")}-01`;
   const me = new Date(yr, mo + 1, 0).toISOString().slice(0, 10);
   const mt = trades.filter(t => t.date >= ms && t.date <= me);
+  if (!mt.length) return [];
   const map: Record<number, number> = {};
   mt.forEach(t => { const w = Math.ceil(new Date(t.date + "T12:00:00").getDate() / 7); map[w] = (map[w] || 0) + t.pnl; });
+  const currentWeek = Math.ceil(now.getDate() / 7);
   let cum = 0;
-  const rows: { label: string; pnl: number; base: number; top: number }[] = [];
-  for (let w = 1; w <= 5; w++) {
-    if (!(w in map)) continue;
-    const pnl = +map[w].toFixed(2);
-    rows.push({ label: `W${w}`, pnl, base: cum, top: cum + pnl });
-    cum += pnl;
+  const rows: { label: string; pnl: number; base: number; top: number; noTrades: boolean }[] = [];
+  for (let w = 1; w <= Math.min(currentWeek, 5); w++) {
+    if (w in map) {
+      const pnl = +map[w].toFixed(2);
+      rows.push({ label: `W${w}`, pnl, base: cum, top: cum + pnl, noTrades: false });
+      cum += pnl;
+    } else {
+      rows.push({ label: `W${w}`, pnl: 0, base: cum, top: cum, noTrades: true });
+    }
   }
   return rows;
 }
@@ -693,13 +699,23 @@ function WaterfallChart({ data }: { data: ReturnType<typeof weeklyWaterfall> }) 
   function ty(v: number) { return PT + cH - ((v - minV) / range) * cH; }
   function fmtW(v: number) { const s = v >= 0 ? "+" : "−", a = Math.abs(v); return a >= 1000 ? `${s}${(a / 1000).toFixed(1)}k` : `${s}${a.toFixed(0)}`; }
   return (
-    /* max-width caps height: at 580px wide, height = 580*(170/400) ≈ 246px */
-    <div style={{ maxWidth: 580 }}>
+    /* max-width 520px → height ≈ 520*(170/400) ≈ 221px */
+    <div style={{ maxWidth: 520 }}>
       <style>{`@keyframes cj-fadeIn{from{opacity:0}to{opacity:1}}`}</style>
       <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ height: "auto", display: "block" }}>
         <line x1={PL} y1={ty(0)} x2={VW - PR} y2={ty(0)} stroke="#3f3f46" strokeWidth={1} />
         {data.map((d, i) => {
           const cx = PL + (i + 0.5) * cW / data.length;
+          if (d.noTrades) {
+            const flatY = ty(d.base);
+            return (
+              <g key={d.label} style={{ animation: `cj-fadeIn 0.6s ease ${i * 0.12}s both` }}>
+                <line x1={cx - bW / 2} y1={flatY} x2={cx + bW / 2} y2={flatY}
+                      stroke="#3f3f46" strokeWidth={2} strokeDasharray="4 3" />
+                <text x={cx} y={VH - 5} textAnchor="middle" fontSize={10} fill="#3f3f46">{d.label}</text>
+              </g>
+            );
+          }
           const profit = d.pnl >= 0;
           const fill = profit ? "#5DCAA5" : "#F09595";
           const bTop = Math.min(ty(d.base), ty(d.top));
@@ -719,6 +735,148 @@ function WaterfallChart({ data }: { data: ReturnType<typeof weeklyWaterfall> }) 
   );
 }
 
+// ── Trading Clock (24h radial dial) ────────────────────────────
+function TradingClock({ hours }: { hours: { h: number; trades: number; pnl: number; winRate: number }[] }) {
+  const CX = 120, CY = 120, R = 86, SW_BASE = 18;
+  const sessions = [
+    { name: "Asia",   h0: 0,  h1: 6,  color: "#7C9CF5" },
+    { name: "London", h0: 8,  h1: 12, color: "#FAC775" },
+    { name: "NY",     h0: 13, h1: 17, color: "#5DCAA5" },
+  ];
+
+  function hxy(h: number, r: number): [number, number] {
+    const a = (h / 24) * 2 * Math.PI - Math.PI / 2;
+    return [+(CX + r * Math.cos(a)).toFixed(2), +(CY + r * Math.sin(a)).toFixed(2)];
+  }
+
+  function sessionArc(h0: number, h1: number, r: number): string {
+    const [x1, y1] = hxy(h0, r);
+    const [x2, y2] = hxy(h1, r);
+    const span = (h1 - h0) / 24;
+    const la = span > 0.5 ? 1 : 0;
+    return `M ${x1} ${y1} A ${r} ${r} 0 ${la} 1 ${x2} ${y2}`;
+  }
+
+  const activeSessions = sessions.map(s => {
+    const sessionHours = hours.filter(h => h.h >= s.h0 && h.h < s.h1 && h.trades > 0);
+    const totalTrades = sessionHours.reduce((a, h) => a + h.trades, 0);
+    const wins = sessionHours.reduce((a, h) => a + Math.round(h.trades * h.winRate / 100), 0);
+    const wr = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
+    return { ...s, totalTrades, wr };
+  }).filter(s => s.totalTrades > 0);
+
+  const maxTrades = Math.max(...activeSessions.map(s => s.totalTrades), 1);
+
+  function arcColor(wr: number) {
+    if (wr >= 60) return "#0F6E56";
+    if (wr >= 45) return "#5DCAA5";
+    return "#E8A0A0";
+  }
+
+  // Best session
+  const bestSession = [...activeSessions].sort((a, b) => b.wr - a.wr)[0];
+
+  const ticks = Array.from({ length: 48 }, (_, i) => i);
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+      <svg viewBox="0 0 240 240" width={240} height={240} style={{ display: "block", flexShrink: 0 }}>
+        {/* Base ring */}
+        <circle cx={CX} cy={CY} r={R} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth={SW_BASE} />
+
+        {/* Tick marks every 30 min */}
+        {ticks.map(i => {
+          const a = (i / 48) * 2 * Math.PI - Math.PI / 2;
+          const isHour = i % 2 === 0;
+          const r0 = isHour ? R - 11 : R - 7;
+          const r1 = R + (isHour ? 3 : 1);
+          const x0 = +(CX + r0 * Math.cos(a)).toFixed(2);
+          const y0 = +(CY + r0 * Math.sin(a)).toFixed(2);
+          const x1 = +(CX + r1 * Math.cos(a)).toFixed(2);
+          const y1 = +(CY + r1 * Math.sin(a)).toFixed(2);
+          return (
+            <line key={i} x1={x0} y1={y0} x2={x1} y2={y1}
+                  stroke={isHour ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.10)"}
+                  strokeWidth={isHour ? 1.5 : 1} />
+          );
+        })}
+
+        {/* Session arcs */}
+        {activeSessions.map(s => {
+          const sw = 13 + (s.totalTrades / maxTrades) * 5;
+          const col = arcColor(s.wr);
+          return (
+            <path key={s.name} d={sessionArc(s.h0, s.h1, R)}
+                  fill="none" stroke={col} strokeWidth={sw} strokeLinecap="round" opacity={0.85} />
+          );
+        })}
+
+        {/* Hour labels */}
+        {[0, 6, 12, 18].map(h => {
+          const [x, y] = hxy(h, R + 16);
+          const label = h.toString().padStart(2, "0");
+          return (
+            <text key={h} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+                  fontSize={9} fill="#71717a" fontFamily="sans-serif">{label}</text>
+          );
+        })}
+
+        {/* White center */}
+        <circle cx={CX} cy={CY} r={58} fill="white" />
+
+        {/* Center readout */}
+        {bestSession ? (
+          <>
+            <text x={CX} y={CY - 16} textAnchor="middle" fontSize={10} fill="#9ca3af"
+                  fontFamily="sans-serif" letterSpacing={1.5}>BEST WINDOW</text>
+            <text x={CX} y={CY + 4} textAnchor="middle" fontSize={21} fill="#111827"
+                  fontWeight="600" fontFamily="sans-serif">
+              {bestSession.h0.toString().padStart(2, "0")}–{bestSession.h1.toString().padStart(2, "0")}
+            </text>
+            <text x={CX} y={CY + 20} textAnchor="middle" fontSize={11}
+                  fill={arcColor(bestSession.wr)} fontFamily="sans-serif">{bestSession.wr}% wr</text>
+          </>
+        ) : (
+          <text x={CX} y={CY + 4} textAnchor="middle" fontSize={11} fill="#9ca3af"
+                fontFamily="sans-serif">No data</text>
+        )}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex flex-col gap-3 pt-1">
+        {sessions.map(s => {
+          const active = activeSessions.find(a => a.name === s.name);
+          return (
+            <div key={s.name} className="flex items-start gap-2">
+              <span className="w-3 h-3 rounded-full shrink-0 mt-0.5"
+                    style={{ background: active ? arcColor(active.wr) : "#3f3f46", opacity: active ? 1 : 0.4 }} />
+              <div>
+                <p className="text-xs font-medium text-zinc-300">{s.name}</p>
+                <p className="text-[10px] text-zinc-500">
+                  {s.h0.toString().padStart(2,"0")}:00 – {s.h1.toString().padStart(2,"0")}:00
+                  {active ? ` · ${active.totalTrades}t · ${active.wr}% wr` : " · no trades"}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+        <div className="mt-2 space-y-1">
+          {[
+            { col: "#0F6E56", label: "≥60% win rate" },
+            { col: "#5DCAA5", label: "45–59%" },
+            { col: "#E8A0A0", label: "<45%" },
+          ].map(b => (
+            <div key={b.label} className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: b.col }} />
+              <span className="text-[9px] text-zinc-600">{b.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DisciplineRadar({ axes }: { axes: { short: string; label: string; score: number }[] }) {
   // Layout: viewBox 280×240, center (140,120), radius 80
   // i=0→top, i=1→right, i=2→bottom, i=3→left
@@ -731,10 +889,9 @@ function DisciplineRadar({ axes }: { axes: { short: string; label: string; score
   // Clamp to 1.5 minimum so zero-score axes still show a small visible vertex
   const dataPts = axes.map((ax, i) => ap(i, (Math.max(ax.score, 1.5) / MAX) * R).join(",")).join(" ");
   return (
-    /* maxWidth caps the SVG so labels stay legible (~11-13px rendered) */
-    <div style={{ maxWidth: 320, margin: "0 auto" }}>
+    <div style={{ display: "flex", justifyContent: "center" }}>
       <style>{`@keyframes cj-radar{from{transform:scale(0)}to{transform:scale(1)}}`}</style>
-      <svg viewBox="0 0 280 240" width="100%" style={{ height: "auto", display: "block" }}>
+      <svg viewBox="0 0 280 240" width={280} height={240} style={{ display: "block", maxWidth: "100%" }}>
         {rings.map(ring => (
           <polygon key={ring} points={axes.map((_, i) => ap(i, (ring / MAX) * R).join(",")).join(" ")}
                    fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
@@ -812,33 +969,10 @@ function TabOverview({ trades, onExportCsv }: { trades: Trade[]; onExportCsv: ()
       </div>
 
       {/* Equity curve */}
-      <ChartBox title="Equity Curve" height={220}>
-        {eq.length < 2
-          ? <div className="flex h-full items-center justify-center text-zinc-600 text-sm">Add at least 2 trades</div>
-          : (() => {
-              const last  = eq[eq.length - 1].value;
-              const color = last >= 0 ? GOLD : RED;
-              return (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={eq} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor={color} stopOpacity={0.2} />
-                        <stop offset="95%" stopColor={color} stopOpacity={0}   />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="label" tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                    <YAxis tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} width={60} />
-                    <Tooltip content={<PnlTooltip />} />
-                    <ReferenceLine y={0} stroke="#3f3f46" strokeDasharray="3 3" />
-                    <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill="url(#eqGrad)" dot={false}
-                      activeDot={{ r: 4, fill: color, stroke: "#0d0f14", strokeWidth: 2 }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              );
-            })()
-        }
-      </ChartBox>
+      <div className="rounded-xl p-4" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+        <p className="text-[11px] uppercase tracking-widest text-zinc-500 mb-3">Equity Curve</p>
+        <PremiumEquityCurve data={eq} />
+      </div>
 
       {/* Monthly P&L */}
       <ChartBox title="Monthly P&L" height={200}>
@@ -1417,33 +1551,11 @@ function TabTime({ trades }: { trades: Trade[] }) {
         </div>
       )}
 
-      {/* Hour distribution — horizontal bars */}
+      {/* Trading Clock — 24h radial dial */}
       <div>
-        <SectionHead>Trade Distribution by Hour (0:00 – 23:00)</SectionHead>
-        <div className="rounded-xl p-4 space-y-1" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
-          {hours.map(h => (
-            <div key={h.hour} className="flex items-center gap-2 text-[10px]">
-              <span className="w-12 text-right text-zinc-500 shrink-0">{h.hour}</span>
-              <div className="flex-1 h-4 rounded overflow-hidden bg-zinc-800/40 relative">
-                {h.trades > 0 && (
-                  <div
-                    className="h-full rounded transition-all"
-                    style={{
-                      width: `${(h.trades / maxTrades) * 100}%`,
-                      background: h.pnl > 0 ? GRN : h.pnl < 0 ? RED : "#52525b",
-                      opacity: 0.7 + (h.trades / maxTrades) * 0.3,
-                    }}
-                  />
-                )}
-              </div>
-              <span className={`w-16 text-right font-sans shrink-0 ${pCls(h.pnl)}`}>
-                {h.trades > 0 ? f$(h.pnl) : ""}
-              </span>
-              <span className="w-12 text-right text-zinc-600 shrink-0">
-                {h.trades > 0 ? `${h.trades}t` : ""}
-              </span>
-            </div>
-          ))}
+        <SectionHead>Trading Clock</SectionHead>
+        <div className="rounded-xl p-5" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+          <TradingClock hours={hours} />
         </div>
       </div>
 

@@ -50,17 +50,27 @@ export default function ReplayPage() {
   // ── Auth + data fetch ──────────────────────────────────────────────────────
   useEffect(() => {
     const sb = createClient();
-    sb.auth.getUser().then(async ({ data: { user: u } }) => {
-      if (!u) { window.location.href = "/login"; return; }
+    sb.auth.getUser().then(async ({ data: { user: u }, error: authErr }) => {
+      if (authErr || !u) { window.location.href = "/login"; return; }
       setUser(u);
-      const { data } = await sb
+
+      const { data, error } = await sb
         .from("trades")
-        .select("id,pair,direction,lot,date,entry,exit_price,sl,tp,pnl,session,opened_at,closed_at,mt5_deal_id")
+        .select("*")
         .eq("user_id", u.id)
         .order("date", { ascending: false });
-      if (data) {
+
+      console.log("[replay] fetch — user:", u.id, "rows:", data?.length ?? 0, "error:", error);
+
+      if (error) {
+        console.error("[replay] Supabase error:", error.message, error.details, error.hint);
+      }
+
+      if (data && data.length > 0) {
         setTrades(data as ReplayTrade[]);
-        if (data.length > 0) setSelectedDate(data[0].date);
+        // Pick the most-recent date that has at least one trade
+        const firstDate = data[0].date as string;
+        if (firstDate) setSelectedDate(firstDate);
       }
       setLoading(false);
     });
@@ -68,7 +78,12 @@ export default function ReplayPage() {
 
   // ── Available dates ────────────────────────────────────────────────────────
   const tradeDays = useMemo(() => {
-    const days = new Set(trades.map(t => t.date));
+    // t.date is "YYYY-MM-DD"; fall back to extracting from opened_at if absent
+    const days = new Set(trades.map(t => {
+      if (t.date) return t.date;
+      if (t.opened_at) return t.opened_at.slice(0, 10);
+      return null;
+    }).filter(Boolean) as string[]);
     return Array.from(days).sort().reverse();
   }, [trades]);
 
@@ -76,7 +91,7 @@ export default function ReplayPage() {
   const dayTrades = useMemo((): ReplayTrade[] => {
     if (!selectedDate) return [];
     return trades
-      .filter(t => t.date === selectedDate)
+      .filter(t => (t.date ?? t.opened_at?.slice(0, 10)) === selectedDate)
       .sort((a, b) => {
         if (a.opened_at && b.opened_at)
           return new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime();

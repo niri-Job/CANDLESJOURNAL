@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface Trade {
@@ -113,36 +113,56 @@ function scoreColor(n: number) {
   if (n >= 50) return "#F5C518";
   return "#f87171";
 }
-function scoreLabel(n: number) {
-  if (n >= 80) return "A";
-  if (n >= 65) return "B";
-  if (n >= 50) return "C";
-  return "D";
-}
 
-function Gauge({ score }: { score: number }) {
-  const r  = 48;
-  const cx = 2 * Math.PI * r;
-  const offset = cx * (1 - score / 100);
+function Speedometer({ score }: { score: number }) {
+  const [live, setLive] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setLive(score));
+    return () => cancelAnimationFrame(id);
+  }, [score]);
+
+  const cx = 90, cy = 88, r = 70, sw = 12, nLen = 56;
+
+  function pt(s: number): [number, number] {
+    const a = Math.PI * (1 - s / 100);
+    return [+(cx + r * Math.cos(a)).toFixed(2), +(cy - r * Math.sin(a)).toFixed(2)];
+  }
+
+  function arc(s1: number, s2: number): string {
+    const [x1, y1] = pt(s1);
+    const [x2, y2] = pt(s2);
+    if (Math.abs(s1 - s2) >= 100) {
+      const [xm, ym] = pt(50);
+      return `M ${x1} ${y1} A ${r} ${r} 0 0 0 ${xm} ${ym} A ${r} ${r} 0 0 0 ${x2} ${y2}`;
+    }
+    return `M ${x1} ${y1} A ${r} ${r} 0 0 0 ${x2} ${y2}`;
+  }
+
+  const deg = live * 1.8;
   const col = scoreColor(score);
+  const [lx, ly] = pt(0);
+  const [rx, ry] = pt(100);
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 128, height: 128 }}>
-      <svg width="128" height="128" style={{ transform: "rotate(-90deg)" }}>
-        <circle cx="64" cy="64" r={r} fill="none" stroke="#1e1e2e" strokeWidth="10" />
-        <circle
-          cx="64" cy="64" r={r} fill="none"
-          stroke={col} strokeWidth="10" strokeLinecap="round"
-          strokeDasharray={cx} strokeDashoffset={offset}
-          style={{ transition: "stroke-dashoffset 1.2s ease" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span className="text-2xl font-bold font-sans leading-none" style={{ color: col }}>{score}</span>
-        <span className="text-[10px] text-zinc-600 leading-none">/ 100</span>
-        <span className="text-xs font-bold mt-0.5" style={{ color: col }}>{scoreLabel(score)}</span>
-      </div>
-    </div>
+    <svg viewBox="0 0 180 110" width={180} height={110} style={{ display: "block", overflow: "visible" }}>
+      <path d={arc(100, 0)}  fill="none" stroke="#1a1a2e" strokeWidth={sw} strokeLinecap="butt" />
+      <path d={arc(100, 67)} fill="none" stroke="#5DCAA5" strokeWidth={sw} strokeLinecap="butt" />
+      <path d={arc(67, 33)}  fill="none" stroke="#FAC775" strokeWidth={sw} strokeLinecap="butt" />
+      <path d={arc(33,  0)}  fill="none" stroke="#E24B4A" strokeWidth={sw} strokeLinecap="butt" />
+      <g style={{
+        transform: `rotate(${deg}deg)`,
+        transformOrigin: `${cx}px ${cy}px`,
+        transition: "transform 1.2s cubic-bezier(0.16,1,0.3,1)",
+      }}>
+        <line x1={cx} y1={cy} x2={cx - nLen} y2={cy}
+              stroke="#1A1916" strokeWidth={2.5} strokeLinecap="round" />
+      </g>
+      <circle cx={cx} cy={cy} r={5} fill="#1A1916" />
+      <text x={lx - 2} y={ly + 14} textAnchor="middle" fontSize={8} fill="#52525b">0</text>
+      <text x={rx + 2} y={ry + 14} textAnchor="middle" fontSize={8} fill="#52525b">100</text>
+      <text x={cx} y={cy + 18} textAnchor="middle" fontSize={22} fontWeight="700"
+            fontFamily="sans-serif" fill={col}>{score}</text>
+    </svg>
   );
 }
 
@@ -209,9 +229,9 @@ export function DisciplineScore({ trades }: { trades: Trade[] }) {
 
       <div className="flex flex-col sm:flex-row gap-6 items-start">
 
-        {/* Gauge */}
-        <div className="flex flex-col items-center gap-2 shrink-0">
-          <Gauge score={result.total} />
+        {/* Speedometer */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <Speedometer score={result.total} />
           <p className="text-[11px] text-zinc-600 text-center">
             {result.total >= 80
               ? "Excellent discipline"
@@ -221,30 +241,30 @@ export function DisciplineScore({ trades }: { trades: Trade[] }) {
           </p>
         </div>
 
-        {/* Breakdown */}
+        {/* Battery bars */}
         <div className="flex-1 space-y-3 w-full">
-          {result.components.map((c) => (
-            <div key={c.label}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-zinc-400 font-medium">{c.label}</span>
-                <span className="text-xs font-sans font-semibold" style={{ color: scoreColor((c.score / c.max) * 100) }}>
-                  {c.score}/{c.max}
-                </span>
+          {result.components.map((c) => {
+            const pct    = (c.score / c.max) * 100;
+            const fill   = pct >= 72 ? "#34d399" : pct >= 36 ? "#F5C518" : "#f87171";
+            const filled = Math.round((c.score / c.max) * 5);
+            return (
+              <div key={c.label}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-zinc-400">{c.label}</span>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} style={{
+                        width: 14, height: 10, borderRadius: 3,
+                        background: i < filled ? fill : "rgba(255,255,255,0.06)",
+                        transition: `background 0.3s ease ${i * 0.08}s`,
+                      }} />
+                    ))}
+                  </div>
+                </div>
+                {c.issue && <p className="text-[10px] text-rose-400/80">{c.issue}</p>}
               </div>
-              <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${(c.score / c.max) * 100}%`,
-                    background: scoreColor((c.score / c.max) * 100),
-                  }}
-                />
-              </div>
-              {c.issue && (
-                <p className="text-[10px] text-rose-400/80 mt-0.5">{c.issue}</p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

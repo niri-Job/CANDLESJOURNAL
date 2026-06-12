@@ -580,6 +580,179 @@ function HourTooltip({ active, payload, label }: { active?: boolean; payload?: {
   );
 }
 
+// ── Discipline components for radar ─────────────────────────────
+function computeDisciplineComponents(trades: Trade[]) {
+  if (!trades.length) return null;
+  const sorted = [...trades].sort((a, b) => a.date.localeCompare(b.date));
+  const byDay: Record<string, number> = {};
+  for (const t of trades) byDay[t.date] = (byDay[t.date] || 0) + 1;
+  const tradingDays = Object.keys(byDay).length;
+  const overtradeDays = Object.values(byDay).filter(c => c > 3).length;
+  const overtradeScore = Math.round(25 * Math.max(0, 1 - overtradeDays / Math.max(tradingDays, 1)));
+  const dayPairHadLoss: Record<string, Set<string>> = {};
+  let revengeCount = 0;
+  for (const t of sorted) {
+    if (!dayPairHadLoss[t.date]) dayPairHadLoss[t.date] = new Set();
+    if (dayPairHadLoss[t.date].has(t.pair) && t.pnl < 0) revengeCount++;
+    if (t.pnl < 0) dayPairHadLoss[t.date].add(t.pair);
+  }
+  const revengeScore = Math.round(25 * Math.max(0, 1 - Math.min(1, revengeCount / Math.max(trades.length * 0.15, 1))));
+  const lots = trades.map(t => t.lot);
+  const avg = lots.reduce((s, l) => s + l, 0) / lots.length;
+  const stdDev = Math.sqrt(lots.reduce((s, l) => s + (l - avg) ** 2, 0) / lots.length);
+  const cv = avg > 0 ? stdDev / avg : 0;
+  const riskScore = Math.round(25 * Math.max(0, 1 - Math.min(cv * 1.5, 1)));
+  const withTp = trades.filter(t => t.tp !== null && t.tp !== 0);
+  let tpHit = 0;
+  for (const t of withTp) {
+    if (!t.tp) continue;
+    const reached = t.direction === "BUY" ? t.exit_price >= t.tp * 0.998 : t.exit_price <= t.tp * 1.002;
+    if (reached) tpHit++;
+  }
+  const tpScore = withTp.length >= 3 ? Math.round(25 * (tpHit / withTp.length)) : 18;
+  return [
+    { short: "OT",   label: "Overtrading", score: overtradeScore },
+    { short: "Rev",  label: "Revenge",     score: revengeScore   },
+    { short: "Risk", label: "Risk CV",     score: riskScore      },
+    { short: "TP",   label: "TP Disc",     score: tpScore        },
+  ];
+}
+
+function weeklyWaterfall(trades: Trade[]) {
+  const now = new Date();
+  const yr = now.getFullYear(), mo = now.getMonth();
+  const ms = `${yr}-${String(mo + 1).padStart(2, "0")}-01`;
+  const me = new Date(yr, mo + 1, 0).toISOString().slice(0, 10);
+  const mt = trades.filter(t => t.date >= ms && t.date <= me);
+  const map: Record<number, number> = {};
+  mt.forEach(t => { const w = Math.ceil(new Date(t.date + "T12:00:00").getDate() / 7); map[w] = (map[w] || 0) + t.pnl; });
+  let cum = 0;
+  const rows: { label: string; pnl: number; base: number; top: number }[] = [];
+  for (let w = 1; w <= 5; w++) {
+    if (!(w in map)) continue;
+    const pnl = +map[w].toFixed(2);
+    rows.push({ label: `W${w}`, pnl, base: cum, top: cum + pnl });
+    cum += pnl;
+  }
+  return rows;
+}
+
+function DivergingDayChart({ days }: { days: { day: string; pnl: number; trades: number }[] }) {
+  const maxAbs = Math.max(...days.map(d => Math.abs(d.pnl)), 0.01);
+  const ROW_H = 36, BAR_H = 16, VW = 400, LABEL_W = 38;
+  const ZERO_X = LABEL_W + (VW - LABEL_W) / 2;
+  const MAX_BAR = (VW - LABEL_W) / 2 - 50;
+  const VH = days.length * ROW_H + 8;
+  function fmtV(v: number) {
+    const a = Math.abs(v), s = v >= 0 ? "+" : "−";
+    return a >= 1000 ? `${s}$${(a / 1000).toFixed(1)}k` : `${s}$${a.toFixed(0)}`;
+  }
+  return (
+    <div>
+      <style>{`@keyframes cj-growX{from{transform:scaleX(0)}to{transform:scaleX(1)}}`}</style>
+      <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ height: "auto", display: "block" }}>
+        <line x1={ZERO_X} y1={0} x2={ZERO_X} y2={VH - 4} stroke="#3f3f46" strokeWidth={1} />
+        {days.map((d, i) => {
+          const y = i * ROW_H + ROW_H / 2;
+          const profit = d.pnl >= 0;
+          const fill = profit ? "#5DCAA5" : "#F09595";
+          const lc   = profit ? "#0F6E56" : "#A32D2D";
+          const len  = (Math.abs(d.pnl) / maxAbs) * MAX_BAR;
+          const bx   = profit ? ZERO_X : ZERO_X - len;
+          return (
+            <g key={d.day}>
+              <text x={LABEL_W - 4} y={y} textAnchor="end" fontSize={10} fill="#71717a" dominantBaseline="middle">{d.day}</text>
+              {d.pnl !== 0
+                ? <rect x={bx} y={y - BAR_H / 2} width={Math.max(len, 1)} height={BAR_H} rx={BAR_H / 2} fill={fill}
+                    style={{ transformOrigin: `${ZERO_X}px ${y}px`, animation: `cj-growX 0.9s cubic-bezier(0.16,1,0.3,1) ${i * 0.1}s both` }} />
+                : <line x1={ZERO_X - 3} y1={y} x2={ZERO_X + 3} y2={y} stroke="#52525b" strokeWidth={1} />
+              }
+              {d.pnl !== 0 && (
+                <text x={profit ? ZERO_X + len + 5 : ZERO_X - len - 5} y={y}
+                      textAnchor={profit ? "start" : "end"} fontSize={9} fill={lc}
+                      dominantBaseline="middle" fontWeight="600" fontFamily="sans-serif">
+                  {fmtV(d.pnl)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function WaterfallChart({ data }: { data: ReturnType<typeof weeklyWaterfall> }) {
+  if (!data.length) return <div className="py-6 text-center text-zinc-600 text-sm">No trades this month</div>;
+  const allV = data.flatMap(d => [d.base, d.top, 0]);
+  const minV = Math.min(...allV), maxV = Math.max(...allV);
+  const range = maxV - minV || 1;
+  const VW = 400, VH = 170, PL = 8, PR = 8, PT = 18, PB = 22;
+  const cW = VW - PL - PR, cH = VH - PT - PB;
+  const bW = Math.min(56, cW / data.length - 10);
+  function ty(v: number) { return PT + cH - ((v - minV) / range) * cH; }
+  function fmtW(v: number) { const s = v >= 0 ? "+" : "−", a = Math.abs(v); return a >= 1000 ? `${s}${(a / 1000).toFixed(1)}k` : `${s}${a.toFixed(0)}`; }
+  return (
+    <div>
+      <style>{`@keyframes cj-fadeIn{from{opacity:0}to{opacity:1}}`}</style>
+      <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ height: "auto", display: "block" }}>
+        <line x1={PL} y1={ty(0)} x2={VW - PR} y2={ty(0)} stroke="#3f3f46" strokeWidth={1} />
+        {data.map((d, i) => {
+          const cx = PL + (i + 0.5) * cW / data.length;
+          const profit = d.pnl >= 0;
+          const fill = profit ? "#5DCAA5" : "#F09595";
+          const bTop = Math.min(ty(d.base), ty(d.top));
+          const bH   = Math.max(Math.abs(ty(d.base) - ty(d.top)), 2);
+          return (
+            <g key={d.label} style={{ animation: `cj-fadeIn 0.6s ease ${i * 0.12}s both` }}>
+              <rect x={cx - bW / 2} y={bTop} width={bW} height={bH} rx={5} fill={fill} fillOpacity={0.85} />
+              <text x={cx} y={profit ? bTop - 5 : bTop + bH + 11}
+                    textAnchor="middle" fontSize={9} fill={profit ? "#0F6E56" : "#A32D2D"}
+                    fontWeight="600" fontFamily="sans-serif">{fmtW(d.pnl)}</text>
+              <text x={cx} y={VH - 5} textAnchor="middle" fontSize={10} fill="#52525b">{d.label}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function DisciplineRadar({ axes }: { axes: { short: string; label: string; score: number }[] }) {
+  const CX = 130, CY = 115, R = 80, MAX = 25;
+  function ap(i: number, r: number): [number, number] {
+    const a = (i / axes.length) * 2 * Math.PI - Math.PI / 2;
+    return [+(CX + r * Math.cos(a)).toFixed(2), +(CY + r * Math.sin(a)).toFixed(2)];
+  }
+  const rings = [MAX * 0.5, MAX];
+  const dataPts = axes.map((ax, i) => ap(i, (ax.score / MAX) * R).join(",")).join(" ");
+  return (
+    <div>
+      <style>{`@keyframes cj-radar{from{transform:scale(0)}to{transform:scale(1)}}`}</style>
+      <svg viewBox="0 0 260 230" width="100%" style={{ height: "auto", display: "block" }}>
+        {rings.map(ring => (
+          <polygon key={ring} points={axes.map((_, i) => ap(i, (ring / MAX) * R).join(",")).join(" ")}
+                   fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={1} />
+        ))}
+        {axes.map((_, i) => { const [x, y] = ap(i, R); return <line key={i} x1={CX} y1={CY} x2={x} y2={y} stroke="rgba(255,255,255,0.07)" strokeWidth={1} />; })}
+        <polygon points={dataPts} fill="#AFA9EC" fillOpacity={0.55} stroke="#534AB7" strokeWidth={2}
+                 style={{ transformOrigin: `${CX}px ${CY}px`, animation: "cj-radar 0.8s cubic-bezier(0.16,1,0.3,1) both" }} />
+        {axes.map((ax, i) => { const [x, y] = ap(i, (ax.score / MAX) * R); return <circle key={i} cx={x} cy={y} r={4} fill="#D4A017" />; })}
+        {axes.map((ax, i) => {
+          const [lx, ly] = ap(i, R + 18);
+          const anchor   = i === 1 ? "start" : i === 3 ? "end" : "middle";
+          const baseline = i === 0 ? "auto"  : i === 2 ? "hanging" : "middle";
+          return (
+            <text key={i} x={lx} y={ly} textAnchor={anchor} dominantBaseline={baseline} fontSize={10} fill="#71717a">
+              {ax.short} {ax.score}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // TAB: OVERVIEW
 // ═══════════════════════════════════════════════════════════════
@@ -669,6 +842,17 @@ function TabOverview({ trades, onExportCsv }: { trades: Trade[]; onExportCsv: ()
             </ResponsiveContainer>
         }
       </ChartBox>
+
+      {/* Weekly P&L Waterfall */}
+      {(() => {
+        const wf = weeklyWaterfall(trades);
+        return (
+          <div className="rounded-xl p-4" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 mb-3">Weekly P&L Waterfall — This Month</p>
+            <WaterfallChart data={wf} />
+          </div>
+        );
+      })()}
 
       {/* P&L Distribution Histogram */}
       {(() => {
@@ -1250,19 +1434,10 @@ function TabTime({ trades }: { trades: Trade[] }) {
 
       {/* Day performance */}
       <div className="grid md:grid-cols-2 gap-6">
-        <ChartBox title="Day of Week — P&L" height={200}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={days} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barSize={36}>
-              <XAxis dataKey="day" tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#52525b", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} width={60} />
-              <Tooltip content={<PnlTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-              <ReferenceLine y={0} stroke="#3f3f46" />
-              <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
-                {days.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? GRN : RED} fillOpacity={0.8} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartBox>
+        <div className="rounded-xl p-4" style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
+          <p className="text-[11px] uppercase tracking-widest text-zinc-500 mb-3">Day of Week — P&L</p>
+          <DivergingDayChart days={days} />
+        </div>
 
         <ChartBox title="Day of Week — Win Rate %" height={200}>
           <ResponsiveContainer width="100%" height="100%">
@@ -1502,6 +1677,7 @@ function TabPsychology({ trades }: { trades: Trade[] }) {
   const exitEmotions  = useMemo(() => emotionBreakdown(trades, "exit_emotion"),  [trades]);
   const afterRate     = useMemo(() => afterLossRate(trades),                      [trades]);
   const disc          = useMemo(() => disciplineScore(trades),                    [trades]);
+  const discComps     = useMemo(() => computeDisciplineComponents(trades),        [trades]);
 
   if (!trades.length) return <Empty />;
 
@@ -1545,6 +1721,12 @@ function TabPsychology({ trades }: { trades: Trade[] }) {
                 <span className="text-zinc-600">— {f.detail}</span>
               </div>
             ))}
+          </div>
+        )}
+        {discComps && discComps.length > 0 && (
+          <div className="mt-5 pt-4 border-t border-[var(--cj-border)]">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Discipline Shape</p>
+            <DisciplineRadar axes={discComps} />
           </div>
         )}
       </div>

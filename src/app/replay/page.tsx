@@ -201,12 +201,16 @@ export default function ReplayPage() {
     const fromTs = dateTs - 3600;   // 1 h before day start
     const toTs   = dateTs + 86400;  // full trading day
 
-    type TVLib = { widget: new (opts: object) => unknown };
+    type TVWidgetInstance = {
+      onChartReady: (cb: () => void) => void;
+      chart: () => { setVisibleRange: (range: { from: number; to: number }) => void };
+    };
+    type TVLib = { widget: new (opts: object) => TVWidgetInstance };
 
     const init = () => {
       const TV = (window as unknown as { TradingView?: TVLib }).TradingView;
       if (!TV) return;
-      new TV.widget({
+      const wgt = new TV.widget({
         autosize:          true,
         symbol,
         interval:          tvInterval,
@@ -221,9 +225,16 @@ export default function ReplayPage() {
         save_image:        false,
         container_id:      TV_ID,
         studies:           ["Volume@tv-basicstudies"],
-        from:              fromTs,
-        to:                toTs,
+        withdateranges:    true,
       });
+      // Option A — navigate to trade date once chart is ready
+      try {
+        wgt.onChartReady(() => {
+          try {
+            wgt.chart().setVisibleRange({ from: fromTs, to: toTs });
+          } catch { /* setVisibleRange not available on free embed */ }
+        });
+      } catch { /* onChartReady not available — free embed limitation */ }
     };
 
     if ((window as unknown as { TradingView?: TVLib }).TradingView) {

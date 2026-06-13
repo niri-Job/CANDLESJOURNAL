@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { TradeDetailModal, type ReplayTrade } from "@/components/TradeDetailModal";
 import { createClient } from "@/lib/supabase";
@@ -14,85 +14,129 @@ function sessionFromHour(h: number): string {
   if (h >= 13 && h < 17) return "New York";
   return "Off-Session";
 }
-
 function fmtPnl(n: number): string {
   return (n >= 0 ? "+$" : "-$") + Math.abs(n).toFixed(2);
 }
-
-function fmtChip(n: number): string {
-  const s = Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
-  return (n >= 0 ? "+$" : "−$") + s;
+function fmtPrice(p: number): string {
+  if (p >= 100) return p.toFixed(2);
+  if (p >= 10)  return p.toFixed(3);
+  return p.toFixed(5);
 }
-
 function timeLabel(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
   return `${d.getUTCHours().toString().padStart(2, "0")}:${d.getUTCMinutes().toString().padStart(2, "0")}`;
 }
-
-function smoothPath(pts: [number, number][]): string {
-  if (pts.length < 2) return "";
-  let d = `M ${pts[0][0]} ${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) {
-    const mx = (pts[i - 1][0] + pts[i][0]) / 2;
-    d += ` C ${mx} ${pts[i - 1][1]} ${mx} ${pts[i][1]} ${pts[i][0]} ${pts[i][1]}`;
-  }
-  return d;
+function holdDuration(a: string | null | undefined, b: string | null | undefined): string {
+  if (!a || !b) return "—";
+  const diff = (new Date(b).getTime() - new Date(a).getTime()) / 60000;
+  if (diff < 0) return "—";
+  if (diff < 1)  return "<1m";
+  if (diff < 60) return `${Math.round(diff)}m`;
+  const h = Math.floor(diff / 60), m = Math.round(diff % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+function toTDDate(isoStr: string, offsetMin = 0): string {
+  const d = new Date(new Date(isoStr).getTime() + offsetMin * 60000);
+  const z = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getUTCFullYear()}-${z(d.getUTCMonth()+1)}-${z(d.getUTCDate())} ${z(d.getUTCHours())}:${z(d.getUTCMinutes())}:00`;
+}
+function nlVerdict(opts: {
+  isRevenge: boolean; isOvertrade: boolean; session: string; riskRatio: number;
+  pnl: number; runningPnl: number; tp: number | null; direction: string;
+  exitPrice: number; dayCount: number;
+}): string {
+  const { isRevenge, isOvertrade, session, riskRatio, pnl, runningPnl, tp, direction, exitPrice, dayCount } = opts;
+  const hitTP = tp != null && (direction === "BUY" ? exitPrice >= tp * 0.998 : exitPrice <= tp * 1.002);
+  if (isRevenge && pnl < 0)   return `Opened shortly after a loss during ${session} — likely reactive. Exit confirms the pattern.`;
+  if (isRevenge && pnl > 0)   return `Revenge entry in ${session} that worked out — but the process was reactive, not systematic.`;
+  if (isOvertrade && pnl < 0) return `${dayCount}-trade day with another loss — overtrading erodes edge and discipline.`;
+  if (riskRatio > 1.5 && pnl < 0) return `Lot size was ${Math.round(riskRatio * 100 - 100)}% above average on a losing trade — size down when in drawdown.`;
+  if (runningPnl < -50 && pnl < 0) return `Taken while already down $${Math.abs(runningPnl).toFixed(0)} on the session. Consider a daily loss limit.`;
+  if (hitTP && !isRevenge && riskRatio <= 1.2) return `TP reached in ${session}. Clean entry, held through volatility — textbook execution.`;
+  if (pnl > 0 && !isRevenge && !isOvertrade && riskRatio <= 1.2) return `Clean win in ${session}. No behavioral flags detected. Well sized and executed.`;
+  if (pnl < 0 && !isRevenge && !isOvertrade) return `Standard loss in ${session}. No behavioral flags — losses are part of trading.`;
+  return `Standard trade in ${session}. Review your entry trigger and risk context.`;
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── LW Charts types (CDN-loaded, no npm types needed) ────────────────────────
+interface LWCMarker { time: number; position: string; color: string; shape: string; text: string; size?: number; }
+interface LWCSeries {
+  setData(data: { time: number; open: number; high: number; low: number; close: number }[]): void;
+  setMarkers(m: LWCMarker[]): void;
+  createPriceLine(o: { price: number; color: string; lineWidth: number; lineStyle: number; axisLabelVisible: boolean; title: string }): void;
+}
+interface LWCChart {
+  addCandlestickSeries(o: object): LWCSeries;
+  timeScale(): { fitContent(): void; setVisibleRange(r: { from: number; to: number }): void };
+  priceScale(id: string): { applyOptions(o: object): void };
+  remove(): void;
+}
+interface LWCLib { createChart(el: HTMLElement, o: object): LWCChart; }
+
+const LW_CDN = "https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js";
+const GOLD = "#D4A017";
+
+interface Candle { datetime: string; open: number; high: number; low: number; close: number; }
+type ChartState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ok"; candles: Candle[]; forId: string }
+  | { status: "error"; reason: string }
+  | { status: "simulated" };
+
+// ── Stat chip ─────────────────────────────────────────────────────────────────
+function Chip({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div style={{
+      padding: "5px 12px", borderRadius: 10, display: "flex", alignItems: "center", gap: 6,
+      background: warn ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.04)",
+      border: `1px solid ${warn ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.07)"}`,
+    }}>
+      <span style={{ fontSize: 10, color: warn ? "#f87171" : "#71717a" }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: warn ? "#f87171" : "#c4c4c7" }}>{value}</span>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function ReplayPage() {
-  const [user, setUser]           = useState<User | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [trades, setTrades]       = useState<ReplayTrade[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [playIndex, setPlayIndex] = useState<number>(-1);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [speed, setSpeed]         = useState<0.5 | 1 | 2>(1);
-  const [drillTrade, setDrillTrade] = useState<ReplayTrade | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [user, setUser]                   = useState<User | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [trades, setTrades]               = useState<ReplayTrade[]>([]);
+  const [selectedDate, setSelectedDate]   = useState<string>("");
+  const [selectedTrade, setSelectedTrade] = useState<ReplayTrade | null>(null);
+  const [drillTrade, setDrillTrade]       = useState<ReplayTrade | null>(null);
+  const [scriptReady, setScriptReady]     = useState(false);
+  const [chartData, setChartData]         = useState<ChartState>({ status: "idle" });
+
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const chartInstanceRef  = useRef<LWCChart | null>(null);
 
   // ── Auth + data fetch ──────────────────────────────────────────────────────
   useEffect(() => {
     const sb = createClient();
-    sb.auth.getUser().then(async ({ data: { user: u }, error: authErr }) => {
-      if (authErr || !u) { window.location.href = "/login"; return; }
+    sb.auth.getUser().then(async ({ data: { user: u }, error }) => {
+      if (error || !u) { window.location.href = "/login"; return; }
       setUser(u);
-
-      const { data, error } = await sb
-        .from("trades")
-        .select("*")
-        .eq("user_id", u.id)
-        .order("date", { ascending: false });
-
-      console.log("[replay] fetch — user:", u.id, "rows:", data?.length ?? 0, "error:", error);
-
-      if (error) {
-        console.error("[replay] Supabase error:", error.message, error.details, error.hint);
-      }
-
-      if (data && data.length > 0) {
+      const { data, error: dbErr } = await sb
+        .from("trades").select("*")
+        .eq("user_id", u.id).order("date", { ascending: false });
+      if (dbErr) console.error("[replay] fetch error:", dbErr.message);
+      if (data?.length) {
         setTrades(data as ReplayTrade[]);
-        // Pick the most-recent date that has at least one trade
-        const firstDate = data[0].date as string;
-        if (firstDate) setSelectedDate(firstDate);
+        if (data[0].date) setSelectedDate(data[0].date as string);
       }
       setLoading(false);
     });
   }, []);
 
-  // ── Available dates ────────────────────────────────────────────────────────
+  // ── Dates + day trades ─────────────────────────────────────────────────────
   const tradeDays = useMemo(() => {
-    // t.date is "YYYY-MM-DD"; fall back to extracting from opened_at if absent
-    const days = new Set(trades.map(t => {
-      if (t.date) return t.date;
-      if (t.opened_at) return t.opened_at.slice(0, 10);
-      return null;
-    }).filter(Boolean) as string[]);
+    const days = new Set(trades.map(t => t.date ?? t.opened_at?.slice(0, 10)).filter(Boolean) as string[]);
     return Array.from(days).sort().reverse();
   }, [trades]);
 
-  // ── Trades for selected day, sorted chronologically ────────────────────────
   const dayTrades = useMemo((): ReplayTrade[] => {
     if (!selectedDate) return [];
     return trades
@@ -106,703 +150,436 @@ export default function ReplayPage() {
 
   // ── Day stats ──────────────────────────────────────────────────────────────
   const dayStats = useMemo(() => {
-    if (dayTrades.length === 0) return null;
-    const pnl      = dayTrades.reduce((s, t) => s + t.pnl, 0);
-    const wins     = dayTrades.filter(t => t.pnl > 0).length;
-    const sessions = [...new Set(dayTrades.map(t => {
-      if (t.opened_at) return sessionFromHour(new Date(t.opened_at).getUTCHours());
-      return t.session || "Unknown";
-    }))];
+    if (!dayTrades.length) return null;
+    const pnl  = dayTrades.reduce((s, t) => s + t.pnl, 0);
+    const wins = dayTrades.filter(t => t.pnl > 0).length;
+    const sessions = [...new Set(dayTrades.map(t =>
+      t.opened_at ? sessionFromHour(new Date(t.opened_at).getUTCHours()) : t.session || "Unknown"
+    ))];
     let revengeCount = 0;
     for (let i = 1; i < dayTrades.length; i++) {
-      const prev = dayTrades[i - 1];
-      const curr = dayTrades[i];
+      const prev = dayTrades[i - 1], curr = dayTrades[i];
       if (prev.pnl < 0 && curr.opened_at && prev.closed_at) {
         const diff = (new Date(curr.opened_at).getTime() - new Date(prev.closed_at).getTime()) / 60000;
         if (diff >= 0 && diff <= 10) revengeCount++;
-      } else if (prev.pnl < 0 && !curr.opened_at) {
-        revengeCount++;
-      }
+      } else if (prev.pnl < 0 && !curr.opened_at) revengeCount++;
     }
-    return {
-      pnl, wins, winRate: (wins / dayTrades.length) * 100,
-      sessions, revengeCount,
-      isOvertrade: dayTrades.length >= 4,
-      total: dayTrades.length,
-    };
+    return { pnl, wins, winRate: (wins / dayTrades.length) * 100, sessions, revengeCount, isOvertrade: dayTrades.length >= 4, total: dayTrades.length };
   }, [dayTrades]);
 
-  // ── Full equity series — N+1 cumulative P&L for all day trades ───────────
-  const fullEquitySeries = useMemo(() => {
-    const pts: number[] = [0];
-    for (const t of dayTrades) pts.push(pts[pts.length - 1] + t.pnl);
-    return pts;
-  }, [dayTrades]);
-
-  // ── Play/pause ─────────────────────────────────────────────────────────────
-  function clearPlay() {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-  }
-
-  const advance = useCallback(() => {
-    setPlayIndex(idx => {
-      const next = idx + 1;
-      if (next >= dayTrades.length) {
-        setIsPlaying(false);
-        clearPlay();
-        return idx;
-      }
-      return next;
-    });
-  }, [dayTrades.length]);
-
-  function startPlay() {
-    if (isPlaying) { clearPlay(); setIsPlaying(false); return; }
-    if (playIndex >= dayTrades.length - 1) setPlayIndex(-1);
-    setIsPlaying(true);
-    intervalRef.current = setInterval(advance, 1000 / speed);
-  }
-
-  function reset() {
-    clearPlay();
-    setIsPlaying(false);
-    setPlayIndex(-1);
-  }
-
-  // Re-create interval when speed changes during play
+  // ── Auto-select first trade when day changes ───────────────────────────────
   useEffect(() => {
-    if (isPlaying) {
-      clearPlay();
-      intervalRef.current = setInterval(advance, 1000 / speed);
+    if (dayTrades.length > 0) setSelectedTrade(dayTrades[0]);
+    else { setSelectedTrade(null); setChartData({ status: "idle" }); }
+  }, [dayTrades]);
+
+  // ── Load LW Charts script once ────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ((window as unknown as { LightweightCharts?: unknown }).LightweightCharts) { setScriptReady(true); return; }
+    const existing = document.querySelector(`script[src="${LW_CDN}"]`);
+    if (existing) {
+      const poll = setInterval(() => {
+        if ((window as unknown as { LightweightCharts?: unknown }).LightweightCharts) { setScriptReady(true); clearInterval(poll); }
+      }, 100);
+      return () => clearInterval(poll);
     }
-  }, [speed, isPlaying, advance]);
+    const s = document.createElement("script");
+    s.src = LW_CDN; s.async = true; s.onload = () => setScriptReady(true);
+    document.head.appendChild(s);
+  }, []);
 
-  useEffect(() => () => clearPlay(), []);
-
-  // When date changes, reset playback
-  useEffect(() => { reset(); }, [selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Timeline SVG ───────────────────────────────────────────────────────────
-  const TL_W = 600, TL_H = 72, TL_PL = 12, TL_PR = 12, TL_PT = 8, TL_PB = 24;
-  const tW = TL_W - TL_PL - TL_PR, tH = TL_H - TL_PT - TL_PB;
-  const maxAbsPnl = Math.max(...dayTrades.map(t => Math.abs(t.pnl)), 1);
-
-  // X position: if we have opened_at, use actual minute within day; else use index
-  const hasTimestamps = dayTrades.length > 0 && !!dayTrades[0].opened_at;
-  function tickX(t: ReplayTrade, i: number): number {
-    if (hasTimestamps && t.opened_at) {
-      const d = new Date(t.opened_at);
-      const mins = d.getUTCHours() * 60 + d.getUTCMinutes(); // 0..1439
-      return TL_PL + (mins / 1439) * tW;
+  // ── Candle fetch ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedTrade) return;
+    const tradeId = selectedTrade.id;
+    let start: string, end: string;
+    if (selectedTrade.opened_at) {
+      const closeRef = selectedTrade.closed_at ?? selectedTrade.opened_at;
+      start = toTDDate(selectedTrade.opened_at, -30);
+      end   = toTDDate(closeRef, 30);
+    } else if (selectedTrade.date) {
+      start = `${selectedTrade.date} 06:00:00`;
+      end   = `${selectedTrade.date} 18:00:00`;
+    } else {
+      setChartData({ status: "simulated" });
+      return;
     }
-    return dayTrades.length <= 1
-      ? TL_PL + tW / 2
-      : TL_PL + (i / (dayTrades.length - 1)) * tW;
-  }
-  function tickH(t: ReplayTrade): number {
-    return TL_PT + tH - Math.max(4, (Math.abs(t.pnl) / maxAbsPnl) * tH);
-  }
+    setChartData({ status: "loading" });
+    const params = new URLSearchParams({ symbol: selectedTrade.pair, interval: "5min", start_date: start, end_date: end });
+    fetch(`/api/twelvedata/candles?${params}`)
+      .then(r => r.json())
+      .then((json: { candles?: Candle[]; error?: string }) => {
+        if (json.error === "no_api_key") setChartData({ status: "simulated" });
+        else if (json.error || !json.candles?.length) setChartData({ status: "error", reason: json.error ?? "empty" });
+        else setChartData({ status: "ok", candles: json.candles, forId: tradeId });
+      })
+      .catch(() => setChartData({ status: "error", reason: "fetch_failed" }));
+  }, [selectedTrade?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Shared playback values ────────────────────────────────────────────────
-  const revealedCount = playIndex < 0
-    ? fullEquitySeries.length - 1
-    : Math.min(playIndex + 1, fullEquitySeries.length - 1);
-  const currentEquity = fullEquitySeries[revealedCount] ?? 0;
-  const eqLineColor   = currentEquity >= 0 ? "#5DCAA5" : "#F09595";
+  // ── LW Chart creation ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!scriptReady || chartData.status !== "ok") return;
+    // Guard stale data — don't render A's candles while B is selected
+    if (!selectedTrade || chartData.forId !== selectedTrade.id) return;
+    if (!chartContainerRef.current) return;
+    const candles = chartData.candles;
+    if (!candles.length) return;
 
-  const playTimeLabel = (() => {
-    if (playIndex < 0) return "";
-    const t = dayTrades[playIndex];
-    if (!t?.opened_at) return "";
-    const d = new Date(t.opened_at);
-    const h = d.getUTCHours();
-    return `${h.toString().padStart(2, "0")}:${d.getUTCMinutes().toString().padStart(2, "0")} UTC · ${sessionFromHour(h)}`;
-  })();
+    const LW = (window as unknown as { LightweightCharts: LWCLib }).LightweightCharts;
+    if (!LW) return;
 
-  // ── Waterfall chart layout ────────────────────────────────────────────────
-  const WF_W = 640, WF_H = 160;
-  const WF_PL = 48, WF_PR = 12, WF_PT = 20, WF_PB = 24;
-  const wfChartW = WF_W - WF_PL - WF_PR;   // 580
-  const wfChartH = WF_H - WF_PT - WF_PB;   // 116
-  const wfN = dayTrades.length;
-  const wfGap = 6;
-  const wfColWNatural = wfN > 0
-    ? Math.max(4, (wfChartW - Math.max(0, wfN - 1) * wfGap) / wfN)
-    : wfChartW;
-  // Cap column width at 80px for ≤ 5 trades so bars don't look flat
-  const wfColW = wfN > 0 && wfN <= 5 ? Math.min(80, wfColWNatural) : wfColWNatural;
-  const wfGroupW = wfN > 0 ? wfN * wfColW + Math.max(0, wfN - 1) * wfGap : wfChartW;
-  const wfGroupOffset = wfN <= 5 ? (wfChartW - wfGroupW) / 2 : 0;
-  const wfColX = (i: number) => WF_PL + wfGroupOffset + i * (wfColW + wfGap);
+    if (chartInstanceRef.current) {
+      try { chartInstanceRef.current.remove(); } catch { /* ok */ }
+      chartInstanceRef.current = null;
+    }
 
-  const wfMin = fullEquitySeries.length > 0 ? Math.min(...fullEquitySeries, 0) : 0;
-  const wfMax = fullEquitySeries.length > 0 ? Math.max(...fullEquitySeries, 0) : 0;
-  const wfRange = wfMax - wfMin || 1;
-  const wfPad = wfRange * 0.15;
-  const wfY = (v: number) =>
-    WF_PT + wfChartH - ((v - (wfMin - wfPad)) / (wfRange + 2 * wfPad)) * wfChartH;
-  const wfZeroY = wfY(0);
+    const container = chartContainerRef.current;
+    const chart = LW.createChart(container, {
+      width:  container.clientWidth  || 600,
+      height: container.clientHeight || 500,
+      layout: { background: { type: "solid", color: "#0D0B14" }, textColor: "#52525b", fontSize: 10 },
+      grid: { vertLines: { color: "rgba(255,255,255,0.03)" }, horzLines: { color: "rgba(255,255,255,0.03)" } },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: "rgba(255,255,255,0.08)", textColor: "#52525b" },
+      timeScale: { borderColor: "rgba(255,255,255,0.08)", timeVisible: true, secondsVisible: false, textColor: "#52525b" },
+      handleScroll: true,
+      handleScale:  true,
+    });
+    chartInstanceRef.current = chart;
 
-  // Session bands: group consecutive same-session columns
-  const SESSION_BAND_COLOR: Record<string, string> = {
-    Asia: "rgba(83,74,183,0.04)",
-    London: "rgba(212,160,23,0.04)",
-    Overlap: "rgba(212,160,23,0.04)",
-    "New York": "rgba(93,202,165,0.04)",
-    "Off-Session": "rgba(255,255,255,0.01)",
-  };
-  const wfSessionGroups: { session: string; start: number; end: number }[] = [];
-  for (let i = 0; i < wfN; i++) {
-    const t = dayTrades[i];
-    const sess = t.opened_at
-      ? sessionFromHour(new Date(t.opened_at).getUTCHours())
-      : (t.session ?? "Off-Session");
-    const last = wfSessionGroups[wfSessionGroups.length - 1];
-    if (!last || last.session !== sess) wfSessionGroups.push({ session: sess, start: i, end: i });
-    else last.end = i;
-  }
+    const series = chart.addCandlestickSeries({
+      upColor: "#5DCAA5", downColor: "#F09595",
+      borderUpColor: "#5DCAA5", borderDownColor: "#F09595",
+      wickUpColor: "#5DCAA5", wickDownColor: "#F09595",
+    });
 
-  const GOLD = "#D4A017";
-  const currentTrade = playIndex >= 0 && playIndex < dayTrades.length ? dayTrades[playIndex] : null;
-  const sessionTag = currentTrade?.opened_at
-    ? sessionFromHour(new Date(currentTrade.opened_at).getUTCHours())
-    : (currentTrade?.session ?? "");
+    const seriesData = candles.map(c => ({
+      time:  Math.floor(new Date(c.datetime.replace(" ", "T") + "Z").getTime() / 1000),
+      open: c.open, high: c.high, low: c.low, close: c.close,
+    }));
+    series.setData(seriesData);
 
-  // ── Loading / empty states ─────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
-        <Sidebar user={null} onSignOut={() => {}} />
-        <div className="md:ml-[240px] pt-14 md:pt-0 flex items-center justify-center min-h-screen">
-          <p className="text-zinc-500 text-sm">Loading trades…</p>
-        </div>
+    // Price lines
+    series.createPriceLine({ price: selectedTrade.entry, color: GOLD, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "Entry" });
+    if (selectedTrade.sl != null && selectedTrade.sl !== 0)
+      series.createPriceLine({ price: selectedTrade.sl, color: "#E24B4A", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "SL" });
+    if (selectedTrade.tp != null && selectedTrade.tp !== 0)
+      series.createPriceLine({ price: selectedTrade.tp, color: "#5DCAA5", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "TP" });
+    chart.priceScale("right").applyOptions({ autoScale: true });
+
+    // Markers
+    const markers: LWCMarker[] = [];
+    if (selectedTrade.opened_at) {
+      markers.push({ time: Math.floor(new Date(selectedTrade.opened_at).getTime() / 1000), position: "belowBar", color: GOLD, shape: "arrowUp", text: `IN ${fmtPrice(selectedTrade.entry)}`, size: 2 });
+      if (selectedTrade.closed_at)
+        markers.push({ time: Math.floor(new Date(selectedTrade.closed_at).getTime() / 1000), position: "aboveBar", color: selectedTrade.pnl >= 0 ? "#5DCAA5" : "#E24B4A", shape: "arrowDown", text: `OUT ${fmtPrice(selectedTrade.exit_price)}`, size: 2 });
+    } else {
+      const mid = Math.floor(seriesData.length / 2);
+      let inIdx = 0, inDiff = Infinity;
+      for (let i = 0; i <= mid; i++) { const d = Math.abs(candles[i].open - selectedTrade.entry); if (d < inDiff) { inDiff = d; inIdx = i; } }
+      let outIdx = seriesData.length - 1, outDiff = Infinity;
+      for (let i = mid; i < seriesData.length; i++) { const d = Math.abs(candles[i].close - selectedTrade.exit_price); if (d < outDiff) { outDiff = d; outIdx = i; } }
+      markers.push({ time: seriesData[inIdx].time, position: "belowBar", color: GOLD, shape: "arrowUp", text: `~IN ${fmtPrice(selectedTrade.entry)}`, size: 2 });
+      markers.push({ time: seriesData[outIdx].time, position: "aboveBar", color: selectedTrade.pnl >= 0 ? "#5DCAA5" : "#E24B4A", shape: "arrowDown", text: `~OUT ${fmtPrice(selectedTrade.exit_price)}`, size: 2 });
+    }
+    if (markers.length > 0) {
+      markers.sort((a, b) => a.time - b.time);
+      try { series.setMarkers(markers); } catch { /* ok */ }
+    }
+
+    // Visible range
+    if (selectedTrade.opened_at) {
+      const eU = Math.floor(new Date(selectedTrade.opened_at).getTime() / 1000);
+      const xU = selectedTrade.closed_at ? Math.floor(new Date(selectedTrade.closed_at).getTime() / 1000) : eU + 3600;
+      const pad = 30 * 60;
+      try {
+        chart.timeScale().setVisibleRange({ from: Math.max(seriesData[0].time, eU - pad), to: Math.min(seriesData[seriesData.length - 1].time, xU + pad) });
+      } catch { chart.timeScale().fitContent(); }
+    } else {
+      chart.timeScale().fitContent();
+    }
+
+    return () => {
+      try { chart.remove(); } catch { /* ok */ }
+      chartInstanceRef.current = null;
+    };
+  }, [scriptReady, chartData, selectedTrade]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Behavioral context ────────────────────────────────────────────────────
+  const behavCtx = useMemo(() => {
+    if (!selectedTrade || !dayTrades.length) return null;
+    const t   = selectedTrade;
+    const idx = dayTrades.findIndex(x => x.id === t.id);
+    const prev = dayTrades.slice(0, idx);
+    const runningPnl = prev.reduce((s, x) => s + x.pnl, 0);
+    let isRevenge = false;
+    if (t.opened_at) {
+      const openMs = new Date(t.opened_at).getTime();
+      isRevenge = prev.some(p => {
+        if (p.pnl >= 0 || !p.closed_at) return false;
+        return (openMs - new Date(p.closed_at).getTime()) / 60000 <= 10;
+      });
+    } else isRevenge = prev.length > 0 && prev[prev.length - 1].pnl < 0;
+    const avgLot = dayTrades.reduce((s, x) => s + x.lot, 0) / dayTrades.length;
+    return {
+      idx,
+      runningPnl,
+      isRevenge,
+      isOvertrade: dayTrades.length >= 4,
+      riskRatio:   avgLot > 0 ? t.lot / avgLot : 1,
+      sessionLabel: t.opened_at ? sessionFromHour(new Date(t.opened_at).getUTCHours()) : (t.session || "London"),
+      dayCount: dayTrades.length,
+    };
+  }, [selectedTrade, dayTrades]);
+
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (loading) return (
+    <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
+      <Sidebar user={null} onSignOut={() => {}} />
+      <div className="md:ml-[240px] pt-14 md:pt-0 flex items-center justify-center min-h-screen">
+        <p className="text-zinc-500 text-sm">Loading trades…</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  function handleLogout() {
-    createClient().auth.signOut().then(() => { window.location.href = "/login"; });
-  }
+  function handleLogout() { createClient().auth.signOut().then(() => { window.location.href = "/login"; }); }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
       <Sidebar user={user} onSignOut={handleLogout} />
-
       <div className="md:ml-[240px] pt-14 md:pt-0">
-        <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
+        <main style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 20px" }}>
 
-          {/* Page header */}
-          <div className="flex items-center justify-between mb-6">
+          {/* ── Header ──────────────────────────────────────────────────── */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
             <div>
-              <h1 className="text-xl font-bold text-zinc-100">Session Replay</h1>
-              <p className="text-sm text-zinc-500 mt-0.5">
-                Relive a trading day trade by trade — spot emotional patterns.
-              </p>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: "#f4f4f5", margin: 0 }}>Session Replay</h1>
+              <p style={{ fontSize: 13, color: "#52525b", marginTop: 3 }}>Pick a date · click a trade · see the chart</p>
             </div>
-
-            {/* Date picker */}
-            <div className="flex items-center gap-3">
-              <select
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-                className="bg-[var(--cj-surface)] border border-zinc-700 rounded-xl px-3 py-2
-                           text-sm text-zinc-200 focus:outline-none focus:border-[var(--cj-gold)]"
-              >
-                {tradeDays.length === 0 && <option value="">No trades yet</option>}
-                {tradeDays.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              style={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 10, padding: "8px 12px", fontSize: 13, color: "#e4e4e7", outline: "none", cursor: "pointer" }}
+            >
+              {!tradeDays.length && <option value="">No trades yet</option>}
+              {tradeDays.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
 
-          {trades.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-zinc-600">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="mb-4">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-              <p className="text-base font-medium mb-1">No trades to replay</p>
-              <p className="text-sm">Import your MT5 history or log trades to get started.</p>
+          {/* ── Day summary strip ────────────────────────────────────────── */}
+          {dayStats && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {/* P&L */}
+              <div style={{
+                padding: "5px 14px", borderRadius: 10, display: "flex", alignItems: "center", gap: 8,
+                background: dayStats.pnl >= 0 ? "rgba(29,158,117,0.1)" : "rgba(226,75,74,0.1)",
+                border: `1px solid ${dayStats.pnl >= 0 ? "rgba(29,158,117,0.28)" : "rgba(226,75,74,0.28)"}`,
+              }}>
+                <span style={{ fontSize: 10, color: "#71717a" }}>Day P&L</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: dayStats.pnl >= 0 ? "#1D9E75" : "#E24B4A" }}>
+                  {fmtPnl(dayStats.pnl)}
+                </span>
+              </div>
+              <Chip label="Trades"   value={String(dayStats.total)} />
+              <Chip label="Win Rate" value={`${dayStats.winRate.toFixed(0)}%`} />
+              <Chip label="Sessions" value={dayStats.sessions.join(" · ")} />
+              {dayStats.isOvertrade && (
+                <Chip label="⚠ Overtrading" value={`${dayStats.total}t`} warn />
+              )}
+              {dayStats.revengeCount > 0 && (
+                <Chip label="⚠ Revenge" value={`${dayStats.revengeCount} trade${dayStats.revengeCount > 1 ? "s" : ""}`} warn />
+              )}
+            </div>
+          )}
+
+          {!trades.length ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 0", color: "#52525b" }}>
+              <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 6 }}>No trades to replay</p>
+              <p style={{ fontSize: 13 }}>Import your MT5 history or log trades to get started.</p>
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 mb-5">
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 38%) 1fr", gap: 14, alignItems: "start" }}>
 
-                {/* ── Left panel: day stats ──────────────────────────────── */}
-                <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 space-y-4">
-                  <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">{selectedDate}</p>
-
-                  {dayStats ? (
-                    <>
-                      {/* P&L */}
-                      <div>
-                        <div className="text-[11px] text-zinc-600 mb-1">Day P&L</div>
-                        <div className={`text-2xl font-bold ${dayStats.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {fmtPnl(dayStats.pnl)}
-                        </div>
-                      </div>
-
-                      {/* Stats grid */}
-                      <div className="grid grid-cols-2 gap-3">
-                        {[
-                          { label: "Trades",   value: String(dayStats.total) },
-                          { label: "Win Rate", value: `${dayStats.winRate.toFixed(0)}%` },
-                          { label: "Wins",     value: `${dayStats.wins}` },
-                          { label: "Losses",   value: `${dayStats.total - dayStats.wins}` },
-                        ].map(({ label, value }) => (
-                          <div key={label} className="bg-[var(--cj-raised)] rounded-xl p-3">
-                            <div className="text-[10px] text-zinc-600 uppercase tracking-wide mb-1">{label}</div>
-                            <div className="text-sm font-semibold text-zinc-200">{value}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Session tags */}
-                      <div>
-                        <div className="text-[11px] text-zinc-600 mb-2">Sessions</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {dayStats.sessions.map(s => (
-                            <span key={s} className="text-[10px] font-semibold px-2 py-1 rounded-lg"
-                              style={{ background: "rgba(212,160,23,0.1)", color: GOLD, border: "1px solid rgba(212,160,23,0.2)" }}>
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Discipline flags */}
-                      <div className="space-y-2">
-                        <div className="text-[11px] text-zinc-600">Discipline Flags</div>
-                        {[
-                          {
-                            label: "Overtrading",
-                            active: dayStats.isOvertrade,
-                            detail: dayStats.isOvertrade ? `${dayStats.total} trades` : "Clean",
-                          },
-                          {
-                            label: "Revenge Trades",
-                            active: dayStats.revengeCount > 0,
-                            detail: dayStats.revengeCount > 0 ? `${dayStats.revengeCount} detected` : "None",
-                          },
-                        ].map(({ label, active, detail }) => (
-                          <div key={label} className="flex items-center justify-between">
-                            <span className="text-xs text-zinc-500">{label}</span>
-                            <span className={`text-[11px] font-semibold ${active ? "text-rose-400" : "text-emerald-400"}`}>
-                              {detail}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-zinc-600">No trades on this day.</p>
-                  )}
+              {/* ── LEFT: trade list ────────────────────────────────────── */}
+              <div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 14, overflow: "hidden", position: "sticky", top: 20 }}>
+                <div style={{ padding: "12px 16px", borderBottom: "1px solid #1f1f23" }}>
+                  <span style={{ fontSize: 11, color: "#52525b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
+                    {dayTrades.length} Trade{dayTrades.length !== 1 ? "s" : ""} — {selectedDate}
+                  </span>
                 </div>
-
-                {/* ── Right panel: timeline + controls ──────────────────── */}
-                <div className="space-y-4">
-
-                  {/* Timeline */}
-                  <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Timeline</p>
-                      <p className="text-[10px] text-zinc-600">
-                        {hasTimestamps ? "Time (UTC)" : "Trade sequence"} · height = |P&L|
-                      </p>
-                    </div>
-
-                    {dayTrades.length === 0 ? (
-                      <div className="flex items-center justify-center h-20 text-zinc-600 text-sm">
-                        No trades on {selectedDate}
+                <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 260px)" }}>
+                  {!dayTrades.length ? (
+                    <div style={{ padding: "20px 16px", color: "#52525b", fontSize: 13 }}>No trades on this day.</div>
+                  ) : dayTrades.map(t => {
+                    const isSelected = selectedTrade?.id === t.id;
+                    const color = t.pnl >= 0 ? "#1D9E75" : "#E24B4A";
+                    const sess  = t.opened_at ? sessionFromHour(new Date(t.opened_at).getUTCHours()) : t.session || "";
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => setSelectedTrade(t)}
+                        style={{
+                          padding: "11px 16px",
+                          cursor: "pointer",
+                          background: isSelected ? "rgba(212,160,23,0.06)" : "transparent",
+                          borderLeft: `3px solid ${isSelected ? GOLD : "transparent"}`,
+                          borderBottom: "1px solid #1f1f23",
+                          transition: "background 0.12s",
+                        }}
+                      >
+                        {/* Row 1: pair · direction · time · P&L */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#e4e4e7", minWidth: 68 }}>{t.pair}</span>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 4,
+                            background: t.direction === "BUY" ? "rgba(29,158,117,0.14)" : "rgba(226,75,74,0.14)",
+                            color: t.direction === "BUY" ? "#1D9E75" : "#E24B4A",
+                          }}>{t.direction}</span>
+                          {t.opened_at && <span style={{ fontSize: 10, color: "#71717a" }}>{timeLabel(t.opened_at)}</span>}
+                          <span style={{ flex: 1 }} />
+                          <span style={{ fontSize: 13, fontWeight: 700, color }}>{fmtPnl(t.pnl)}</span>
+                        </div>
+                        {/* Row 2: details + Full Analysis */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11, color: "#71717a" }}>
+                          <span>{t.lot}L</span>
+                          <span>{fmtPrice(t.entry)}</span>
+                          <span style={{ color: "#3f3f46" }}>→</span>
+                          <span>{fmtPrice(t.exit_price)}</span>
+                          {sess && <span style={{ color: "#3f3f46" }}>{sess}</span>}
+                          <span style={{ flex: 1 }} />
+                          <button
+                            onClick={e => { e.stopPropagation(); setDrillTrade(t); }}
+                            style={{
+                              fontSize: 10, padding: "2px 8px", borderRadius: 6, cursor: "pointer",
+                              background: "rgba(212,160,23,0.07)", border: "1px solid rgba(212,160,23,0.2)", color: GOLD,
+                              whiteSpace: "nowrap",
+                            }}
+                          >Full Analysis</button>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <svg viewBox={`0 0 ${TL_W} ${TL_H}`} width="100%" height={TL_H} style={{ display: "block" }}>
-                          {/* Baseline */}
-                          <line x1={TL_PL} y1={TL_PT + tH} x2={TL_W - TL_PR} y2={TL_PT + tH}
-                            stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+                    );
+                  })}
+                </div>
+              </div>
 
-                          {/* Hour labels (when timestamps available) */}
-                          {hasTimestamps && [6, 9, 12, 15, 18, 21].map(h => {
-                            const x = TL_PL + (h * 60 / 1439) * tW;
-                            return (
-                              <g key={h}>
-                                <line x1={x} y1={TL_PT} x2={x} y2={TL_PT + tH}
-                                  stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
-                                <text x={x} y={TL_H - 6} textAnchor="middle"
-                                  fontSize={8} fill="#52525b" fontFamily="sans-serif">
-                                  {h.toString().padStart(2, "0")}:00
-                                </text>
-                              </g>
-                            );
-                          })}
+              {/* ── RIGHT: chart + behavioral ────────────────────────────── */}
+              {selectedTrade ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-                          {/* Trade ticks */}
-                          {dayTrades.map((t, i) => {
-                            const x  = tickX(t, i);
-                            const y0 = tickH(t);
-                            const y1 = TL_PT + tH;
-                            const active = i <= (playIndex < 0 ? dayTrades.length - 1 : playIndex);
-                            const isHighlight = i === playIndex;
-                            const color = t.pnl >= 0 ? "#1D9E75" : "#E24B4A";
-                            return (
-                              <g key={t.id}
-                                onClick={() => setDrillTrade(t)}
-                                style={{ cursor: "pointer" }}
-                              >
-                                <rect
-                                  x={x - 3} y={y0} width={6} height={y1 - y0}
-                                  rx={2}
-                                  fill={color}
-                                  opacity={active ? (isHighlight ? 1 : 0.75) : 0.2}
-                                />
-                                {isHighlight && (
-                                  <circle cx={x} cy={y0 - 3} r={3}
-                                    fill={color} opacity={0.9} />
-                                )}
-                              </g>
-                            );
-                          })}
-                        </svg>
+                  {/* Trade header */}
+                  <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                    <span style={{ fontSize: 19, fontWeight: 800, color: "#f4f4f5" }}>{selectedTrade.pair}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
+                      background: selectedTrade.direction === "BUY" ? "rgba(29,158,117,0.15)" : "rgba(226,75,74,0.15)",
+                      color: selectedTrade.direction === "BUY" ? "#1D9E75" : "#E24B4A",
+                    }}>{selectedTrade.direction}</span>
+                    <span style={{ fontSize: 11, color: "#71717a" }}>
+                      {selectedTrade.lot}L · {fmtPrice(selectedTrade.entry)} → {fmtPrice(selectedTrade.exit_price)}
+                      {selectedTrade.opened_at && ` · ${timeLabel(selectedTrade.opened_at)} UTC`}
+                      {selectedTrade.sl  != null && ` · SL ${fmtPrice(selectedTrade.sl)}`}
+                      {selectedTrade.tp  != null && ` · TP ${fmtPrice(selectedTrade.tp)}`}
+                    </span>
+                    <span style={{ flex: 1 }} />
+                    <span style={{ fontSize: 18, fontWeight: 800, color: selectedTrade.pnl >= 0 ? "#1D9E75" : "#E24B4A" }}>
+                      {fmtPnl(selectedTrade.pnl)}
+                    </span>
+                  </div>
+
+                  {/* Chart */}
+                  <div style={{ height: 500, background: "#0D0B14", borderRadius: 12, overflow: "hidden", position: "relative", border: "1px solid #27272a" }}>
+                    <style>{`@keyframes rp-shim{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
+
+                    {chartData.status === "loading" && (
+                      <>
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.02),transparent)", animation: "rp-shim 1.8s ease-in-out infinite" }} />
+                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <span style={{ color: "#3f3f46", fontSize: 12 }}>Fetching market data…</span>
+                        </div>
+                      </>
+                    )}
+
+                    {chartData.status === "ok" && chartData.candles.length > 0 && chartData.forId === selectedTrade.id && (
+                      <div ref={chartContainerRef} style={{ width: "100%", height: "100%" }} />
+                    )}
+
+                    {chartData.status === "ok" && chartData.candles.length === 0 && (
+                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
+                        <span style={{ color: "#3f3f46", fontSize: 13 }}>No candle data for this window</span>
+                        <span style={{ color: "#27272a", fontSize: 11 }}>{selectedTrade.pair} · {selectedTrade.date}</span>
+                      </div>
+                    )}
+
+                    {(chartData.status === "simulated" || chartData.status === "error") && (
+                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8 }}>
+                        <span style={{ color: "#3f3f46", fontSize: 13 }}>No market data</span>
+                        <span style={{ fontSize: 11, color: "#27272a" }}>
+                          {chartData.status === "error" ? chartData.reason : "Add TWELVEDATA_API_KEY to enable live charts"}
+                        </span>
+                      </div>
+                    )}
+
+                    {chartData.status === "ok" && !selectedTrade.opened_at && (
+                      <div style={{ position: "absolute", top: 8, right: 10, fontSize: 9, padding: "2px 7px", borderRadius: 100, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.06)", color: "#71717a", letterSpacing: "0.04em" }}>
+                        full day · no exact time
                       </div>
                     )}
                   </div>
 
-                  {/* ── Waterfall equity chart ─────────────────────────── */}
-                  <div className="border border-zinc-800 rounded-2xl overflow-hidden">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-5 pt-4 pb-3"
-                         style={{ background: "var(--cj-surface)" }}>
-                      <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
-                        Running Equity
-                      </p>
-                      <p className="text-[11px] text-zinc-600 tabular-nums">
-                        {playTimeLabel || selectedDate}
-                      </p>
-                    </div>
-
-                    {/* Chart */}
-                    <div style={{ position: "relative", background: "#0D0B14", borderRadius: "0 0 10px 10px" }}>
-                      <style>{`
-                        @keyframes wf-pulse {
-                          0%, 100% { opacity: 0.9; }
-                          50%       { opacity: 0.5; }
-                        }
-                      `}</style>
-
-                      {dayTrades.length === 0 ? (
-                        <div style={{ height: WF_H, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <span style={{ color: "#52525b", fontSize: 13 }}>No trades on {selectedDate}</span>
-                        </div>
-                      ) : (
-                        <div style={{ position: "relative" }}>
-                          <svg viewBox={`0 0 ${WF_W} ${WF_H}`} width="100%" height={WF_H}
-                            preserveAspectRatio="none" style={{ display: "block" }}>
-
-                            {/* Session bands */}
-                            {wfSessionGroups.map(g => (
-                              <rect key={`band-${g.start}`}
-                                x={wfColX(g.start)} y={WF_PT}
-                                width={wfColX(g.end) + wfColW - wfColX(g.start)}
-                                height={wfChartH}
-                                fill={SESSION_BAND_COLOR[g.session] ?? "rgba(255,255,255,0.01)"} />
-                            ))}
-
-                            {/* Zero baseline */}
-                            <line x1={WF_PL} y1={wfZeroY} x2={WF_W - WF_PR} y2={wfZeroY}
-                              stroke="rgba(255,255,255,0.10)" strokeWidth={1}
-                              vectorEffect="non-scaling-stroke" />
-
-                            {/* Y-axis labels */}
-                            {[wfMin, 0, wfMax]
-                              .filter((v, i, a) => a.indexOf(v) === i)
-                              .map(v => (
-                                <text key={v} x={WF_PL - 5} y={wfY(v) + 4}
-                                  textAnchor="end" fontSize={9} fill="#3f3f46"
-                                  fontFamily="sans-serif">
-                                  {`${v >= 0 ? "+" : "−"}$${Math.round(Math.abs(v))}`}
-                                </text>
-                              ))
-                            }
-
-                            {/* Connector dashes between columns */}
-                            {dayTrades.slice(0, -1).map((_, i) => {
-                              if (playIndex >= 0 && i >= playIndex) return null;
-                              const cy = wfY(fullEquitySeries[i + 1]);
-                              return (
-                                <line key={`conn-${i}`}
-                                  x1={wfColX(i) + wfColW} y1={cy}
-                                  x2={wfColX(i + 1)}       y2={cy}
-                                  stroke="rgba(255,255,255,0.20)" strokeWidth={1}
-                                  strokeDasharray="2 2"
-                                  vectorEffect="non-scaling-stroke" />
-                              );
-                            })}
-
-                            {/* Columns */}
-                            {dayTrades.map((t, i) => {
-                              const isCurrent = playIndex >= 0 && i === playIndex;
-                              const isFuture  = playIndex >= 0 && i > playIndex;
-                              const cumPre  = fullEquitySeries[i];
-                              const cumPost = fullEquitySeries[i + 1];
-                              const yTop = wfY(Math.max(cumPre, cumPost));
-                              const yBot = wfY(Math.min(cumPre, cumPost));
-                              const colH = Math.max(4, yBot - yTop);
-                              const cx   = wfColX(i);
-                              const fill = t.pnl >= 0 ? "#5DCAA5" : "#F09595";
-                              if (isFuture) {
-                                return (
-                                  <rect key={t.id}
-                                    x={cx} y={yTop} width={wfColW} height={colH} rx={4}
-                                    fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1}
-                                    vectorEffect="non-scaling-stroke" />
-                                );
-                              }
-                              return (
-                                <rect key={t.id}
-                                  x={cx} y={yTop} width={wfColW} height={colH} rx={4}
-                                  fill={fill}
-                                  style={isCurrent
-                                    ? { animation: "wf-pulse 0.8s ease-in-out infinite" }
-                                    : { opacity: 0.9 }}
-                                  onClick={() => setDrillTrade(t)}
-                                  cursor="pointer"
-                                />
-                              );
-                            })}
-
-                            {/* P&L labels — only when ≤ 12 trades */}
-                            {wfN <= 12 && dayTrades.map((t, i) => {
-                              if (playIndex >= 0 && i > playIndex) return null;
-                              const cumPre  = fullEquitySeries[i];
-                              const cumPost = fullEquitySeries[i + 1];
-                              const yTop = wfY(Math.max(cumPre, cumPost));
-                              const yBot = wfY(Math.min(cumPre, cumPost));
-                              const colH = Math.max(4, yBot - yTop);
-                              const cx   = wfColX(i) + wfColW / 2;
-                              const green = t.pnl >= 0;
-                              return (
-                                <text key={`lbl-${t.id}`}
-                                  x={cx}
-                                  y={green ? yTop - 3 : yTop + colH + 10}
-                                  textAnchor="middle" fontSize={9}
-                                  fill={green ? "#5DCAA5" : "#F09595"}
-                                  fontFamily="sans-serif">
-                                  {(green ? "+$" : "−$") + Math.round(Math.abs(t.pnl))}
-                                </text>
-                              );
-                            })}
-
-                            {/* Time axis */}
-                            {dayTrades.map((t, i) => (
-                              <text key={`time-${t.id}`}
-                                x={wfColX(i) + wfColW / 2}
-                                y={WF_H - 6}
-                                textAnchor="middle" fontSize={9} fill="#555"
-                                fontFamily="sans-serif">
-                                {t.opened_at ? timeLabel(t.opened_at) : String(i + 1)}
-                              </text>
-                            ))}
-                          </svg>
-
-                          {/* Final equity chip — top right */}
-                          <div style={{
-                            position: "absolute",
-                            top: 12, right: 12,
-                            padding: "3px 8px",
-                            borderRadius: 7,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            fontFamily: "sans-serif",
-                            whiteSpace: "nowrap",
-                            background: currentEquity >= 0
-                              ? "rgba(93,202,165,0.14)"
-                              : "rgba(240,149,149,0.14)",
-                            border: `1px solid ${currentEquity >= 0
-                              ? "rgba(93,202,165,0.35)"
-                              : "rgba(240,149,149,0.35)"}`,
-                            color: eqLineColor,
+                  {/* Behavioral grid */}
+                  {behavCtx && (
+                    <>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                        {[
+                          { label: "Revenge Trade", value: behavCtx.isRevenge   ? "Yes" : "No",                          warn: behavCtx.isRevenge },
+                          { label: "Overtrading",   value: behavCtx.isOvertrade ? `Yes (${behavCtx.dayCount}t)` : "No",   warn: behavCtx.isOvertrade },
+                          { label: "Risk vs Avg",   value: `${(behavCtx.riskRatio * 100).toFixed(0)}%`,                   warn: behavCtx.riskRatio > 1.5 },
+                          { label: "Running P&L",   value: `${behavCtx.runningPnl >= 0 ? "+" : ""}$${Math.abs(behavCtx.runningPnl).toFixed(2)}`, warn: behavCtx.runningPnl < -20 },
+                          { label: "Trade #",       value: `${behavCtx.idx + 1} of ${behavCtx.dayCount}`,                 warn: false },
+                          { label: "Hold Time",     value: holdDuration(selectedTrade.opened_at, selectedTrade.closed_at), warn: false },
+                        ].map(({ label, value, warn }) => (
+                          <div key={label} style={{
+                            background: "#1A1916",
+                            border: `1px solid ${warn ? "rgba(248,113,113,0.2)" : "rgba(255,255,255,0.05)"}`,
+                            borderRadius: 10, padding: "10px 12px",
                           }}>
-                            {fmtChip(currentEquity)}
+                            <div style={{ fontSize: 10, color: "#52525b", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: warn ? "#f87171" : "#e4e4e7" }}>{value}</div>
                           </div>
+                        ))}
+                      </div>
+
+                      {/* NIRI verdict */}
+                      <div style={{ padding: "12px 16px", background: "rgba(212,160,23,0.05)", border: "1px dashed rgba(212,160,23,0.25)", borderRadius: 12 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: GOLD, letterSpacing: "0.1em", marginBottom: 5 }}>NIRI VERDICT</div>
+                        <div style={{ fontSize: 13, color: "#a1a1aa", lineHeight: 1.55 }}>
+                          {nlVerdict({
+                            isRevenge: behavCtx.isRevenge, isOvertrade: behavCtx.isOvertrade,
+                            session: behavCtx.sessionLabel, riskRatio: behavCtx.riskRatio,
+                            pnl: selectedTrade.pnl, runningPnl: behavCtx.runningPnl,
+                            tp: selectedTrade.tp, direction: selectedTrade.direction,
+                            exitPrice: selectedTrade.exit_price, dayCount: behavCtx.dayCount,
+                          })}
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Playback controls */}
-                  <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-4
-                                  flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      {/* Reset */}
-                      <button onClick={reset}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center
-                                   text-zinc-500 hover:text-zinc-200 transition-colors"
-                        style={{ border: "1px solid var(--cj-border)" }}
-                        title="Reset">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/>
-                        </svg>
-                      </button>
-
-                      {/* Play / Pause */}
-                      <button
-                        onClick={startPlay}
-                        disabled={dayTrades.length === 0}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                                   disabled:opacity-40 transition-all"
-                        style={{
-                          background: isPlaying ? "rgba(212,160,23,0.15)" : "rgba(212,160,23,0.9)",
-                          color: isPlaying ? GOLD : "#0d0f14",
-                          border: `1px solid ${GOLD}`,
-                        }}
-                      >
-                        {isPlaying ? (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                        ) : (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        )}
-                        {isPlaying ? "Pause" : playIndex >= 0 ? "Resume" : "Play"}
-                      </button>
-
-                      {/* Progress */}
-                      <span className="text-xs text-zinc-500">
-                        {playIndex < 0 ? `${dayTrades.length} trades` : `${playIndex + 1} / ${dayTrades.length}`}
-                      </span>
-                    </div>
-
-                    {/* Speed selector */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[11px] text-zinc-600 mr-1">Speed</span>
-                      {([0.5, 1, 2] as const).map(s => (
-                        <button key={s}
-                          onClick={() => setSpeed(s)}
-                          className="text-xs px-2.5 py-1 rounded-lg transition-all"
-                          style={{
-                            background: speed === s ? "rgba(212,160,23,0.15)" : "transparent",
-                            color: speed === s ? GOLD : "#71717a",
-                            border: `1px solid ${speed === s ? "rgba(212,160,23,0.4)" : "var(--cj-border)"}`,
-                          }}
-                        >
-                          {s}×
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-
-              {/* ── Trade card (slides in when playing or trade selected) ─ */}
-              {currentTrade && (
-                <div
-                  style={{
-                    transform: "translateY(0)",
-                    transition: "transform 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.25s ease",
-                    opacity: 1,
-                  }}
-                >
-                  <div className="bg-[var(--cj-surface)] border rounded-2xl p-5"
-                    style={{ borderColor: currentTrade.pnl >= 0 ? "rgba(29,158,117,0.3)" : "rgba(226,75,74,0.3)" }}>
-                    <div className="flex items-start justify-between flex-wrap gap-3">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-lg font-bold text-zinc-100">{currentTrade.pair}</span>
-                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md
-                          ${currentTrade.direction === "BUY"
-                            ? "bg-emerald-500/15 text-emerald-400"
-                            : "bg-rose-500/15 text-rose-400"}`}>
-                          {currentTrade.direction}
-                        </span>
-                        <span className="text-[11px] px-2 py-1 rounded-lg text-zinc-400"
-                          style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)" }}>
-                          {sessionTag}
-                        </span>
-                        {currentTrade.opened_at && (
-                          <span className="text-xs text-zinc-500">{timeLabel(currentTrade.opened_at)} UTC</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className={`text-xl font-bold ${currentTrade.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {fmtPnl(currentTrade.pnl)}
-                        </span>
-                        <button
-                          onClick={() => setDrillTrade(currentTrade)}
-                          className="text-xs px-3 py-1.5 rounded-lg transition-colors"
-                          style={{
-                            background: "rgba(212,160,23,0.08)",
-                            border: "1px solid rgba(212,160,23,0.2)",
-                            color: GOLD,
-                          }}
-                        >
-                          Full Analysis →
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-                      {[
-                        { label: "Lot",   value: String(currentTrade.lot) },
-                        { label: "Entry", value: currentTrade.entry.toFixed(5) },
-                        { label: "Exit",  value: currentTrade.exit_price.toFixed(5) },
-                        { label: "Running P&L", value: fmtPnl(fullEquitySeries[Math.max(0, playIndex + 1)] ?? 0) },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="bg-[var(--cj-raised)] rounded-xl p-3">
-                          <div className="text-[10px] text-zinc-600 uppercase tracking-wide mb-0.5">{label}</div>
-                          <div className="text-sm font-semibold text-zinc-200">{value}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              ) : (
+                <div style={{ height: 500, display: "flex", alignItems: "center", justifyContent: "center", color: "#52525b" }}>
+                  <span style={{ fontSize: 13 }}>Select a trade to see the chart</span>
                 </div>
               )}
-
-              {/* Trade list — click any row to drill down */}
-              {dayTrades.length > 0 && (
-                <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 mt-5">
-                  <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
-                    All Trades — click to analyse
-                  </p>
-                  <div className="space-y-2">
-                    {dayTrades.map((t, i) => (
-                      <button
-                        key={t.id}
-                        onClick={() => { setPlayIndex(i); setDrillTrade(t); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left"
-                        style={{
-                          background: i === playIndex ? "rgba(212,160,23,0.06)" : "var(--cj-raised)",
-                          border: `1px solid ${i === playIndex ? "rgba(212,160,23,0.25)" : "transparent"}`,
-                        }}
-                      >
-                        <span className="text-xs text-zinc-500 w-5">{i + 1}</span>
-                        <span className="font-semibold text-sm text-zinc-200 w-20">{t.pair}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded
-                          ${t.direction === "BUY" ? "text-emerald-400 bg-emerald-500/10" : "text-rose-400 bg-rose-500/10"}`}>
-                          {t.direction}
-                        </span>
-                        {t.opened_at && (
-                          <span className="text-xs text-zinc-500">{timeLabel(t.opened_at)}</span>
-                        )}
-                        <span className="flex-1" />
-                        <span className={`text-sm font-bold ${t.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {fmtPnl(t.pnl)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </main>
       </div>
 
-      {/* Drill-down modal */}
+      {/* Full Analysis modal */}
       {drillTrade && (
-        <TradeDetailModal
-          trade={drillTrade}
-          allDayTrades={dayTrades}
-          onClose={() => setDrillTrade(null)}
-        />
+        <TradeDetailModal trade={drillTrade} allDayTrades={dayTrades} onClose={() => setDrillTrade(null)} />
       )}
     </div>
   );

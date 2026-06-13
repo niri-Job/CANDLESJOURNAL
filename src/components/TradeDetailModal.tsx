@@ -45,6 +45,7 @@ interface LWCSeries {
 interface LWCChart {
   addCandlestickSeries(opts: object): LWCSeries;
   timeScale(): { fitContent(): void; setVisibleRange(range: { from: number; to: number }): void };
+  priceScale(id: string): { applyOptions(opts: object): void };
   remove(): void;
 }
 interface LWCLib {
@@ -359,9 +360,15 @@ export function TradeDetailModal({
       });
     }
 
-    // Entry / exit markers (only when exact timestamps are known)
+    // Force price scale to include all price lines (entry, SL, TP)
+    // Must be called after createPriceLine so the scale recalculates
+    chart.priceScale("right").applyOptions({ autoScale: true });
+
+    // ── Markers ───────────────────────────────────────────────────────────────
     const markers: LWCMarker[] = [];
+
     if (trade.opened_at) {
+      // Exact timestamps known — use them directly
       markers.push({
         time:     Math.floor(new Date(trade.opened_at).getTime() / 1000),
         position: "belowBar",
@@ -370,17 +377,52 @@ export function TradeDetailModal({
         text:     `IN ${fmtPrice(trade.entry)}`,
         size:     2,
       });
-    }
-    if (trade.closed_at) {
+      if (trade.closed_at) {
+        markers.push({
+          time:     Math.floor(new Date(trade.closed_at).getTime() / 1000),
+          position: "aboveBar",
+          color:    trade.pnl >= 0 ? "#5DCAA5" : "#E24B4A",
+          shape:    "arrowDown",
+          text:     `OUT ${fmtPrice(trade.exit_price)}`,
+          size:     2,
+        });
+      }
+    } else {
+      // Date-only trade: find the candle whose open is closest to entry (IN)
+      // and the candle whose close is closest to exit_price (OUT).
+      // Split the candle array in half to keep IN before OUT.
+      const mid = Math.floor(seriesData.length / 2);
+
+      let inIdx = 0, inDiff = Infinity;
+      for (let i = 0; i <= mid; i++) {
+        const d = Math.abs(candles[i].open - trade.entry);
+        if (d < inDiff) { inDiff = d; inIdx = i; }
+      }
+
+      let outIdx = seriesData.length - 1, outDiff = Infinity;
+      for (let i = mid; i < seriesData.length; i++) {
+        const d = Math.abs(candles[i].close - trade.exit_price);
+        if (d < outDiff) { outDiff = d; outIdx = i; }
+      }
+
       markers.push({
-        time:     Math.floor(new Date(trade.closed_at).getTime() / 1000),
+        time:     seriesData[inIdx].time,
+        position: "belowBar",
+        color:    "#D4A017",
+        shape:    "arrowUp",
+        text:     `~IN ${fmtPrice(trade.entry)}`,
+        size:     2,
+      });
+      markers.push({
+        time:     seriesData[outIdx].time,
         position: "aboveBar",
         color:    trade.pnl >= 0 ? "#5DCAA5" : "#E24B4A",
         shape:    "arrowDown",
-        text:     `OUT ${fmtPrice(trade.exit_price)}`,
+        text:     `~OUT ${fmtPrice(trade.exit_price)}`,
         size:     2,
       });
     }
+
     if (markers.length > 0) {
       markers.sort((a, b) => a.time - b.time);
       try { series.setMarkers(markers); } catch (e) {
@@ -388,14 +430,13 @@ export function TradeDetailModal({
       }
     }
 
-    // Fit visible range: 30 min before entry → 30 min after exit
-    // When exact timestamps are known, use setVisibleRange; else fitContent
+    // ── Visible range ─────────────────────────────────────────────────────────
     if (trade.opened_at) {
       const entryUnix = Math.floor(new Date(trade.opened_at).getTime() / 1000);
       const exitUnix  = trade.closed_at
         ? Math.floor(new Date(trade.closed_at).getTime() / 1000)
         : entryUnix + 3600;
-      const pad = 30 * 60; // 30 minutes in seconds
+      const pad   = 30 * 60;
       const first = seriesData[0].time;
       const last  = seriesData[seriesData.length - 1].time;
       try {

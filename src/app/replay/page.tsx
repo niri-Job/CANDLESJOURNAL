@@ -184,13 +184,23 @@ export default function ReplayPage() {
   }, []);
 
   // ── TradingView Advanced Chart ────────────────────────────────────────────
+  // Derive the trade date string (drives deps + from/to range)
+  const tradeDateStr = selectedTrade?.date ?? selectedTrade?.opened_at?.slice(0, 10) ?? null;
+
   useEffect(() => {
     if (!selectedTrade || !tvContainerRef.current) return;
     const container = tvContainerRef.current;
-    // Clear previous widget and inject fresh container div
     container.innerHTML = `<div id="${TV_ID}" style="height:100%;width:100%"></div>`;
 
     const symbol = tvSymbol(selectedTrade.pair);
+
+    // Rewind chart to the trade date so history shows at the right time
+    const dateTs = tradeDateStr
+      ? Math.floor(new Date(tradeDateStr + "T00:00:00Z").getTime() / 1000)
+      : Math.floor(Date.now() / 1000) - 86400;
+    const fromTs = dateTs - 3600;   // 1 h before day start
+    const toTs   = dateTs + 86400;  // full trading day
+
     type TVLib = { widget: new (opts: object) => unknown };
 
     const init = () => {
@@ -211,6 +221,8 @@ export default function ReplayPage() {
         save_image:        false,
         container_id:      TV_ID,
         studies:           ["Volume@tv-basicstudies"],
+        from:              fromTs,
+        to:                toTs,
       });
     };
 
@@ -229,7 +241,7 @@ export default function ReplayPage() {
         return () => window.clearInterval(poll);
       }
     }
-  }, [selectedTrade?.pair, tvInterval]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedTrade?.pair, tradeDateStr, tvInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Behavioral context ────────────────────────────────────────────────────
   const behavCtx = useMemo(() => {
@@ -414,7 +426,43 @@ export default function ReplayPage() {
             )}
           </div>
 
-          {/* Timeframe buttons */}
+          {/* ── Execution overlay (above timeframe bar) ───────────── */}
+          {t && (
+            <div style={{ flexShrink: 0, height: 32, borderTop: BORDER, background: BG_PANEL, position: "relative", overflow: "hidden" }}>
+              {t.opened_at && execTimeline ? (
+                <>
+                  {/* Horizontal track */}
+                  <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.05)", transform: "translateY(-50%)" }} />
+
+                  {/* IN — vertical tick */}
+                  <div style={{ position: "absolute", left: `${execTimeline.entryPct.toFixed(1)}%`, top: 0, height: "100%", width: 1, background: GOLD }} />
+                  {/* IN — label to the right of tick */}
+                  <div style={{ position: "absolute", left: `calc(${execTimeline.entryPct.toFixed(1)}% + 4px)`, top: 4, lineHeight: 1.3 }}>
+                    <div style={{ fontSize: 8, color: GOLD, fontWeight: 700, whiteSpace: "nowrap" }}>IN {timeLabel(t.opened_at)}</div>
+                    <div style={{ fontSize: 7, color: "#52525b", whiteSpace: "nowrap" }}>{fmtPrice(t.entry)}</div>
+                  </div>
+
+                  {/* OUT — vertical tick */}
+                  {t.closed_at && (
+                    <div style={{ position: "absolute", left: `${execTimeline.exitPct.toFixed(1)}%`, top: 0, height: "100%", width: 1, background: pnlColor(t.pnl) }} />
+                  )}
+                  {/* OUT — label to the left of tick */}
+                  {t.closed_at && (
+                    <div style={{ position: "absolute", right: `calc(${(100 - execTimeline.exitPct).toFixed(1)}% + 4px)`, top: 4, textAlign: "right", lineHeight: 1.3 }}>
+                      <div style={{ fontSize: 8, color: pnlColor(t.pnl), fontWeight: 700, whiteSpace: "nowrap" }}>OUT {timeLabel(t.closed_at)}</div>
+                      <div style={{ fontSize: 7, color: "#52525b", whiteSpace: "nowrap" }}>{fmtPrice(t.exit_price)}</div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ height: "100%", display: "flex", alignItems: "center", paddingLeft: 12 }}>
+                  <span style={{ fontSize: 9, color: "#3f3f46", fontStyle: "italic" }}>CSV import — exact times unavailable</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Timeframe buttons ─────────────────────────────────────── */}
           <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, padding: "5px 12px", borderTop: BORDER, background: BG_PANEL }}>
             {(["1", "5", "15", "60"] as const).map(tf => (
               <button
@@ -436,36 +484,6 @@ export default function ReplayPage() {
               </span>
             )}
           </div>
-
-          {/* Execution timeline overlay (only when opened_at exists) */}
-          {t?.opened_at && execTimeline && (
-            <div style={{ flexShrink: 0, borderTop: BORDER, background: BG_PANEL, padding: "8px 14px 10px" }}>
-              <div style={{ fontSize: 9, color: "#3f3f46", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Executions</div>
-              {/* Timeline bar */}
-              <div style={{ position: "relative", height: 28 }}>
-                {/* Track */}
-                <div style={{ position: "absolute", top: "10px", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.07)" }} />
-                {/* Entry dot + label */}
-                <div style={{ position: "absolute", left: `${execTimeline.entryPct.toFixed(1)}%`, transform: "translateX(-50%)", top: 0 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: GOLD, margin: "4px auto 3px" }} />
-                  <div style={{ fontSize: 8, color: GOLD, textAlign: "center", whiteSpace: "nowrap" }}>IN {timeLabel(t.opened_at)}</div>
-                </div>
-                {/* Exit dot + label */}
-                {t.closed_at && (
-                  <div style={{ position: "absolute", left: `${execTimeline.exitPct.toFixed(1)}%`, transform: "translateX(-50%)", top: 0 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: pnlColor(t.pnl), margin: "4px auto 3px" }} />
-                    <div style={{ fontSize: 8, color: pnlColor(t.pnl), textAlign: "center", whiteSpace: "nowrap" }}>OUT {timeLabel(t.closed_at)}</div>
-                  </div>
-                )}
-              </div>
-              {/* Price labels */}
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-                <span style={{ fontSize: 9, color: "#52525b" }}>{fmtPrice(t.entry)}</span>
-                <span style={{ fontSize: 9, color: pnlColor(t.pnl), fontWeight: 600 }}>{fmtPnl(t.pnl)}</span>
-                <span style={{ fontSize: 9, color: "#52525b" }}>{fmtPrice(t.exit_price)}</span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── RIGHT PANEL (280px) ─────────────────────────────────────── */}

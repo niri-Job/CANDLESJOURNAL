@@ -61,7 +61,7 @@ function Arrow({ gold }: { gold?: boolean }) {
     <div style={{
       position:    "absolute",
       bottom:      -6,
-      left:        BUBBLE_W / 2 - 6,
+      left:        BUBBLE_W - ORB_SIZE / 2 - 6,
       width:       12,
       height:      12,
       background:  "#0f0f11",
@@ -439,17 +439,13 @@ export default function NiriOrb({ trades = [] }: Props) {
   return (
     <motion.div
       data-niri-orb=""
-      style={{ position: "fixed", top: 0, left: 0, zIndex: 9999, width: ORB_SIZE, height: ORB_SIZE }}
+      style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, width: ORB_SIZE, height: ORB_SIZE }}
       animate={{
-        x:     pos.x,
-        y:     pos.y,
         scale: isAttention
           ? [1, 1.4, 0.88, 1.22, 1.0]
           : inMsg ? 1.15 : 1,
       }}
       transition={{
-        x:     { duration: inMsg ? 0.7 : driftDur, ease: "easeInOut" },
-        y:     { duration: inMsg ? 0.7 : driftDur, ease: "easeInOut" },
         scale: isAttention
           ? { duration: 0.65, ease: "easeOut", times: [0, 0.25, 0.5, 0.75, 1] }
           : { duration: 0.35, ease: "easeOut" },
@@ -565,8 +561,8 @@ export default function NiriOrb({ trades = [] }: Props) {
             onClick={(e) => e.stopPropagation()}
             style={{
               position:     "absolute",
-              top:          ORB_SIZE + 10,
-              left:         BUBBLE_L,
+              bottom:       ORB_SIZE + 10,
+              right:        0,
               width:        BUBBLE_W,
               background:   "#0f0f11",
               border:       "1px solid rgba(124,58,237,0.4)",
@@ -637,7 +633,7 @@ export default function NiriOrb({ trades = [] }: Props) {
             style={{
               position:      "absolute",
               bottom:        ORB_SIZE + 12,
-              left:          BUBBLE_L,
+              right:         0,
               width:         BUBBLE_W,
               background:    "#0f0f11",
               border:        `1px solid ${bubbleBorder}`,
@@ -686,7 +682,7 @@ export default function NiriOrb({ trades = [] }: Props) {
             style={{
               position:      "absolute",
               bottom:        ORB_SIZE + 12,
-              left:          BUBBLE_L,
+              right:         0,
               width:         BUBBLE_W,
               background:    "#0f0f11",
               border:        "1px solid rgba(124,58,237,0.3)",

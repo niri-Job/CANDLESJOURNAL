@@ -226,10 +226,14 @@ export default function ReplayPage() {
   const wfChartH = WF_H - WF_PT - WF_PB;   // 116
   const wfN = dayTrades.length;
   const wfGap = 6;
-  const wfColW = wfN > 0
+  const wfColWNatural = wfN > 0
     ? Math.max(4, (wfChartW - Math.max(0, wfN - 1) * wfGap) / wfN)
     : wfChartW;
-  const wfColX = (i: number) => WF_PL + i * (wfColW + wfGap);
+  // Cap column width at 80px for ≤ 5 trades so bars don't look flat
+  const wfColW = wfN > 0 && wfN <= 5 ? Math.min(80, wfColWNatural) : wfColWNatural;
+  const wfGroupW = wfN > 0 ? wfN * wfColW + Math.max(0, wfN - 1) * wfGap : wfChartW;
+  const wfGroupOffset = wfN <= 5 ? (wfChartW - wfGroupW) / 2 : 0;
+  const wfColX = (i: number) => WF_PL + wfGroupOffset + i * (wfColW + wfGap);
 
   const wfMin = fullEquitySeries.length > 0 ? Math.min(...fullEquitySeries, 0) : 0;
   const wfMax = fullEquitySeries.length > 0 ? Math.max(...fullEquitySeries, 0) : 0;

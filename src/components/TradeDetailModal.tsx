@@ -31,9 +31,12 @@ type ChartState =
   | { status: "simulated" };
 
 // ── Minimal LW Charts v4 types (loaded via CDN, no npm types needed) ──────────
+interface LWCMarker {
+  time: number; position: string; color: string; shape: string; text: string; size?: number;
+}
 interface LWCSeries {
   setData(data: { time: number; open: number; high: number; low: number; close: number }[]): void;
-  setMarkers(markers: { time: number; position: string; color: string; shape: string; text: string }[]): void;
+  setMarkers(markers: LWCMarker[]): void;
   createPriceLine(opts: {
     price: number; color: string; lineWidth: number;
     lineStyle: number; axisLabelVisible: boolean; title: string;
@@ -41,7 +44,7 @@ interface LWCSeries {
 }
 interface LWCChart {
   addCandlestickSeries(opts: object): LWCSeries;
-  timeScale(): { fitContent(): void };
+  timeScale(): { fitContent(): void; setVisibleRange(range: { from: number; to: number }): void };
   remove(): void;
 }
 interface LWCLib {
@@ -322,11 +325,21 @@ export function TradeDetailModal({
     }));
     series.setData(seriesData);
 
+    // Entry price line — thin gold dashed horizontal
+    series.createPriceLine({
+      price:            trade.entry,
+      color:            "#D4A017",
+      lineWidth:        1,
+      lineStyle:        2,
+      axisLabelVisible: true,
+      title:            "Entry",
+    });
+
     // SL price line — dashed red
-    if (trade.sl != null) {
+    if (trade.sl != null && trade.sl !== 0) {
       series.createPriceLine({
         price:            trade.sl,
-        color:            "#F09595",
+        color:            "#E24B4A",
         lineWidth:        1,
         lineStyle:        2,
         axisLabelVisible: true,
@@ -335,7 +348,7 @@ export function TradeDetailModal({
     }
 
     // TP price line — dashed green
-    if (trade.tp != null) {
+    if (trade.tp != null && trade.tp !== 0) {
       series.createPriceLine({
         price:            trade.tp,
         color:            "#5DCAA5",
@@ -346,8 +359,8 @@ export function TradeDetailModal({
       });
     }
 
-    // Entry / exit markers
-    const markers: { time: number; position: string; color: string; shape: string; text: string }[] = [];
+    // Entry / exit markers (only when exact timestamps are known)
+    const markers: LWCMarker[] = [];
     if (trade.opened_at) {
       markers.push({
         time:     Math.floor(new Date(trade.opened_at).getTime() / 1000),
@@ -355,15 +368,17 @@ export function TradeDetailModal({
         color:    "#D4A017",
         shape:    "arrowUp",
         text:     `IN ${fmtPrice(trade.entry)}`,
+        size:     2,
       });
     }
     if (trade.closed_at) {
       markers.push({
         time:     Math.floor(new Date(trade.closed_at).getTime() / 1000),
         position: "aboveBar",
-        color:    trade.pnl >= 0 ? "#5DCAA5" : "#F09595",
+        color:    trade.pnl >= 0 ? "#5DCAA5" : "#E24B4A",
         shape:    "arrowDown",
         text:     `OUT ${fmtPrice(trade.exit_price)}`,
+        size:     2,
       });
     }
     if (markers.length > 0) {
@@ -373,7 +388,27 @@ export function TradeDetailModal({
       }
     }
 
-    chart.timeScale().fitContent();
+    // Fit visible range: 30 min before entry → 30 min after exit
+    // When exact timestamps are known, use setVisibleRange; else fitContent
+    if (trade.opened_at) {
+      const entryUnix = Math.floor(new Date(trade.opened_at).getTime() / 1000);
+      const exitUnix  = trade.closed_at
+        ? Math.floor(new Date(trade.closed_at).getTime() / 1000)
+        : entryUnix + 3600;
+      const pad = 30 * 60; // 30 minutes in seconds
+      const first = seriesData[0].time;
+      const last  = seriesData[seriesData.length - 1].time;
+      try {
+        chart.timeScale().setVisibleRange({
+          from: Math.max(first, entryUnix - pad),
+          to:   Math.min(last,  exitUnix  + pad),
+        });
+      } catch {
+        chart.timeScale().fitContent();
+      }
+    } else {
+      chart.timeScale().fitContent();
+    }
 
     return () => {
       try { chart.remove(); } catch { /* already removed */ }

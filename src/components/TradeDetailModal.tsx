@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 
 export interface ReplayTrade {
   id: string;
@@ -28,7 +28,28 @@ type ChartState =
   | { status: "loading" }
   | { status: "ok";        candles: Candle[] }
   | { status: "error";     reason: string }
-  | { status: "simulated" };               // no timestamps or no API key
+  | { status: "simulated" };
+
+// ── Minimal LW Charts v4 types (loaded via CDN, no npm types needed) ──────────
+interface LWCSeries {
+  setData(data: { time: number; open: number; high: number; low: number; close: number }[]): void;
+  setMarkers(markers: { time: number; position: string; color: string; shape: string; text: string }[]): void;
+  createPriceLine(opts: {
+    price: number; color: string; lineWidth: number;
+    lineStyle: number; axisLabelVisible: boolean; title: string;
+  }): void;
+}
+interface LWCChart {
+  addCandlestickSeries(opts: object): LWCSeries;
+  timeScale(): { fitContent(): void };
+  remove(): void;
+}
+interface LWCLib {
+  createChart(container: HTMLElement, opts: object): LWCChart;
+}
+
+const LW_CDN =
+  "https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js";
 
 // ── Seeded Brownian bridge (fallback) ─────────────────────────────────────────
 function makePrng(seed: number) {
@@ -84,6 +105,7 @@ function fmtPrice(p: number): string {
 function toTDDate(isoStr: string, offsetMin: number = 0): string {
   const d = new Date(new Date(isoStr).getTime() + offsetMin * 60000);
   const z = (n: number) => n.toString().padStart(2, "0");
+  // Format: "YYYY-MM-DD HH:MM:SS" — TwelveData requires space, not T
   return `${d.getUTCFullYear()}-${z(d.getUTCMonth() + 1)}-${z(d.getUTCDate())} ${z(d.getUTCHours())}:${z(d.getUTCMinutes())}:00`;
 }
 function closestIdx(candles: Candle[], isoTime: string): number {
@@ -129,10 +151,14 @@ export function TradeDetailModal({
 }: {
   trade: ReplayTrade; allDayTrades: ReplayTrade[]; onClose: () => void;
 }) {
-  const [drawn,     setDrawn]     = useState(false);
-  const [chartData, setChartData] = useState<ChartState>({ status: "loading" });
+  const [drawn,       setDrawn]       = useState(false);
+  const [chartData,   setChartData]   = useState<ChartState>({ status: "loading" });
+  const [scriptReady, setScriptReady] = useState(false);
 
-  // Animate Brownian path draw-on
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const chartInstanceRef  = useRef<LWCChart | null>(null);
+
+  // Draw Brownian path on mount
   useEffect(() => {
     const id = requestAnimationFrame(() => setDrawn(true));
     return () => cancelAnimationFrame(id);
@@ -144,6 +170,32 @@ export function TradeDetailModal({
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
   }, [onClose]);
+
+  // ── Load LW Charts script once ────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ((window as unknown as { LightweightCharts?: unknown }).LightweightCharts) {
+      setScriptReady(true);
+      return;
+    }
+    const existing = document.querySelector(`script[src="${LW_CDN}"]`);
+    if (existing) {
+      // Script tag exists but may still be loading — poll
+      const poll = setInterval(() => {
+        if ((window as unknown as { LightweightCharts?: unknown }).LightweightCharts) {
+          setScriptReady(true);
+          clearInterval(poll);
+        }
+      }, 100);
+      return () => clearInterval(poll);
+    }
+    const script = document.createElement("script");
+    script.src = LW_CDN;
+    script.async = true;
+    script.onload = () => setScriptReady(true);
+    script.onerror = () => console.warn("[lwc] failed to load LW Charts CDN");
+    document.head.appendChild(script);
+  }, []);
 
   // ── Fetch real candles ────────────────────────────────────────────────────
   useEffect(() => {
@@ -159,9 +211,14 @@ export function TradeDetailModal({
       start_date: toTDDate(trade.opened_at, -30),
       end_date:   toTDDate(closeRef, 30),
     });
+    console.log("[modal] fetching candles — symbol:", trade.pair,
+      "start:", toTDDate(trade.opened_at, -30),
+      "end:", toTDDate(closeRef, 30));
     fetch(`/api/twelvedata/candles?${params}`)
       .then(r => r.json())
       .then((json: { candles?: Candle[]; error?: string }) => {
+        console.log("[modal] candles response — error:", json.error,
+          "count:", json.candles?.length ?? 0);
         if (json.error === "no_api_key") {
           setChartData({ status: "simulated" });
         } else if (json.error || !json.candles?.length) {
@@ -170,8 +227,137 @@ export function TradeDetailModal({
           setChartData({ status: "ok", candles: json.candles });
         }
       })
-      .catch(() => setChartData({ status: "error", reason: "fetch_failed" }));
+      .catch(err => {
+        console.error("[modal] fetch failed:", err);
+        setChartData({ status: "error", reason: "fetch_failed" });
+      });
   }, [trade.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Create / update LW chart ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!scriptReady) return;
+    if (chartData.status !== "ok") return;
+    if (!chartContainerRef.current) return;
+
+    const candles = chartData.candles;
+    if (candles.length === 0) return;
+
+    const LW = (window as unknown as { LightweightCharts: LWCLib }).LightweightCharts;
+    if (!LW) return;
+
+    // Clean up any previous chart
+    if (chartInstanceRef.current) {
+      try { chartInstanceRef.current.remove(); } catch { /* already removed */ }
+      chartInstanceRef.current = null;
+    }
+
+    const container = chartContainerRef.current;
+    const chart = LW.createChart(container, {
+      width:  container.clientWidth || 540,
+      height: 230,
+      layout: {
+        background: { type: "solid", color: "#0D0B14" },
+        textColor:  "#52525b",
+        fontSize:   10,
+      },
+      grid: {
+        vertLines: { color: "rgba(255,255,255,0.03)" },
+        horzLines: { color: "rgba(255,255,255,0.03)" },
+      },
+      crosshair: { mode: 1 },
+      rightPriceScale: {
+        borderColor: "rgba(255,255,255,0.08)",
+        textColor:   "#52525b",
+      },
+      timeScale: {
+        borderColor:    "rgba(255,255,255,0.08)",
+        timeVisible:    true,
+        secondsVisible: false,
+        textColor:      "#52525b",
+      },
+      handleScroll: false,
+      handleScale:  false,
+    });
+
+    chartInstanceRef.current = chart;
+
+    const series = chart.addCandlestickSeries({
+      upColor:        "#5DCAA5",
+      downColor:      "#F09595",
+      borderUpColor:  "#5DCAA5",
+      borderDownColor:"#F09595",
+      wickUpColor:    "#5DCAA5",
+      wickDownColor:  "#F09595",
+    });
+
+    // Convert candles: TwelveData datetime "YYYY-MM-DD HH:MM:SS" → Unix seconds
+    const seriesData = candles.map(c => ({
+      time:  Math.floor(new Date(c.datetime.replace(" ", "T") + "Z").getTime() / 1000),
+      open:  c.open,
+      high:  c.high,
+      low:   c.low,
+      close: c.close,
+    }));
+    series.setData(seriesData);
+
+    // SL price line — dashed red
+    if (trade.sl != null) {
+      series.createPriceLine({
+        price:            trade.sl,
+        color:            "#F09595",
+        lineWidth:        1,
+        lineStyle:        2,
+        axisLabelVisible: true,
+        title:            "SL",
+      });
+    }
+
+    // TP price line — dashed green
+    if (trade.tp != null) {
+      series.createPriceLine({
+        price:            trade.tp,
+        color:            "#5DCAA5",
+        lineWidth:        1,
+        lineStyle:        2,
+        axisLabelVisible: true,
+        title:            "TP",
+      });
+    }
+
+    // Entry / exit markers
+    const markers: { time: number; position: string; color: string; shape: string; text: string }[] = [];
+    if (trade.opened_at) {
+      markers.push({
+        time:     Math.floor(new Date(trade.opened_at).getTime() / 1000),
+        position: "belowBar",
+        color:    "#D4A017",
+        shape:    "arrowUp",
+        text:     `IN ${fmtPrice(trade.entry)}`,
+      });
+    }
+    if (trade.closed_at) {
+      markers.push({
+        time:     Math.floor(new Date(trade.closed_at).getTime() / 1000),
+        position: "aboveBar",
+        color:    trade.pnl >= 0 ? "#5DCAA5" : "#F09595",
+        shape:    "arrowDown",
+        text:     `OUT ${fmtPrice(trade.exit_price)}`,
+      });
+    }
+    if (markers.length > 0) {
+      markers.sort((a, b) => a.time - b.time);
+      try { series.setMarkers(markers); } catch (e) {
+        console.warn("[lwc] setMarkers failed:", e);
+      }
+    }
+
+    chart.timeScale().fitContent();
+
+    return () => {
+      try { chart.remove(); } catch { /* already removed */ }
+      chartInstanceRef.current = null;
+    };
+  }, [scriptReady, chartData, trade]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Behavioral context ────────────────────────────────────────────────────
   const ctx = useMemo(() => {
@@ -180,8 +366,8 @@ export function TradeDetailModal({
         return new Date(a.opened_at).getTime() - new Date(b.opened_at).getTime();
       return (parseInt(a.mt5_deal_id ?? "0") || 0) - (parseInt(b.mt5_deal_id ?? "0") || 0);
     });
-    const idx     = sorted.findIndex(t => t.id === trade.id);
-    const prev    = sorted.slice(0, idx);
+    const idx        = sorted.findIndex(t => t.id === trade.id);
+    const prev       = sorted.slice(0, idx);
     const runningPnl = prev.reduce((s, t) => s + t.pnl, 0);
     let isRevenge = false;
     if (trade.opened_at) {
@@ -203,15 +389,15 @@ export function TradeDetailModal({
     return { idx, runningPnl, isRevenge, isOvertrade, riskRatio, sessionLabel, dayCount: sorted.length };
   }, [trade, allDayTrades]);
 
-  // ── SVG constants (shared) ────────────────────────────────────────────────
+  // ── SVG constants (Brownian fallback only) ────────────────────────────────
   const VW = 560, VH = 170, PL = 14, PR = 14, PT = 22, PB = 18;
   const cW = VW - PL - PR, cH = VH - PT - PB;
 
-  const GOLD      = "#D4A017";
-  const pnlColor  = trade.pnl >= 0 ? "#1D9E75" : "#E24B4A";
-  const pnlStr    = (trade.pnl >= 0 ? "+" : "") + "$" + Math.abs(trade.pnl).toFixed(2);
+  const GOLD     = "#D4A017";
+  const pnlColor = trade.pnl >= 0 ? "#1D9E75" : "#E24B4A";
+  const pnlStr   = (trade.pnl >= 0 ? "+" : "") + "$" + Math.abs(trade.pnl).toFixed(2);
 
-  // ── Brownian path (always computed — used as fallback) ────────────────────
+  // Brownian path (always computed — used as fallback)
   const pricePoints = useMemo(
     () => brownianBridge(trade.entry, trade.exit_price, 40, hashStr(trade.id)),
     [trade],
@@ -230,43 +416,23 @@ export function TradeDetailModal({
     pathD += ` C ${mx} ${pyB(pricePoints[i - 1]).toFixed(1)} ${mx} ${pyB(pricePoints[i]).toFixed(1)} ${pxB(i).toFixed(1)} ${pyB(pricePoints[i]).toFixed(1)}`;
   }
   const slBreachBrown = trade.sl != null && (
-    trade.direction === "BUY" ? pricePoints.some(p => p < trade.sl!) : pricePoints.some(p => p > trade.sl!)
+    trade.direction === "BUY"
+      ? pricePoints.some(p => p < trade.sl!)
+      : pricePoints.some(p => p > trade.sl!)
   );
 
-  // ── Candlestick layout ────────────────────────────────────────────────────
-  const candles  = chartData.status === "ok" ? chartData.candles : [];
-  const n        = candles.length;
-  const spacing  = n > 0 ? cW / n : cW;
-  const bodyW    = n > 0 ? Math.max(1, spacing * 0.6) : 6;
-  function cxC(i: number) { return PL + (i + 0.5) * spacing; }
-
-  const entryIdx = n > 0 && trade.opened_at ? closestIdx(candles, trade.opened_at) : 0;
-  const exitIdx  = n > 0 && trade.closed_at  ? closestIdx(candles, trade.closed_at)  : Math.max(0, n - 1);
-
-  const cPrices = candles.flatMap(c => [c.high, c.low]);
-  if (trade.sl) cPrices.push(trade.sl);
-  if (trade.tp) cPrices.push(trade.tp);
-  cPrices.push(trade.entry, trade.exit_price);
-  const cPriceMin = cPrices.length ? Math.min(...cPrices) : trade.entry * 0.999;
-  const cPriceMax = cPrices.length ? Math.max(...cPrices) : trade.entry * 1.001;
-  const cRange    = cPriceMax - cPriceMin || Math.abs(trade.entry) * 0.005 || 0.001;
-  const cPad      = cRange * 0.08;
-  function pyC(v: number) { return PT + cH - ((v - (cPriceMin - cPad)) / (cRange + 2 * cPad)) * cH; }
-
-  const slBreachCandles = trade.sl != null && n > 0 && candles.slice(entryIdx, exitIdx + 1).some(c =>
-    trade.direction === "BUY" ? c.low < trade.sl! : c.high > trade.sl!
-  );
+  // SL breach from real candles
+  const candles   = chartData.status === "ok" ? chartData.candles : [];
+  const n         = candles.length;
+  const entryIdx  = n > 0 && trade.opened_at ? closestIdx(candles, trade.opened_at) : 0;
+  const exitIdx   = n > 0 && trade.closed_at  ? closestIdx(candles, trade.closed_at)  : Math.max(0, n - 1);
+  const slBreachCandles = trade.sl != null && n > 0 &&
+    candles.slice(entryIdx, exitIdx + 1).some(c =>
+      trade.direction === "BUY" ? c.low < trade.sl! : c.high > trade.sl!
+    );
   const slBreach = chartData.status === "ok" ? slBreachCandles : slBreachBrown;
 
-  // Label anchor: keep IN/OUT text inside the SVG viewport
-  function labelAnchor(xPos: number): "start" | "middle" | "end" {
-    if (xPos < PL + 50) return "start";
-    if (xPos > VW - PR - 50) return "end";
-    return "middle";
-  }
-  function labelY(yPos: number, above = true): number {
-    return above ? (yPos < PT + 14 ? yPos + 14 : yPos - 8) : yPos + 14;
-  }
+  const isSimulated = chartData.status === "simulated" || chartData.status === "error";
 
   const nlVerdict = verdict({
     isRevenge: ctx.isRevenge, isOvertrade: ctx.isOvertrade,
@@ -275,8 +441,6 @@ export function TradeDetailModal({
     tp: trade.tp, direction: trade.direction,
     exitPrice: trade.exit_price, dayTradesCount: ctx.dayCount,
   });
-
-  const isSimulated = chartData.status === "simulated" || chartData.status === "error";
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -350,11 +514,10 @@ export function TradeDetailModal({
         <div style={{ padding: "0 22px 14px" }}>
           <div style={{ background: "#1A1916", borderRadius: 12, padding: "10px 4px 6px", position: "relative" }}>
 
-            {/* ── Loading skeleton ───────────────────────────────────────── */}
+            {/* Loading skeleton */}
             {chartData.status === "loading" && (
               <div style={{
-                height: VH,
-                display: "flex", alignItems: "center", justifyContent: "center",
+                height: 230, display: "flex", alignItems: "center", justifyContent: "center",
                 position: "relative", overflow: "hidden", borderRadius: 8,
               }}>
                 <style>{`@keyframes tdm-shim{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
@@ -369,100 +532,31 @@ export function TradeDetailModal({
               </div>
             )}
 
-            {/* ── Real candlestick chart ─────────────────────────────────── */}
-            {chartData.status === "ok" && n > 0 && (() => {
-              const entX = cxC(entryIdx);
-              const extX = cxC(exitIdx);
-              const entY = pyC(trade.entry);
-              const extY = pyC(trade.exit_price);
-              const bandX1 = cxC(Math.min(entryIdx, exitIdx)) - spacing / 2;
-              const bandX2 = cxC(Math.max(entryIdx, exitIdx)) + spacing / 2;
+            {/* ── TradingView Lightweight Charts (real candles) ─────────── */}
+            {chartData.status === "ok" && n > 0 && (
+              <div
+                ref={chartContainerRef}
+                style={{
+                  width: "100%",
+                  height: 230,
+                  background: "#0D0B14",
+                  borderRadius: 8,
+                  overflow: "hidden",
+                }}
+              />
+            )}
 
-              return (
-                <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" height={VH}
-                  preserveAspectRatio="none" style={{ display: "block" }}>
+            {/* No candle data despite "ok" status */}
+            {chartData.status === "ok" && n === 0 && (
+              <div style={{
+                height: 140, display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <span style={{ color: "#3f3f46", fontSize: 12 }}>No candle data for this time window</span>
+              </div>
+            )}
 
-                  {/* Gold band over trade duration */}
-                  <rect x={bandX1} y={PT} width={bandX2 - bandX1} height={cH}
-                    fill="rgba(212,160,23,0.05)" />
-
-                  {/* SL hairline */}
-                  {trade.sl != null && (
-                    <>
-                      <line x1={PL} y1={pyC(trade.sl)} x2={VW - PR} y2={pyC(trade.sl)}
-                        stroke="#E24B4A" strokeWidth={1} strokeDasharray="4 4"
-                        vectorEffect="non-scaling-stroke" />
-                      <text x={VW - PR - 4} y={pyC(trade.sl) - 4}
-                        textAnchor="end" fontSize={8} fill="#E24B4A" fontFamily="sans-serif">
-                        SL {fmtPrice(trade.sl)}
-                      </text>
-                    </>
-                  )}
-
-                  {/* TP hairline */}
-                  {trade.tp != null && (
-                    <>
-                      <line x1={PL} y1={pyC(trade.tp)} x2={VW - PR} y2={pyC(trade.tp)}
-                        stroke="#1D9E75" strokeWidth={1} strokeDasharray="4 4"
-                        vectorEffect="non-scaling-stroke" />
-                      <text x={VW - PR - 4} y={pyC(trade.tp) - 4}
-                        textAnchor="end" fontSize={8} fill="#1D9E75" fontFamily="sans-serif">
-                        TP {fmtPrice(trade.tp)}
-                      </text>
-                    </>
-                  )}
-
-                  {/* Candle bodies + wicks */}
-                  {candles.map((c, i) => {
-                    const x       = cxC(i);
-                    const isGreen = c.close >= c.open;
-                    const color   = isGreen ? "#5DCAA5" : "#F09595";
-                    const bodyTop = pyC(Math.max(c.open, c.close));
-                    const bodyBot = pyC(Math.min(c.open, c.close));
-                    const bodyH   = Math.max(1, bodyBot - bodyTop);
-                    return (
-                      <g key={c.datetime}>
-                        <line x1={x} y1={pyC(c.high)} x2={x} y2={pyC(c.low)}
-                          stroke={color} strokeWidth={1}
-                          vectorEffect="non-scaling-stroke" />
-                        <rect x={x - bodyW / 2} y={bodyTop} width={bodyW} height={bodyH}
-                          fill={color} />
-                      </g>
-                    );
-                  })}
-
-                  {/* Entry vertical marker */}
-                  <line x1={entX} y1={PT} x2={entX} y2={PT + cH}
-                    stroke="rgba(212,160,23,0.55)" strokeWidth={1} strokeDasharray="3 3"
-                    vectorEffect="non-scaling-stroke" />
-
-                  {/* Exit vertical marker */}
-                  <line x1={extX} y1={PT} x2={extX} y2={PT + cH}
-                    stroke={trade.pnl >= 0 ? "rgba(29,158,117,0.55)" : "rgba(226,75,74,0.55)"}
-                    strokeWidth={1} strokeDasharray="3 3"
-                    vectorEffect="non-scaling-stroke" />
-
-                  {/* IN dot + label */}
-                  <circle cx={entX} cy={entY} r={4.5} fill={GOLD} />
-                  <text x={entX} y={labelY(entY)}
-                    textAnchor={labelAnchor(entX)}
-                    fontSize={8} fill={GOLD} fontFamily="sans-serif" fontWeight="700">
-                    IN {fmtPrice(trade.entry)}
-                  </text>
-
-                  {/* OUT dot + label */}
-                  <circle cx={extX} cy={extY} r={4.5} fill={pnlColor} />
-                  <text x={extX} y={labelY(extY)}
-                    textAnchor={labelAnchor(extX)}
-                    fontSize={8} fill={pnlColor} fontFamily="sans-serif" fontWeight="700">
-                    OUT {fmtPrice(trade.exit_price)}
-                  </text>
-                </svg>
-              );
-            })()}
-
-            {/* ── Brownian fallback (simulated / error / no timestamps) ──── */}
-            {(chartData.status === "simulated" || chartData.status === "error") && (
+            {/* ── Brownian fallback ─────────────────────────────────────── */}
+            {isSimulated && (
               <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" height={VH}
                 preserveAspectRatio="none" style={{ display: "block" }}>
 
@@ -518,7 +612,7 @@ export function TradeDetailModal({
               </svg>
             )}
 
-            {/* Simulated badge */}
+            {/* Badge: simulated or error state */}
             {isSimulated && (
               <div style={{
                 position: "absolute", top: 8, right: 10,
@@ -531,8 +625,8 @@ export function TradeDetailModal({
               </div>
             )}
 
-            {/* SL/TP legend row */}
-            {(trade.sl != null || trade.tp != null) && chartData.status !== "loading" && (
+            {/* SL/TP legend — shown for simulated chart */}
+            {isSimulated && (trade.sl != null || trade.tp != null) && (
               <div style={{ display: "flex", gap: 14, padding: "2px 8px 2px", justifyContent: "flex-end" }}>
                 {trade.sl != null && (
                   <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#71717a" }}>

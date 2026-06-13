@@ -82,8 +82,6 @@ const GOLD        = "#D4A017";
 const BG_PAGE     = "#0A0908";
 const BG_PANEL    = "#111110";
 const BORDER      = "1px solid rgba(255,255,255,0.06)";
-const TV_ID       = "replay_tv_advanced";
-const TV_SCRIPT   = "https://s3.tradingview.com/tv.js";
 
 // ── Equity sparkline (Day tab) ────────────────────────────────────────────────
 function EquityLine({ trades, w = 238, h = 60 }: { trades: ReplayTrade[]; w?: number; h?: number }) {
@@ -128,7 +126,6 @@ export default function ReplayPage() {
   const [activeTab, setActiveTab]       = useState<"trade" | "day">("trade");
   const [tvInterval, setTvInterval]     = useState<"1" | "5" | "15" | "60">("5");
 
-  const tvContainerRef = useRef<HTMLDivElement | null>(null);
   const tradeCountRef  = useRef(0);
 
   // ── Auth + fetch ───────────────────────────────────────────────────────────
@@ -183,76 +180,7 @@ export default function ReplayPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // ── TradingView Advanced Chart ────────────────────────────────────────────
-  // Derive the trade date string (drives deps + from/to range)
   const tradeDateStr = selectedTrade?.date ?? selectedTrade?.opened_at?.slice(0, 10) ?? null;
-
-  useEffect(() => {
-    if (!selectedTrade || !tvContainerRef.current) return;
-    const container = tvContainerRef.current;
-    container.innerHTML = `<div id="${TV_ID}" style="height:100%;width:100%"></div>`;
-
-    const symbol = tvSymbol(selectedTrade.pair);
-
-    // Rewind chart to the trade date so history shows at the right time
-    const dateTs = tradeDateStr
-      ? Math.floor(new Date(tradeDateStr + "T00:00:00Z").getTime() / 1000)
-      : Math.floor(Date.now() / 1000) - 86400;
-    const fromTs = dateTs - 3600;   // 1 h before day start
-    const toTs   = dateTs + 86400;  // full trading day
-
-    type TVWidgetInstance = {
-      onChartReady: (cb: () => void) => void;
-      chart: () => { setVisibleRange: (range: { from: number; to: number }) => void };
-    };
-    type TVLib = { widget: new (opts: object) => TVWidgetInstance };
-
-    const init = () => {
-      const TV = (window as unknown as { TradingView?: TVLib }).TradingView;
-      if (!TV) return;
-      const wgt = new TV.widget({
-        autosize:          true,
-        symbol,
-        interval:          tvInterval,
-        timezone:          "UTC",
-        theme:             "dark",
-        style:             "1",
-        locale:            "en",
-        toolbar_bg:        "#111110",
-        enable_publishing: false,
-        hide_top_toolbar:  false,
-        hide_legend:       false,
-        save_image:        false,
-        container_id:      TV_ID,
-        studies:           ["Volume@tv-basicstudies"],
-        withdateranges:    true,
-      });
-      // Option A — navigate to trade date once chart is ready
-      try {
-        wgt.onChartReady(() => {
-          try {
-            wgt.chart().setVisibleRange({ from: fromTs, to: toTs });
-          } catch { /* setVisibleRange not available on free embed */ }
-        });
-      } catch { /* onChartReady not available — free embed limitation */ }
-    };
-
-    if ((window as unknown as { TradingView?: TVLib }).TradingView) {
-      init();
-    } else {
-      const existing = document.querySelector(`script[src="${TV_SCRIPT}"]`);
-      if (!existing) {
-        const s = document.createElement("script");
-        s.src = TV_SCRIPT; s.async = true; s.onload = init;
-        document.head.appendChild(s);
-      } else {
-        const poll = window.setInterval(() => {
-          if ((window as unknown as { TradingView?: TVLib }).TradingView) { init(); window.clearInterval(poll); }
-        }, 100);
-        return () => window.clearInterval(poll);
-      }
-    }
-  }, [selectedTrade?.pair, tradeDateStr, tvInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Behavioral context ────────────────────────────────────────────────────
   const behavCtx = useMemo(() => {
@@ -334,6 +262,16 @@ export default function ReplayPage() {
 
   const t = selectedTrade;
   const pnlColor = (n: number) => n >= 0 ? "#5DCAA5" : "#E24B4A";
+
+  // ── TradingView iframe src ─────────────────────────────────────────────────
+  let tvSrc: string | null = null;
+  if (t && tradeDateStr) {
+    const [yr, mo, dy] = tradeDateStr.split("-").map(Number);
+    const fromTs = Math.floor(new Date(yr, mo - 1, dy, 6, 0, 0).getTime() / 1000);
+    const toTs   = Math.floor(new Date(yr, mo - 1, dy, 22, 0, 0).getTime() / 1000);
+    const sym    = tvSymbol(t.pair);
+    tvSrc = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(sym)}&interval=${tvInterval}&from=${fromTs}&to=${toTs}&theme=dark&hide_side_toolbar=0`;
+  }
 
   return (
     <div style={{ height: "100dvh", overflow: "hidden", background: BG_PAGE, display: "flex", flexDirection: "column" }}>
@@ -429,8 +367,16 @@ export default function ReplayPage() {
 
           {/* TradingView chart — fills all remaining height */}
           <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
-            <div ref={tvContainerRef} style={{ width: "100%", height: "100%" }} />
-            {!selectedTrade && (
+            {tvSrc ? (
+              <iframe
+                key={`${t!.id}-${tvInterval}`}
+                src={tvSrc}
+                width="100%"
+                height="100%"
+                style={{ border: "none", display: "block" }}
+                allowFullScreen
+              />
+            ) : (
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#0D0C0A" }}>
                 <span style={{ color: "#3f3f46", fontSize: 13 }}>Select a trade to load the chart</span>
               </div>

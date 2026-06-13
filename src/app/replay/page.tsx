@@ -270,7 +270,7 @@ export default function ReplayPage() {
     const fromTs = Math.floor(new Date(yr, mo - 1, dy, 6, 0, 0).getTime() / 1000);
     const toTs   = Math.floor(new Date(yr, mo - 1, dy, 22, 0, 0).getTime() / 1000);
     const sym    = tvSymbol(t.pair);
-    tvSrc = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(sym)}&interval=${tvInterval}&from=${fromTs}&to=${toTs}&theme=dark&hide_side_toolbar=0`;
+    tvSrc = `https://www.tradingview.com/widgetembed/?frameElementId=tv_replay&symbol=${encodeURIComponent(sym)}&interval=${tvInterval}&from=${fromTs}&to=${toTs}&theme=dark&style=1&timezone=UTC&withdateranges=1&hidesidetoolbar=0&hidetoptoolbar=0&symboledit=0&saveimage=0&toolbarbg=111110&studies=Volume%40tv-basicstudies`;
   }
 
   return (

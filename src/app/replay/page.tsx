@@ -22,6 +22,11 @@ function fmtPrice(p: number): string {
   if (p >= 10)  return p.toFixed(3);
   return p.toFixed(5);
 }
+function timeLabel(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${d.getUTCHours().toString().padStart(2, "0")}:${d.getUTCMinutes().toString().padStart(2, "0")}`;
+}
 function holdDuration(a: string | null | undefined, b: string | null | undefined): string {
   if (!a || !b) return "—";
   const diff = (new Date(b).getTime() - new Date(a).getTime()) / 60000;
@@ -30,11 +35,6 @@ function holdDuration(a: string | null | undefined, b: string | null | undefined
   if (diff < 60) return `${Math.round(diff)}m`;
   const h = Math.floor(diff / 60), m = Math.round(diff % 60);
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-function toTDDate(isoStr: string, offsetMin = 0): string {
-  const d = new Date(new Date(isoStr).getTime() + offsetMin * 60000);
-  const z = (n: number) => n.toString().padStart(2, "0");
-  return `${d.getUTCFullYear()}-${z(d.getUTCMonth()+1)}-${z(d.getUTCDate())} ${z(d.getUTCHours())}:${z(d.getUTCMinutes())}:00`;
 }
 function buildVerdict(opts: {
   isRevenge: boolean; isOvertrade: boolean; session: string; riskRatio: number;
@@ -47,52 +47,89 @@ function buildVerdict(opts: {
   if (isRevenge && pnl > 0)   return `Revenge entry in ${session} that worked — process was reactive, not systematic.`;
   if (isOvertrade && pnl < 0) return `${dayCount}-trade session with another loss. Overtrading erodes edge.`;
   if (riskRatio > 1.5 && pnl < 0) return `Lot size ${Math.round(riskRatio * 100 - 100)}% above average on a losing trade.`;
-  if (runningPnl < -50 && pnl < 0) return `Taken while $${Math.abs(runningPnl).toFixed(0)} down. Consider a daily loss limit.`;
+  if (runningPnl < -50 && pnl < 0) return `Down $${Math.abs(runningPnl).toFixed(0)} before this — consider a daily loss limit.`;
   if (hitTP && !isRevenge && riskRatio <= 1.2) return `TP reached in ${session}. Clean entry, textbook execution.`;
   if (pnl > 0 && !isRevenge && !isOvertrade && riskRatio <= 1.2) return `Clean win in ${session}. No behavioral flags.`;
   if (pnl < 0 && !isRevenge && !isOvertrade) return `Standard loss in ${session}. No behavioral flags.`;
   return `Standard trade in ${session}. Review your entry trigger and risk context.`;
 }
 
-// ── LW Charts types ──────────────────────────────────────────────────────────
-interface LWCMarker { time: number; position: string; color: string; shape: string; text: string; size?: number; }
-interface LWCSeries {
-  setData(d: { time: number; open: number; high: number; low: number; close: number }[]): void;
-  setMarkers(m: LWCMarker[]): void;
-  createPriceLine(o: { price: number; color: string; lineWidth: number; lineStyle: number; axisLabelVisible: boolean; title: string }): void;
+// Map broker symbols → TradingView symbols
+function tvSymbol(raw: string): string {
+  const s = raw.toUpperCase().trim();
+  const base = s.length > 5 && s.endsWith("M") ? s.slice(0, -1) : s;
+  if (base === "XAUUSD") return "OANDA:XAUUSD";
+  if (base === "XAGUSD") return "OANDA:XAGUSD";
+  if (base === "BTCUSD"  || base === "BTCUSDT")  return "BINANCE:BTCUSDT";
+  if (base === "ETHUSD"  || base === "ETHUSDT")  return "BINANCE:ETHUSDT";
+  if (base === "BNBUSD"  || base === "BNBUSDT")  return "BINANCE:BNBUSDT";
+  if (base === "XRPUSD"  || base === "XRPUSDT")  return "BINANCE:XRPUSDT";
+  if (base === "US30"    || base === "DJ30")      return "FOREXCOM:US30";
+  if (base.startsWith("NAS") || base === "US100") return "FOREXCOM:NAS100";
+  if (base === "SPX500"  || base === "SP500" || base === "US500") return "FOREXCOM:SPX500";
+  if (base.startsWith("DAX"))                     return "FOREXCOM:DEU30";
+  if (base.startsWith("FTSE") || base === "UK100") return "FOREXCOM:UK100";
+  if (base === "JPN225"  || base.includes("NIKKEI")) return "FOREXCOM:JPN225";
+  if (base === "USOIL"   || base === "WTI")       return "NYMEX:CL1!";
+  if (base === "UKOIL"   || base === "BRENT")     return "TVC:UKOIL";
+  if (s.includes("/"))  return `FX:${s.replace("/", "")}`;
+  if (base.length === 6) return `FX:${base}`;
+  return base;
 }
-interface LWCChart {
-  addCandlestickSeries(o: object): LWCSeries;
-  timeScale(): { fitContent(): void; setVisibleRange(r: { from: number; to: number }): void };
-  priceScale(id: string): { applyOptions(o: object): void };
-  remove(): void;
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const GOLD        = "#D4A017";
+const BG_PAGE     = "#0A0908";
+const BG_PANEL    = "#111110";
+const BORDER      = "1px solid rgba(255,255,255,0.06)";
+const TV_ID       = "replay_tv_advanced";
+const TV_SCRIPT   = "https://s3.tradingview.com/tv.js";
+
+// ── Equity sparkline (Day tab) ────────────────────────────────────────────────
+function EquityLine({ trades, w = 238, h = 60 }: { trades: ReplayTrade[]; w?: number; h?: number }) {
+  if (trades.length === 0) return null;
+  const pts: { x: number; y: number }[] = [{ x: 0, y: 0 }];
+  let cum = 0;
+  trades.forEach((t, i) => { cum += t.pnl; pts.push({ x: i + 1, y: cum }); });
+  const minY = Math.min(...pts.map(p => p.y));
+  const maxY = Math.max(...pts.map(p => p.y));
+  const rY   = Math.max(maxY - minY, 0.01);
+  const rX   = pts.length - 1 || 1;
+  const pad  = 4;
+  const px   = (x: number) => pad + (x / rX) * (w - pad * 2);
+  const py   = (y: number) => h - pad - ((y - minY) / rY) * (h - pad * 2);
+  const d    = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${px(p.x).toFixed(1)} ${py(p.y).toFixed(1)}`).join(" ");
+  const color = cum >= 0 ? "#5DCAA5" : "#E24B4A";
+  return (
+    <svg width={w} height={h} style={{ display: "block" }}>
+      <line x1={pad} y1={py(0)} x2={w - pad} y2={py(0)} stroke="rgba(255,255,255,0.07)" strokeWidth={1} strokeDasharray="3 3" />
+      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+    </svg>
+  );
 }
-interface LWCLib { createChart(el: HTMLElement, o: object): LWCChart; }
 
-const LW_CDN = "https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js";
-const GOLD = "#D4A017";
-
-interface Candle { datetime: string; open: number; high: number; low: number; close: number; }
-type ChartState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ok"; candles: Candle[]; forId: string }
-  | { status: "error"; reason: string }
-  | { status: "simulated" };
+// ── Stat row (right panel) ────────────────────────────────────────────────────
+function StatRow({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+      <span style={{ fontSize: 11, color: "#71717a" }}>{label}</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: warn ? "#f87171" : "#e4e4e7" }}>{value}</span>
+    </div>
+  );
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ReplayPage() {
-  const [user, setUser]               = useState<User | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [trades, setTrades]           = useState<ReplayTrade[]>([]);
+  const [user, setUser]                 = useState<User | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [trades, setTrades]             = useState<ReplayTrade[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [tradeIndex, setTradeIndex]   = useState(0);
-  const [scriptReady, setScriptReady] = useState(false);
-  const [chartData, setChartData]     = useState<ChartState>({ status: "idle" });
+  const [tradeIndex, setTradeIndex]     = useState(0);
+  const [activeTab, setActiveTab]       = useState<"trade" | "day">("trade");
+  const [tvInterval, setTvInterval]     = useState<"1" | "5" | "15" | "60">("5");
 
-  const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const chartInstanceRef  = useRef<LWCChart | null>(null);
-  const tradeCountRef     = useRef(0);
+  const tvContainerRef = useRef<HTMLDivElement | null>(null);
+  const tradeCountRef  = useRef(0);
 
   // ── Auth + fetch ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -103,7 +140,7 @@ export default function ReplayPage() {
       const { data, error: dbErr } = await sb
         .from("trades").select("*")
         .eq("user_id", u.id).order("date", { ascending: false });
-      if (dbErr) console.error("[replay] fetch:", dbErr.message);
+      if (dbErr) console.error("[replay]", dbErr.message);
       if (data?.length) {
         setTrades(data as ReplayTrade[]);
         if (data[0].date) setSelectedDate(data[0].date as string);
@@ -129,10 +166,7 @@ export default function ReplayPage() {
       });
   }, [trades, selectedDate]);
 
-  // Keep ref in sync for keyboard handler
   useEffect(() => { tradeCountRef.current = dayTrades.length; }, [dayTrades.length]);
-
-  // Reset to first trade when date changes
   useEffect(() => { setTradeIndex(0); }, [selectedDate]);
 
   const selectedTrade = dayTrades[tradeIndex] ?? null;
@@ -149,150 +183,53 @@ export default function ReplayPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // ── Load LW Charts script ─────────────────────────────────────────────────
+  // ── TradingView Advanced Chart ────────────────────────────────────────────
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if ((window as unknown as { LightweightCharts?: unknown }).LightweightCharts) { setScriptReady(true); return; }
-    const existing = document.querySelector(`script[src="${LW_CDN}"]`);
-    if (existing) {
-      const poll = setInterval(() => {
-        if ((window as unknown as { LightweightCharts?: unknown }).LightweightCharts) { setScriptReady(true); clearInterval(poll); }
-      }, 100);
-      return () => clearInterval(poll);
-    }
-    const s = document.createElement("script");
-    s.src = LW_CDN; s.async = true; s.onload = () => setScriptReady(true);
-    document.head.appendChild(s);
-  }, []);
+    if (!selectedTrade || !tvContainerRef.current) return;
+    const container = tvContainerRef.current;
+    // Clear previous widget and inject fresh container div
+    container.innerHTML = `<div id="${TV_ID}" style="height:100%;width:100%"></div>`;
 
-  // ── Candle fetch ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!selectedTrade) return;
-    const tradeId = selectedTrade.id;
-    let start: string, end: string;
-    if (selectedTrade.opened_at) {
-      const closeRef = selectedTrade.closed_at ?? selectedTrade.opened_at;
-      start = toTDDate(selectedTrade.opened_at, -30);
-      end   = toTDDate(closeRef, 30);
-    } else if (selectedTrade.date) {
-      start = `${selectedTrade.date} 06:00:00`;
-      end   = `${selectedTrade.date} 18:00:00`;
-    } else {
-      setChartData({ status: "simulated" });
-      return;
-    }
-    setChartData({ status: "loading" });
-    const p = new URLSearchParams({ symbol: selectedTrade.pair, interval: "5min", start_date: start, end_date: end });
-    fetch(`/api/twelvedata/candles?${p}`)
-      .then(r => r.json())
-      .then((json: { candles?: Candle[]; error?: string }) => {
-        if (json.error === "no_api_key") setChartData({ status: "simulated" });
-        else if (json.error || !json.candles?.length) setChartData({ status: "error", reason: json.error ?? "empty" });
-        else setChartData({ status: "ok", candles: json.candles, forId: tradeId });
-      })
-      .catch(() => setChartData({ status: "error", reason: "fetch_failed" }));
-  }, [selectedTrade?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const symbol = tvSymbol(selectedTrade.pair);
+    type TVLib = { widget: new (opts: object) => unknown };
 
-  // ── Chart creation ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!scriptReady || chartData.status !== "ok") return;
-    if (!selectedTrade || chartData.forId !== selectedTrade.id) return;
-    if (!chartContainerRef.current) return;
-    const candles = chartData.candles;
-    if (!candles.length) return;
-
-    const LW = (window as unknown as { LightweightCharts: LWCLib }).LightweightCharts;
-    if (!LW) return;
-
-    if (chartInstanceRef.current) {
-      try { chartInstanceRef.current.remove(); } catch { /**/ }
-      chartInstanceRef.current = null;
-    }
-
-    const container = chartContainerRef.current;
-    const chart = LW.createChart(container, {
-      width:  container.clientWidth  || 700,
-      height: container.clientHeight || 420,
-      layout: {
-        background: { type: "solid", color: "#0D0B14" },
-        textColor: "#52525b", fontSize: 10,
-      },
-      grid: {
-        vertLines: { color: "rgba(255,255,255,0.03)" },
-        horzLines: { color: "rgba(255,255,255,0.03)" },
-      },
-      crosshair: { mode: 1 },
-      rightPriceScale: { borderColor: "rgba(255,255,255,0.08)", textColor: "#52525b" },
-      timeScale: { borderColor: "rgba(255,255,255,0.08)", timeVisible: true, secondsVisible: false, textColor: "#52525b" },
-      handleScroll: true,
-      handleScale:  true,
-    });
-    chartInstanceRef.current = chart;
-
-    const series = chart.addCandlestickSeries({
-      upColor: "#5DCAA5", downColor: "#F09595",
-      borderUpColor: "#5DCAA5", borderDownColor: "#F09595",
-      wickUpColor: "#5DCAA5", wickDownColor: "#F09595",
-    });
-
-    const seriesData = candles.map(c => ({
-      time:  Math.floor(new Date(c.datetime.replace(" ", "T") + "Z").getTime() / 1000),
-      open: c.open, high: c.high, low: c.low, close: c.close,
-    }));
-    series.setData(seriesData);
-
-    // Entry price line — gold dashed
-    series.createPriceLine({ price: selectedTrade.entry, color: GOLD, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "Entry" });
-    // Exit price line — green/red dashed
-    const exitColor = selectedTrade.pnl >= 0 ? "#5DCAA5" : "#E24B4A";
-    series.createPriceLine({ price: selectedTrade.exit_price, color: exitColor, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "Exit" });
-    // SL / TP lines
-    if (selectedTrade.sl != null && selectedTrade.sl !== 0)
-      series.createPriceLine({ price: selectedTrade.sl, color: "#E24B4A", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "SL" });
-    if (selectedTrade.tp != null && selectedTrade.tp !== 0)
-      series.createPriceLine({ price: selectedTrade.tp, color: "#5DCAA5", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "TP" });
-
-    chart.priceScale("right").applyOptions({ autoScale: true });
-
-    // Markers ONLY for trades with exact timestamps — no approximation for CSV trades
-    if (selectedTrade.opened_at) {
-      const markers: LWCMarker[] = [];
-      markers.push({
-        time: Math.floor(new Date(selectedTrade.opened_at).getTime() / 1000),
-        position: "belowBar", color: GOLD, shape: "arrowUp",
-        text: `IN ${fmtPrice(selectedTrade.entry)}`, size: 2,
+    const init = () => {
+      const TV = (window as unknown as { TradingView?: TVLib }).TradingView;
+      if (!TV) return;
+      new TV.widget({
+        autosize:          true,
+        symbol,
+        interval:          tvInterval,
+        timezone:          "UTC",
+        theme:             "dark",
+        style:             "1",
+        locale:            "en",
+        toolbar_bg:        "#111110",
+        enable_publishing: false,
+        hide_top_toolbar:  false,
+        hide_legend:       false,
+        save_image:        false,
+        container_id:      TV_ID,
+        studies:           ["Volume@tv-basicstudies"],
       });
-      if (selectedTrade.closed_at) {
-        markers.push({
-          time: Math.floor(new Date(selectedTrade.closed_at).getTime() / 1000),
-          position: "aboveBar", color: exitColor, shape: "arrowDown",
-          text: `OUT ${fmtPrice(selectedTrade.exit_price)}`, size: 2,
-        });
-      }
-      markers.sort((a, b) => a.time - b.time);
-      try { series.setMarkers(markers); } catch { /**/ }
-    }
-
-    // Visible range
-    if (selectedTrade.opened_at) {
-      const eU = Math.floor(new Date(selectedTrade.opened_at).getTime() / 1000);
-      const xU = selectedTrade.closed_at ? Math.floor(new Date(selectedTrade.closed_at).getTime() / 1000) : eU + 3600;
-      const pad = 30 * 60;
-      try {
-        chart.timeScale().setVisibleRange({
-          from: Math.max(seriesData[0].time, eU - pad),
-          to:   Math.min(seriesData[seriesData.length - 1].time, xU + pad),
-        });
-      } catch { chart.timeScale().fitContent(); }
-    } else {
-      chart.timeScale().fitContent();
-    }
-
-    return () => {
-      try { chart.remove(); } catch { /**/ }
-      chartInstanceRef.current = null;
     };
-  }, [scriptReady, chartData, selectedTrade]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if ((window as unknown as { TradingView?: TVLib }).TradingView) {
+      init();
+    } else {
+      const existing = document.querySelector(`script[src="${TV_SCRIPT}"]`);
+      if (!existing) {
+        const s = document.createElement("script");
+        s.src = TV_SCRIPT; s.async = true; s.onload = init;
+        document.head.appendChild(s);
+      } else {
+        const poll = window.setInterval(() => {
+          if ((window as unknown as { TradingView?: TVLib }).TradingView) { init(); window.clearInterval(poll); }
+        }, 100);
+        return () => window.clearInterval(poll);
+      }
+    }
+  }, [selectedTrade?.pair, tvInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Behavioral context ────────────────────────────────────────────────────
   const behavCtx = useMemo(() => {
@@ -311,235 +248,349 @@ export default function ReplayPage() {
     } else isRevenge = prev.length > 0 && prev[prev.length - 1].pnl < 0;
     const avgLot = dayTrades.reduce((s, x) => s + x.lot, 0) / dayTrades.length;
     return {
-      idx,
-      runningPnl,
-      isRevenge,
-      isOvertrade: dayTrades.length >= 4,
-      riskRatio:   avgLot > 0 ? t.lot / avgLot : 1,
+      idx, runningPnl, isRevenge,
+      isOvertrade:  dayTrades.length >= 4,
+      riskRatio:    avgLot > 0 ? t.lot / avgLot : 1,
       sessionLabel: t.opened_at ? sessionFromHour(new Date(t.opened_at).getUTCHours()) : (t.session || "London"),
-      dayCount: dayTrades.length,
+      dayCount:     dayTrades.length,
     };
   }, [selectedTrade, dayTrades]);
 
+  // ── Day stats ──────────────────────────────────────────────────────────────
+  const dayStats = useMemo(() => {
+    if (!dayTrades.length) return null;
+    const pnl  = dayTrades.reduce((s, t) => s + t.pnl, 0);
+    const wins = dayTrades.filter(t => t.pnl > 0).length;
+    const sessions = [...new Set(dayTrades.map(t =>
+      t.opened_at ? sessionFromHour(new Date(t.opened_at).getUTCHours()) : t.session || "Unknown"
+    ))];
+    let revengeCount = 0;
+    for (let i = 1; i < dayTrades.length; i++) {
+      const prev = dayTrades[i - 1], curr = dayTrades[i];
+      if (prev.pnl < 0 && curr.opened_at && prev.closed_at) {
+        const diff = (new Date(curr.opened_at).getTime() - new Date(prev.closed_at).getTime()) / 60000;
+        if (diff >= 0 && diff <= 10) revengeCount++;
+      } else if (prev.pnl < 0 && !curr.opened_at) revengeCount++;
+    }
+    return { pnl, wins, winRate: (wins / dayTrades.length) * 100, sessions, revengeCount, isOvertrade: dayTrades.length >= 4, total: dayTrades.length };
+  }, [dayTrades]);
+
+  // ── Execution timeline positions ──────────────────────────────────────────
+  const execTimeline = useMemo(() => {
+    const t = selectedTrade;
+    if (!t?.opened_at) return null;
+    const entryMs  = new Date(t.opened_at).getTime();
+    const exitMs   = t.closed_at ? new Date(t.closed_at).getTime() : entryMs + 3600000;
+    const spanMs   = Math.max(exitMs - entryMs, 600000); // min 10 min window
+    const startMs  = entryMs - spanMs * 0.25;
+    const totalMs  = (exitMs + spanMs * 0.25) - startMs;
+    return {
+      entryPct: ((entryMs - startMs) / totalMs) * 100,
+      exitPct:  ((exitMs  - startMs) / totalMs) * 100,
+    };
+  }, [selectedTrade]);
+
+  // ── NIRI Verdict ──────────────────────────────────────────────────────────
+  const verdict = selectedTrade && behavCtx ? buildVerdict({
+    isRevenge: behavCtx.isRevenge, isOvertrade: behavCtx.isOvertrade,
+    session: behavCtx.sessionLabel, riskRatio: behavCtx.riskRatio,
+    pnl: selectedTrade.pnl, runningPnl: behavCtx.runningPnl,
+    tp: selectedTrade.tp, direction: selectedTrade.direction,
+    exitPrice: selectedTrade.exit_price, dayCount: behavCtx.dayCount,
+  }) : null;
+
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) return (
-    <div style={{ minHeight: "100vh", background: "#F8F7F4" }}>
+    <div style={{ height: "100dvh", background: BG_PAGE, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <Sidebar user={null} onSignOut={() => {}} />
-      <div className="md:ml-[240px] pt-14 md:pt-0" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <p style={{ color: "#A9A39A", fontSize: 13 }}>Loading trades…</p>
-      </div>
+      <p style={{ color: "#52525b", fontSize: 13 }}>Loading…</p>
     </div>
   );
 
   function handleLogout() { createClient().auth.signOut().then(() => { window.location.href = "/login"; }); }
 
   const t = selectedTrade;
-  const pnlColor = t ? (t.pnl >= 0 ? "#0F6E56" : "#C0392B") : "#A9A39A";
-
-  const verdict = t && behavCtx ? buildVerdict({
-    isRevenge: behavCtx.isRevenge, isOvertrade: behavCtx.isOvertrade,
-    session: behavCtx.sessionLabel, riskRatio: behavCtx.riskRatio,
-    pnl: t.pnl, runningPnl: behavCtx.runningPnl,
-    tp: t.tp, direction: t.direction,
-    exitPrice: t.exit_price, dayCount: behavCtx.dayCount,
-  }) : null;
-
-  // ── Shared card style ─────────────────────────────────────────────────────
-  const card: React.CSSProperties = {
-    background: "#FFFFFF",
-    borderRadius: 10,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    padding: "10px 14px",
-  };
+  const pnlColor = (n: number) => n >= 0 ? "#5DCAA5" : "#E24B4A";
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F8F7F4", fontFamily: "inherit" }}>
+    <div style={{ height: "100dvh", overflow: "hidden", background: BG_PAGE, display: "flex", flexDirection: "column" }}>
       <Sidebar user={user} onSignOut={handleLogout} />
-      <div className="md:ml-[240px] pt-14 md:pt-0">
-        <main style={{ maxWidth: 880, margin: "0 auto", padding: "24px 20px" }}>
 
-          {/* ── Header row ─────────────────────────────────────────────── */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+      {/* ── 3-column flex container ──────────────────────────────────────── */}
+      <div className="md:ml-[240px] pt-14 md:pt-0" style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
 
-            {/* Left: trade identity + navigation */}
-            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-              {/* Pair */}
-              <span style={{ fontSize: 18, fontWeight: 600, color: "#1A1916", letterSpacing: "-0.01em" }}>
-                {t?.pair ?? "—"}
-              </span>
+        {/* ── LEFT PANEL (200px) ──────────────────────────────────────── */}
+        <div style={{ width: 200, flexShrink: 0, borderRight: BORDER, background: BG_PANEL, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-              {/* Direction badge */}
-              {t && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5,
-                  background: t.direction === "BUY" ? "#E8F4EE" : "#FDE8E8",
-                  color:      t.direction === "BUY" ? "#0F6E56"  : "#C0392B",
-                }}>{t.direction}</span>
-              )}
-
-              {/* P&L */}
-              {t && (
-                <span style={{ fontSize: 14, fontWeight: 600, color: pnlColor }}>
-                  {fmtPnl(t.pnl)}
-                </span>
-              )}
-
-              {/* Trade X of Y */}
-              {dayTrades.length > 0 && (
-                <span style={{ fontSize: 12, color: "#A9A39A" }}>
-                  Trade {tradeIndex + 1} of {dayTrades.length}
-                </span>
-              )}
-
-              {/* Nav arrows */}
-              <div style={{ display: "flex", gap: 4 }}>
-                <button
-                  onClick={() => setTradeIndex(i => Math.max(0, i - 1))}
-                  disabled={tradeIndex === 0}
-                  style={{
-                    background: "#FFFFFF", border: "1px solid #E5E5E5",
-                    borderRadius: 8, padding: "4px 10px", cursor: tradeIndex === 0 ? "not-allowed" : "pointer",
-                    opacity: tradeIndex === 0 ? 0.35 : 1,
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.06)", fontSize: 14, lineHeight: 1,
-                    color: "#1A1916",
-                  }}
-                  aria-label="Previous trade"
-                >◀</button>
-                <button
-                  onClick={() => setTradeIndex(i => Math.min(dayTrades.length - 1, i + 1))}
-                  disabled={tradeIndex >= dayTrades.length - 1}
-                  style={{
-                    background: "#FFFFFF", border: "1px solid #E5E5E5",
-                    borderRadius: 8, padding: "4px 10px",
-                    cursor: tradeIndex >= dayTrades.length - 1 ? "not-allowed" : "pointer",
-                    opacity: tradeIndex >= dayTrades.length - 1 ? 0.35 : 1,
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.06)", fontSize: 14, lineHeight: 1,
-                    color: "#1A1916",
-                  }}
-                  aria-label="Next trade"
-                >▶</button>
-              </div>
-
-            </div>
-
-            {/* Right: date picker */}
+          {/* Date picker */}
+          <div style={{ padding: "10px 10px 8px", borderBottom: BORDER, flexShrink: 0 }}>
             <select
               value={selectedDate}
               onChange={e => setSelectedDate(e.target.value)}
-              style={{
-                background: "#FFFFFF", border: "1px solid #E5E5E5",
-                borderRadius: 8, padding: "6px 10px",
-                fontSize: 11, color: "#1A1916", outline: "none", cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-              }}
+              style={{ width: "100%", background: "#1A1917", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 7, padding: "6px 8px", fontSize: 11, color: "#e4e4e7", outline: "none", cursor: "pointer" }}
             >
-              {!tradeDays.length && <option value="">No trades yet</option>}
+              {!tradeDays.length && <option value="">No trades</option>}
               {tradeDays.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
 
-          {/* ── Chart ─────────────────────────────────────────────────── */}
-          <div
-            className="h-[240px] md:h-[420px]"
-            style={{ background: "#0D0B14", borderRadius: 12, overflow: "hidden", position: "relative" }}
-          >
-            <style>{`@keyframes rp-shim{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
+          {/* Playback label */}
+          <div style={{ padding: "7px 10px 3px", flexShrink: 0 }}>
+            <span style={{ fontSize: 9, color: "#3f3f46", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700 }}>Playback</span>
+          </div>
 
-            {/* Loading shimmer */}
-            {chartData.status === "loading" && (
-              <>
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.02),transparent)", animation: "rp-shim 1.8s ease-in-out infinite" }} />
-                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ color: "#3f3f46", fontSize: 12 }}>Fetching market data…</span>
+          {/* Trade list */}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {dayTrades.length === 0 ? (
+              <div style={{ padding: "12px 10px", color: "#3f3f46", fontSize: 11 }}>No trades on this day.</div>
+            ) : dayTrades.map((trade, idx) => {
+              const isSel = tradeIndex === idx;
+              const timeRange = trade.opened_at
+                ? `${timeLabel(trade.opened_at)}${trade.closed_at ? ` – ${timeLabel(trade.closed_at)}` : ""}`
+                : null;
+              return (
+                <div key={trade.id}>
+                  {/* Trade row */}
+                  <div
+                    onClick={() => setTradeIndex(idx)}
+                    style={{
+                      padding: "9px 10px", cursor: "pointer",
+                      background:  isSel ? "rgba(212,160,23,0.07)" : "transparent",
+                      borderLeft: `2px solid ${isSel ? GOLD : "transparent"}`,
+                      borderBottom: BORDER,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#e4e4e7" }}>{trade.pair}</span>
+                        <span style={{
+                          fontSize: 8, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+                          background: trade.direction === "BUY" ? "rgba(93,202,165,0.14)" : "rgba(240,149,149,0.14)",
+                          color:      trade.direction === "BUY" ? "#5DCAA5" : "#F09595",
+                        }}>{trade.direction}</span>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: pnlColor(trade.pnl) }}>{fmtPnl(trade.pnl)}</span>
+                    </div>
+                    {timeRange && <div style={{ fontSize: 9, color: "#52525b" }}>{timeRange}</div>}
+                  </div>
+
+                  {/* Execution rows (expanded when selected) */}
+                  {isSel && (
+                    <div style={{ background: "#0D0C0A", borderBottom: BORDER }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px 4px 18px" }}>
+                        <span style={{ fontSize: 8, color: GOLD, fontWeight: 700, width: 22, flexShrink: 0 }}>IN</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 10, color: "#e4e4e7", fontWeight: 600 }}>{fmtPrice(trade.entry)}</div>
+                          {trade.opened_at && <div style={{ fontSize: 9, color: "#52525b" }}>{timeLabel(trade.opened_at)}</div>}
+                        </div>
+                        <span style={{ fontSize: 9, color: "#52525b", flexShrink: 0 }}>{trade.lot}L</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px 6px 18px" }}>
+                        <span style={{ fontSize: 8, fontWeight: 700, width: 22, flexShrink: 0, color: pnlColor(trade.pnl) }}>OUT</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 10, color: "#e4e4e7", fontWeight: 600 }}>{fmtPrice(trade.exit_price)}</div>
+                          {trade.closed_at && <div style={{ fontSize: 9, color: "#52525b" }}>{timeLabel(trade.closed_at)}</div>}
+                        </div>
+                        <span style={{ fontSize: 9, color: "#52525b", flexShrink: 0 }}>{trade.lot}L</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </>
-            )}
+              );
+            })}
+          </div>
+        </div>
 
-            {/* LW Chart */}
-            {chartData.status === "ok" && chartData.candles.length > 0 && chartData.forId === selectedTrade?.id && (
-              <div ref={chartContainerRef} style={{ width: "100%", height: "100%" }} />
-            )}
+        {/* ── CENTER PANEL (flex-1) ────────────────────────────────────── */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: BG_PAGE, overflow: "hidden" }}>
 
-            {/* No candles */}
-            {chartData.status === "ok" && chartData.candles.length === 0 && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
-                <span style={{ color: "#3f3f46", fontSize: 13 }}>No candle data for this window</span>
+          {/* TradingView chart — fills all remaining height */}
+          <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
+            <div ref={tvContainerRef} style={{ width: "100%", height: "100%" }} />
+            {!selectedTrade && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#0D0C0A" }}>
+                <span style={{ color: "#3f3f46", fontSize: 13 }}>Select a trade to load the chart</span>
               </div>
-            )}
-
-            {/* No data / simulated */}
-            {(chartData.status === "simulated" || chartData.status === "error") && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8 }}>
-                <span style={{ color: "#3f3f46", fontSize: 13 }}>No market data available</span>
-                <span style={{ fontSize: 11, color: "#27272a" }}>
-                  {chartData.status === "error" ? chartData.reason : "Add TWELVEDATA_API_KEY to enable live charts"}
-                </span>
-              </div>
-            )}
-
-            {/* Idle / no trade */}
-            {(chartData.status === "idle" || !selectedTrade) && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ color: "#3f3f46", fontSize: 13 }}>
-                  {!trades.length ? "No trades yet — import MT5 history to get started" : "Select a date to view trades"}
-                </span>
-              </div>
-            )}
-
-            {/* Date-fallback badge */}
-            {chartData.status === "ok" && t && !t.opened_at && (
-              <div style={{
-                position: "absolute", top: 10, right: 12,
-                fontSize: 9, padding: "2px 8px", borderRadius: 100,
-                background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.07)",
-                color: "#71717a", letterSpacing: "0.04em",
-              }}>full day · no exact time</div>
             )}
           </div>
 
-          {/* ── Analysis section ─────────────────────────────────────── */}
-          {t && behavCtx && (
-            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* Timeframe buttons */}
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, padding: "5px 12px", borderTop: BORDER, background: BG_PANEL }}>
+            {(["1", "5", "15", "60"] as const).map(tf => (
+              <button
+                key={tf}
+                onClick={() => setTvInterval(tf)}
+                style={{
+                  padding: "3px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 600,
+                  background: tvInterval === tf ? GOLD : "transparent",
+                  color:      tvInterval === tf ? BG_PAGE : "#52525b",
+                  border:    `1px solid ${tvInterval === tf ? GOLD : "rgba(255,255,255,0.08)"}`,
+                }}
+              >
+                {tf === "60" ? "1h" : `${tf}m`}
+              </button>
+            ))}
+            {t?.pair && (
+              <span style={{ marginLeft: "auto", fontSize: 10, color: "#3f3f46" }}>
+                {tvSymbol(t.pair)}
+              </span>
+            )}
+          </div>
 
-              {/* Row 1 — 6 stat cells */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                {[
-                  { label: "Revenge Trade", value: behavCtx.isRevenge ? "Yes" : "No",                          warn: behavCtx.isRevenge },
-                  { label: "Overtrading",   value: behavCtx.isOvertrade ? `Yes (${behavCtx.dayCount}t)` : "No", warn: behavCtx.isOvertrade },
-                  { label: "Risk vs Avg",   value: `${(behavCtx.riskRatio * 100).toFixed(0)}%`,                 warn: behavCtx.riskRatio > 1.5 },
-                  { label: "Running P&L",   value: `${behavCtx.runningPnl >= 0 ? "+" : ""}$${Math.abs(behavCtx.runningPnl).toFixed(2)}`, warn: behavCtx.runningPnl < -20 },
-                  { label: "Trade #",       value: `${behavCtx.idx + 1} of ${behavCtx.dayCount}`,               warn: false },
-                  { label: "Hold Time",     value: holdDuration(t.opened_at, t.closed_at),                      warn: false },
-                ].map(({ label, value, warn }) => (
-                  <div key={label} style={{
-                    ...card,
-                    border: `1px solid ${warn ? "rgba(192,57,43,0.18)" : "#F0EDE8"}`,
-                  }}>
-                    <div style={{ fontSize: 9, color: "#A9A39A", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>{label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: warn ? "#C0392B" : "#1A1916" }}>{value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Row 2 — NIRI Verdict (full width) */}
-              {verdict && (
-                <div style={{
-                  background: "#FBF4E4",
-                  borderLeft: `2px solid ${GOLD}`,
-                  borderRadius: 10,
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  padding: "12px 16px",
-                }}>
-                  <div style={{ fontSize: 9, color: GOLD, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 5 }}>NIRI Verdict</div>
-                  <div style={{ fontSize: 13, color: "#854F0B", lineHeight: 1.55 }}>{verdict}</div>
+          {/* Execution timeline overlay (only when opened_at exists) */}
+          {t?.opened_at && execTimeline && (
+            <div style={{ flexShrink: 0, borderTop: BORDER, background: BG_PANEL, padding: "8px 14px 10px" }}>
+              <div style={{ fontSize: 9, color: "#3f3f46", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Executions</div>
+              {/* Timeline bar */}
+              <div style={{ position: "relative", height: 28 }}>
+                {/* Track */}
+                <div style={{ position: "absolute", top: "10px", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.07)" }} />
+                {/* Entry dot + label */}
+                <div style={{ position: "absolute", left: `${execTimeline.entryPct.toFixed(1)}%`, transform: "translateX(-50%)", top: 0 }}>
+                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: GOLD, margin: "4px auto 3px" }} />
+                  <div style={{ fontSize: 8, color: GOLD, textAlign: "center", whiteSpace: "nowrap" }}>IN {timeLabel(t.opened_at)}</div>
                 </div>
-              )}
+                {/* Exit dot + label */}
+                {t.closed_at && (
+                  <div style={{ position: "absolute", left: `${execTimeline.exitPct.toFixed(1)}%`, transform: "translateX(-50%)", top: 0 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: pnlColor(t.pnl), margin: "4px auto 3px" }} />
+                    <div style={{ fontSize: 8, color: pnlColor(t.pnl), textAlign: "center", whiteSpace: "nowrap" }}>OUT {timeLabel(t.closed_at)}</div>
+                  </div>
+                )}
+              </div>
+              {/* Price labels */}
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                <span style={{ fontSize: 9, color: "#52525b" }}>{fmtPrice(t.entry)}</span>
+                <span style={{ fontSize: 9, color: pnlColor(t.pnl), fontWeight: 600 }}>{fmtPnl(t.pnl)}</span>
+                <span style={{ fontSize: 9, color: "#52525b" }}>{fmtPrice(t.exit_price)}</span>
+              </div>
             </div>
           )}
+        </div>
 
-        </main>
+        {/* ── RIGHT PANEL (280px) ─────────────────────────────────────── */}
+        <div style={{ width: 280, flexShrink: 0, borderLeft: BORDER, background: BG_PANEL, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+          {/* Header + tabs */}
+          <div style={{ borderBottom: BORDER, padding: "10px 14px 0", flexShrink: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#e4e4e7", marginBottom: 8 }}>Journal</div>
+            <div style={{ display: "flex" }}>
+              {(["trade", "day"] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                    background: "transparent", border: "none",
+                    borderBottom: activeTab === tab ? `2px solid ${GOLD}` : "2px solid transparent",
+                    color: activeTab === tab ? GOLD : "#52525b",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Scrollable tab content */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
+
+            {/* ── TRADE TAB ──────────────────────────────────────────── */}
+            {activeTab === "trade" && (
+              <>
+                {/* Navigation ◀ 1/3 ▶ */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <button
+                    onClick={() => setTradeIndex(i => Math.max(0, i - 1))}
+                    disabled={tradeIndex === 0}
+                    style={{ padding: "3px 9px", background: "#1A1917", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 6, color: tradeIndex === 0 ? "#3f3f46" : "#e4e4e7", cursor: tradeIndex === 0 ? "not-allowed" : "pointer", fontSize: 12 }}
+                  >◀</button>
+                  <span style={{ fontSize: 11, color: "#52525b" }}>
+                    {dayTrades.length ? `${tradeIndex + 1} / ${dayTrades.length}` : "—"}
+                  </span>
+                  <button
+                    onClick={() => setTradeIndex(i => Math.min(tradeCountRef.current - 1, i + 1))}
+                    disabled={tradeIndex >= dayTrades.length - 1}
+                    style={{ padding: "3px 9px", background: "#1A1917", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 6, color: tradeIndex >= dayTrades.length - 1 ? "#3f3f46" : "#e4e4e7", cursor: tradeIndex >= dayTrades.length - 1 ? "not-allowed" : "pointer", fontSize: 12 }}
+                  >▶</button>
+                </div>
+
+                {t ? (
+                  <>
+                    {/* Pair + P&L hero */}
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: "#f4f4f5" }}>{t.pair}</span>
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
+                          background: t.direction === "BUY" ? "rgba(93,202,165,0.15)" : "rgba(240,149,149,0.15)",
+                          color:      t.direction === "BUY" ? "#5DCAA5" : "#F09595",
+                        }}>{t.direction}</span>
+                      </div>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: pnlColor(t.pnl) }}>{fmtPnl(t.pnl)}</span>
+                    </div>
+
+                    {/* Stats sub-section */}
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 9, color: "#3f3f46", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Stats</div>
+                      <StatRow label="Entry"       value={fmtPrice(t.entry)} />
+                      <StatRow label="Exit"        value={fmtPrice(t.exit_price)} />
+                      <StatRow label="Session"     value={behavCtx?.sessionLabel ?? t.session ?? "—"} />
+                      <StatRow label="Hold Time"   value={holdDuration(t.opened_at, t.closed_at)} />
+                      <StatRow label="Lot Size"    value={String(t.lot)} />
+                      <StatRow label="Risk vs Avg" value={behavCtx ? `${(behavCtx.riskRatio * 100).toFixed(0)}%` : "—"} warn={(behavCtx?.riskRatio ?? 0) > 1.5} />
+                      <StatRow label="Revenge"     value={behavCtx?.isRevenge ? "Yes" : "No"} warn={behavCtx?.isRevenge} />
+                      <StatRow label="Overtrading" value={behavCtx?.isOvertrade ? `Yes (${behavCtx.dayCount}t)` : "No"} warn={behavCtx?.isOvertrade} />
+                      <StatRow label="Running P&L" value={behavCtx ? `${behavCtx.runningPnl >= 0 ? "+" : ""}$${Math.abs(behavCtx.runningPnl).toFixed(2)}` : "—"} warn={(behavCtx?.runningPnl ?? 0) < -20} />
+                    </div>
+
+                    {/* NIRI Verdict */}
+                    {verdict && (
+                      <div style={{ padding: "10px 12px", background: "rgba(212,160,23,0.06)", border: "1px solid rgba(212,160,23,0.18)", borderRadius: 8 }}>
+                        <div style={{ fontSize: 9, color: GOLD, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>NIRI Verdict</div>
+                        <div style={{ fontSize: 11, color: "#a1a1aa", lineHeight: 1.55 }}>{verdict}</div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ color: "#3f3f46", fontSize: 12, textAlign: "center", paddingTop: 24 }}>No trade selected</div>
+                )}
+              </>
+            )}
+
+            {/* ── DAY TAB ────────────────────────────────────────────── */}
+            {activeTab === "day" && (
+              <>
+                {dayStats ? (
+                  <>
+                    {/* Day P&L hero */}
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 9, color: "#3f3f46", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Day P&L</div>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: pnlColor(dayStats.pnl) }}>{fmtPnl(dayStats.pnl)}</span>
+                    </div>
+
+                    <StatRow label="Trades"        value={String(dayStats.total)} />
+                    <StatRow label="Win Rate"      value={`${dayStats.winRate.toFixed(0)}%`} />
+                    <StatRow label="Sessions"      value={dayStats.sessions.join(", ")} />
+                    <StatRow label="Overtrading"   value={dayStats.isOvertrade ? `Yes (${dayStats.total}t)` : "No"} warn={dayStats.isOvertrade} />
+                    <StatRow label="Revenge Trades" value={dayStats.revengeCount > 0 ? String(dayStats.revengeCount) : "None"} warn={dayStats.revengeCount > 0} />
+
+                    {/* Session equity sparkline */}
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 9, color: "#3f3f46", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Session Equity</div>
+                      <EquityLine trades={dayTrades} w={238} h={60} />
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: "#3f3f46", fontSize: 12, textAlign: "center", paddingTop: 24 }}>No trades for this day</div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
       </div>
-
     </div>
   );
 }

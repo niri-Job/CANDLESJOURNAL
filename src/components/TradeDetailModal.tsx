@@ -199,21 +199,43 @@ export function TradeDetailModal({
 
   // ── Fetch real candles ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!trade.opened_at) {
+    // Always log the trade fields we rely on — helps debug missing timestamps
+    console.log("[modal] trade:", {
+      id:        trade.id,
+      pair:      trade.pair,
+      date:      trade.date,
+      opened_at: trade.opened_at,
+      closed_at: trade.closed_at,
+    });
+
+    let startDate: string;
+    let endDate:   string;
+
+    if (trade.opened_at) {
+      // Exact timestamps available — fetch ±30 min around the trade
+      const closeRef = trade.closed_at ?? trade.opened_at;
+      startDate = toTDDate(trade.opened_at, -30);
+      endDate   = toTDDate(closeRef, 30);
+    } else if (trade.date) {
+      // Only a date is stored (CSV / old EA trades) — fetch the main trading session
+      // 06:00–18:00 UTC covers Asia close, London, and NY sessions (144 candles)
+      startDate = `${trade.date} 06:00:00`;
+      endDate   = `${trade.date} 18:00:00`;
+      console.log("[modal] no opened_at — using date-window fallback for", trade.date);
+    } else {
       setChartData({ status: "simulated" });
       return;
     }
+
     setChartData({ status: "loading" });
-    const closeRef = trade.closed_at ?? trade.opened_at;
     const params = new URLSearchParams({
       symbol:     trade.pair,
       interval:   "5min",
-      start_date: toTDDate(trade.opened_at, -30),
-      end_date:   toTDDate(closeRef, 30),
+      start_date: startDate,
+      end_date:   endDate,
     });
-    console.log("[modal] fetching candles — symbol:", trade.pair,
-      "start:", toTDDate(trade.opened_at, -30),
-      "end:", toTDDate(closeRef, 30));
+    console.log("[modal] fetching candles — symbol:", trade.pair, "start:", startDate, "end:", endDate);
+
     fetch(`/api/twelvedata/candles?${params}`)
       .then(r => r.json())
       .then((json: { candles?: Candle[]; error?: string }) => {
@@ -610,6 +632,19 @@ export function TradeDetailModal({
                   </>
                 )}
               </svg>
+            )}
+
+            {/* Badge: full-day-view (date fallback) */}
+            {chartData.status === "ok" && n > 0 && !trade.opened_at && (
+              <div style={{
+                position: "absolute", top: 8, right: 10,
+                fontSize: 9, padding: "2px 7px", borderRadius: 100,
+                background: "rgba(0,0,0,0.5)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#71717a", letterSpacing: "0.04em",
+              }}>
+                full day · no exact time
+              </div>
             )}
 
             {/* Badge: simulated or error state */}

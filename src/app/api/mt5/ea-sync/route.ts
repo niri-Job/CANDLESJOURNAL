@@ -133,6 +133,14 @@ export async function POST(request: Request) {
   const closeDate = new Date(closeTimestamp * 1000).toISOString().slice(0, 10);
   console.log(`[ea-sync:${requestId}] close_time raw=${close_time} parsed_ts=${closeTimestamp} → date=${closeDate}`);
 
+  // open_time: same coercion as close_time
+  const openTimestamp = typeof open_time === "number"
+    ? open_time
+    : open_time != null ? parseInt(String(open_time), 10) : NaN;
+  const openedAtISO  = !isNaN(openTimestamp) ? new Date(openTimestamp  * 1000).toISOString() : null;
+  const closedAtISO  = !isNaN(closeTimestamp) ? new Date(closeTimestamp * 1000).toISOString() : null;
+  console.log(`[ea-sync:${requestId}] opened_at=${openedAtISO} closed_at=${closedAtISO}`);
+
   const symbolStr     = String(symbol).toUpperCase().trim();
   const direction     = String(tradeType).toUpperCase() === "BUY" ? "BUY" : "SELL";
   const uniqueTradeId = `${accountSig}_${dealId}_${closeTimestamp}`;
@@ -159,6 +167,8 @@ export async function POST(request: Request) {
     unique_trade_id:     uniqueTradeId,
     is_verified:         true,
     verification_method: "EA",
+    opened_at:           openedAtISO,
+    closed_at:           closedAtISO,
   };
 
   // Check if this trade already exists

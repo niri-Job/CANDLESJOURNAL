@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
-import { TradeDetailModal, type ReplayTrade } from "@/components/TradeDetailModal";
+import { type ReplayTrade } from "@/components/TradeDetailModal";
 import { createClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -21,6 +21,15 @@ function fmtPrice(p: number): string {
   if (p >= 100) return p.toFixed(2);
   if (p >= 10)  return p.toFixed(3);
   return p.toFixed(5);
+}
+function holdDuration(a: string | null | undefined, b: string | null | undefined): string {
+  if (!a || !b) return "—";
+  const diff = (new Date(b).getTime() - new Date(a).getTime()) / 60000;
+  if (diff < 0) return "—";
+  if (diff < 1)  return "<1m";
+  if (diff < 60) return `${Math.round(diff)}m`;
+  const h = Math.floor(diff / 60), m = Math.round(diff % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 function toTDDate(isoStr: string, offsetMin = 0): string {
   const d = new Date(new Date(isoStr).getTime() + offsetMin * 60000);
@@ -78,7 +87,6 @@ export default function ReplayPage() {
   const [trades, setTrades]           = useState<ReplayTrade[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [tradeIndex, setTradeIndex]   = useState(0);
-  const [drillTrade, setDrillTrade]   = useState<ReplayTrade | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
   const [chartData, setChartData]     = useState<ChartState>({ status: "idle" });
 
@@ -204,7 +212,7 @@ export default function ReplayPage() {
     const container = chartContainerRef.current;
     const chart = LW.createChart(container, {
       width:  container.clientWidth  || 700,
-      height: container.clientHeight || 360,
+      height: container.clientHeight || 420,
       layout: {
         background: { type: "solid", color: "#0D0B14" },
         textColor: "#52525b", fontSize: 10,
@@ -327,7 +335,6 @@ export default function ReplayPage() {
 
   const t = selectedTrade;
   const pnlColor = t ? (t.pnl >= 0 ? "#0F6E56" : "#C0392B") : "#A9A39A";
-  const exitColor = t ? (t.pnl >= 0 ? "#5DCAA5" : "#E24B4A") : "#E24B4A";
 
   const verdict = t && behavCtx ? buildVerdict({
     isRevenge: behavCtx.isRevenge, isOvertrade: behavCtx.isOvertrade,
@@ -413,17 +420,6 @@ export default function ReplayPage() {
                 >▶</button>
               </div>
 
-              {/* Full Analysis */}
-              {t && (
-                <button
-                  onClick={() => setDrillTrade(t)}
-                  style={{
-                    fontSize: 11, padding: "5px 12px", borderRadius: 8, cursor: "pointer",
-                    background: "transparent", border: `1px solid ${GOLD}`, color: GOLD,
-                    fontWeight: 600,
-                  }}
-                >Full Analysis →</button>
-              )}
             </div>
 
             {/* Right: date picker */}
@@ -444,7 +440,7 @@ export default function ReplayPage() {
 
           {/* ── Chart ─────────────────────────────────────────────────── */}
           <div
-            className="h-[240px] md:h-[360px]"
+            className="h-[240px] md:h-[420px]"
             style={{ background: "#0D0B14", borderRadius: 12, overflow: "hidden", position: "relative" }}
           >
             <style>{`@keyframes rp-shim{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
@@ -501,64 +497,49 @@ export default function ReplayPage() {
             )}
           </div>
 
-          {/* ── Bottom strip (5 columns) ─────────────────────────────── */}
-          {t && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginTop: 8 }}>
+          {/* ── Analysis section ─────────────────────────────────────── */}
+          {t && behavCtx && (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
 
-              {/* Col 1 — ENTRY */}
-              <div style={card}>
-                <div style={{ fontSize: 9, color: "#A9A39A", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Entry</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: GOLD }}>{fmtPrice(t.entry)}</div>
+              {/* Row 1 — 6 stat cells */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {[
+                  { label: "Revenge Trade", value: behavCtx.isRevenge ? "Yes" : "No",                          warn: behavCtx.isRevenge },
+                  { label: "Overtrading",   value: behavCtx.isOvertrade ? `Yes (${behavCtx.dayCount}t)` : "No", warn: behavCtx.isOvertrade },
+                  { label: "Risk vs Avg",   value: `${(behavCtx.riskRatio * 100).toFixed(0)}%`,                 warn: behavCtx.riskRatio > 1.5 },
+                  { label: "Running P&L",   value: `${behavCtx.runningPnl >= 0 ? "+" : ""}$${Math.abs(behavCtx.runningPnl).toFixed(2)}`, warn: behavCtx.runningPnl < -20 },
+                  { label: "Trade #",       value: `${behavCtx.idx + 1} of ${behavCtx.dayCount}`,               warn: false },
+                  { label: "Hold Time",     value: holdDuration(t.opened_at, t.closed_at),                      warn: false },
+                ].map(({ label, value, warn }) => (
+                  <div key={label} style={{
+                    ...card,
+                    border: `1px solid ${warn ? "rgba(192,57,43,0.18)" : "#F0EDE8"}`,
+                  }}>
+                    <div style={{ fontSize: 9, color: "#A9A39A", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: warn ? "#C0392B" : "#1A1916" }}>{value}</div>
+                  </div>
+                ))}
               </div>
 
-              {/* Col 2 — EXIT */}
-              <div style={card}>
-                <div style={{ fontSize: 9, color: "#A9A39A", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Exit</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: exitColor }}>{fmtPrice(t.exit_price)}</div>
-              </div>
-
-              {/* Col 3 — SESSION */}
-              <div style={card}>
-                <div style={{ fontSize: 9, color: "#A9A39A", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Session</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>
-                  {behavCtx?.sessionLabel ?? (t.session || "—")}
-                </div>
-              </div>
-
-              {/* Col 4 — REVENGE */}
-              <div style={card}>
-                <div style={{ fontSize: 9, color: "#A9A39A", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Revenge</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: behavCtx?.isRevenge ? "#C0392B" : "#0F6E56" }}>
-                  {behavCtx?.isRevenge ? "Yes" : "No"}
-                </div>
-              </div>
-
-              {/* Col 5 — VERDICT */}
-              <div style={{
-                ...card,
-                background: "#FBF4E4",
-                borderLeft: `2px solid ${GOLD}`,
-                paddingLeft: 12,
-              }}>
-                <div style={{ fontSize: 9, color: GOLD, textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 700, marginBottom: 4 }}>Verdict</div>
+              {/* Row 2 — NIRI Verdict (full width) */}
+              {verdict && (
                 <div style={{
-                  fontSize: 11, color: "#854F0B", lineHeight: 1.45,
-                  display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
+                  background: "#FBF4E4",
+                  borderLeft: `2px solid ${GOLD}`,
+                  borderRadius: 10,
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  padding: "12px 16px",
                 }}>
-                  {verdict ?? "—"}
+                  <div style={{ fontSize: 9, color: GOLD, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 5 }}>NIRI Verdict</div>
+                  <div style={{ fontSize: 13, color: "#854F0B", lineHeight: 1.55 }}>{verdict}</div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
         </main>
       </div>
 
-      {/* Full Analysis modal */}
-      {drillTrade && (
-        <TradeDetailModal trade={drillTrade} allDayTrades={dayTrades} onClose={() => setDrillTrade(null)} />
-      )}
     </div>
   );
 }

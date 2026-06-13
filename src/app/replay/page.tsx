@@ -267,10 +267,31 @@ export default function ReplayPage() {
   let tvSrc: string | null = null;
   if (t && tradeDateStr) {
     const [yr, mo, dy] = tradeDateStr.split("-").map(Number);
-    const fromTs = Math.floor(new Date(yr, mo - 1, dy, 6, 0, 0).getTime() / 1000);
-    const toTs   = Math.floor(new Date(yr, mo - 1, dy, 22, 0, 0).getTime() / 1000);
-    const sym    = tvSymbol(t.pair);
-    tvSrc = `https://www.tradingview.com/widgetembed/?frameElementId=tv_replay&symbol=${encodeURIComponent(sym)}&interval=${tvInterval}&from=${fromTs}&to=${toTs}&theme=dark&style=1&timezone=UTC&withdateranges=1&hidesidetoolbar=0&hidetoptoolbar=0&symboledit=0&saveimage=0&toolbarbg=111110&studies=Volume%40tv-basicstudies`;
+    const fromTs  = Math.floor(new Date(yr, mo - 1, dy,  0, 0, 0).getTime() / 1000);
+    const toTs    = Math.floor(new Date(yr, mo - 1, dy, 23, 59, 59).getTime() / 1000);
+    const sym     = tvSymbol(t.pair);
+    const params  = new URLSearchParams({
+      frameElementId:  "tv_replay",
+      symbol:          sym,
+      interval:        tvInterval,
+      hidesidetoolbar: "0",
+      hidetoptoolbar:  "0",
+      symboledit:      "0",
+      saveimage:       "0",
+      theme:           "dark",
+      style:           "1",
+      timezone:        "UTC",
+      withdateranges:  "1",
+      studies:         "Volume@tv-basicstudies",
+      // all known param names for date range — whichever TV version honours
+      from:            String(fromTs),
+      to:              String(toTs),
+      from_date:       tradeDateStr,
+      to_date:         tradeDateStr,
+      date_range_from: String(fromTs),
+      date_range_to:   String(toTs),
+    });
+    tvSrc = `https://www.tradingview.com/widgetembed/?${params.toString()}`;
   }
 
   return (
@@ -364,6 +385,15 @@ export default function ReplayPage() {
 
         {/* ── CENTER PANEL (flex-1) ────────────────────────────────────── */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: BG_PAGE, overflow: "hidden" }}>
+
+          {/* Date navigation banner */}
+          {t && tradeDateStr && (
+            <div style={{ flexShrink: 0, height: 28, background: "rgba(212,160,23,0.1)", borderBottom: "1px solid rgba(212,160,23,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontSize: 10, color: "#D4A017", letterSpacing: "0.03em" }}>
+                Navigate to <strong>{tradeDateStr}</strong> on the chart — use the date range picker in the toolbar
+              </span>
+            </div>
+          )}
 
           {/* TradingView chart — fills all remaining height */}
           <div style={{ flex: 1, minHeight: 0, position: "relative" }}>

@@ -19,6 +19,11 @@ function fmtPnl(n: number): string {
   return (n >= 0 ? "+$" : "-$") + Math.abs(n).toFixed(2);
 }
 
+function fmtChip(n: number): string {
+  const s = Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  return (n >= 0 ? "+$" : "−$") + s;
+}
+
 function timeLabel(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -127,16 +132,12 @@ export default function ReplayPage() {
     };
   }, [dayTrades]);
 
-  // ── Visible trades up to playIndex ────────────────────────────────────────
-  const visibleCount = playIndex < 0 ? dayTrades.length : playIndex + 1;
-  const visibleTrades = dayTrades.slice(0, visibleCount);
-
-  // ── Running equity series (one point per trade played + starting 0) ────────
-  const equitySeries: number[] = useMemo(() => {
-    const pts = [0];
-    for (const t of visibleTrades) pts.push(pts[pts.length - 1] + t.pnl);
+  // ── Full equity series — N+1 cumulative P&L for all day trades ───────────
+  const fullEquitySeries = useMemo(() => {
+    const pts: number[] = [0];
+    for (const t of dayTrades) pts.push(pts[pts.length - 1] + t.pnl);
     return pts;
-  }, [visibleTrades]);
+  }, [dayTrades]);
 
   // ── Play/pause ─────────────────────────────────────────────────────────────
   function clearPlay() {
@@ -202,19 +203,52 @@ export default function ReplayPage() {
     return TL_PT + tH - Math.max(4, (Math.abs(t.pnl) / maxAbsPnl) * tH);
   }
 
-  // ── Equity curve SVG ───────────────────────────────────────────────────────
-  const EQ_W = 600, EQ_H = 110, EQ_PL = 48, EQ_PR = 12, EQ_PT = 10, EQ_PB = 20;
+  // ── Equity chart layout ───────────────────────────────────────────────────
+  const EQ_W = 600, EQ_H = 130, EQ_PL = 50, EQ_PR = 16, EQ_PT = 14, EQ_PB = 28;
   const eW = EQ_W - EQ_PL - EQ_PR, eH = EQ_H - EQ_PT - EQ_PB;
 
-  const eMin = Math.min(...equitySeries, 0);
-  const eMax = Math.max(...equitySeries, 0);
-  const eRange = eMax - eMin || 1;
+  const eqMin = fullEquitySeries.length > 0 ? Math.min(...fullEquitySeries, 0) : 0;
+  const eqMax = fullEquitySeries.length > 0 ? Math.max(...fullEquitySeries, 0) : 0;
+  const eqRange = eqMax - eqMin || 1;
+  const eqPad   = eqRange * 0.12;
 
-  function eqX(i: number) { return EQ_PL + (i / Math.max(equitySeries.length - 1, 1)) * eW; }
-  function eqY(v: number) { return EQ_PT + eH - ((v - eMin) / eRange) * eH; }
+  const eqXFn = (i: number) => EQ_PL + (i / Math.max(fullEquitySeries.length - 1, 1)) * eW;
+  const eqYFn = (v: number) => EQ_PT + eH - ((v - (eqMin - eqPad)) / (eqRange + 2 * eqPad)) * eH;
 
-  const eqPts: [number, number][] = equitySeries.map((v, i) => [eqX(i), eqY(v)]);
-  const eqPath = smoothPath(eqPts);
+  // Step-function path: hold flat between trades, step on close
+  const fullStepPath = (() => {
+    if (fullEquitySeries.length < 2) return "";
+    const pts = fullEquitySeries.map((v, i) => [eqXFn(i), eqYFn(v)] as [number, number]);
+    let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+      d += ` L ${pts[i][0].toFixed(1)} ${pts[i - 1][1].toFixed(1)}`; // hold flat
+      d += ` L ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`;     // step up/down
+    }
+    return d;
+  })();
+
+  // Reveal: fraction of trades shown (drives strokeDashoffset)
+  const revealedCount = playIndex < 0
+    ? fullEquitySeries.length - 1
+    : Math.min(playIndex + 1, fullEquitySeries.length - 1);
+  const dashOffset = 1000 * (1 - revealedCount / Math.max(dayTrades.length, 1));
+
+  const currentEquity = fullEquitySeries[revealedCount] ?? 0;
+  const eqLineColor   = currentEquity >= 0 ? "#5DCAA5" : "#F09595";
+
+  // Dot SVG coords → percentage for HTML overlay (works with preserveAspectRatio="none")
+  const dotSvgX = eqXFn(revealedCount);
+  const dotSvgY = eqYFn(currentEquity);
+
+  // Time label shown in chart header during playback
+  const playTimeLabel = (() => {
+    if (playIndex < 0) return "";
+    const t = dayTrades[playIndex];
+    if (!t?.opened_at) return "";
+    const d = new Date(t.opened_at);
+    const h = d.getUTCHours();
+    return `${h.toString().padStart(2, "0")}:${d.getUTCMinutes().toString().padStart(2, "0")} UTC · ${sessionFromHour(h)}`;
+  })();
 
   const GOLD = "#D4A017";
   const currentTrade = playIndex >= 0 && playIndex < dayTrades.length ? dayTrades[playIndex] : null;
@@ -423,47 +457,141 @@ export default function ReplayPage() {
                     )}
                   </div>
 
-                  {/* Equity curve */}
-                  <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-                    <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">
-                      Running Equity
-                    </p>
-                    <svg viewBox={`0 0 ${EQ_W} ${EQ_H}`} width="100%" height={EQ_H}
-                      preserveAspectRatio="none" style={{ display: "block" }}>
+                  {/* ── Equity curve — live terminal ─────────────────────── */}
+                  <div className="border border-zinc-800 rounded-2xl overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 pt-4 pb-3"
+                         style={{ background: "var(--cj-surface)" }}>
+                      <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
+                        Running Equity
+                      </p>
+                      <p className="text-[11px] text-zinc-600 tabular-nums">
+                        {playTimeLabel || selectedDate}
+                      </p>
+                    </div>
 
-                      {/* Zero line */}
-                      <line x1={EQ_PL} y1={eqY(0)} x2={EQ_W - EQ_PR} y2={eqY(0)}
-                        stroke="rgba(255,255,255,0.06)" strokeWidth={1}
-                        vectorEffect="non-scaling-stroke" />
+                    {/* Chart */}
+                    <div style={{ position: "relative", background: "#0D0B14", overflow: "hidden" }}>
+                      <style>{`
+                        @keyframes eq-ring {
+                          0%   { transform: scale(1); opacity: 0.65; }
+                          100% { transform: scale(5);  opacity: 0; }
+                        }
+                      `}</style>
 
-                      {/* Y axis labels */}
-                      {[eMin, 0, eMax].filter((v, i, a) => a.indexOf(v) === i).map(v => (
-                        <text key={v} x={EQ_PL - 4} y={eqY(v) + 4}
-                          textAnchor="end" fontSize={9} fill="#52525b" fontFamily="sans-serif">
-                          {v >= 0 ? "+" : ""}${v.toFixed(0)}
-                        </text>
-                      ))}
+                      <svg viewBox={`0 0 ${EQ_W} ${EQ_H}`} width="100%" height={EQ_H}
+                        preserveAspectRatio="none" style={{ display: "block" }}>
 
-                      {/* Equity line */}
-                      {eqPath && (
-                        <path d={eqPath} fill="none"
-                          stroke={equitySeries[equitySeries.length - 1] >= 0 ? "#1D9E75" : "#E24B4A"}
-                          strokeWidth={2} strokeLinecap="round"
-                          vectorEffect="non-scaling-stroke"
-                        />
+                        {/* Horizontal grid lines at min/max */}
+                        {[eqMin, eqMax].filter(v => Math.abs(v) > 0.01).map(v => (
+                          <line key={v}
+                            x1={EQ_PL} y1={eqYFn(v)} x2={EQ_W - EQ_PR} y2={eqYFn(v)}
+                            stroke="rgba(255,255,255,0.04)" strokeWidth={1}
+                            vectorEffect="non-scaling-stroke" />
+                        ))}
+
+                        {/* Zero line — white 15% dashed */}
+                        <line x1={EQ_PL} y1={eqYFn(0)} x2={EQ_W - EQ_PR} y2={eqYFn(0)}
+                          stroke="rgba(255,255,255,0.15)" strokeWidth={1} strokeDasharray="4 5"
+                          vectorEffect="non-scaling-stroke" />
+
+                        {/* Y-axis labels */}
+                        {[eqMin, 0, eqMax]
+                          .filter((v, i, a) => a.indexOf(v) === i)
+                          .map(v => (
+                            <text key={v} x={EQ_PL - 6} y={eqYFn(v) + 4}
+                              textAnchor="end" fontSize={9} fill="#3f3f46" fontFamily="sans-serif">
+                              {v >= 0 ? "+" : ""}${Math.round(v)}
+                            </text>
+                          ))
+                        }
+
+                        {/* Step equity path with live-draw reveal */}
+                        {fullStepPath && (
+                          <path
+                            d={fullStepPath}
+                            fill="none"
+                            stroke={eqLineColor}
+                            strokeWidth={2}
+                            strokeLinecap="square"
+                            strokeLinejoin="miter"
+                            pathLength={1000}
+                            strokeDasharray={1000}
+                            strokeDashoffset={dashOffset}
+                            vectorEffect="non-scaling-stroke"
+                            style={{
+                              transition: "stroke-dashoffset 0.4s cubic-bezier(0.16,1,0.3,1)",
+                            }}
+                          />
+                        )}
+
+                        {/* Time axis label */}
+                        {playTimeLabel && (
+                          <text x={EQ_W / 2} y={EQ_H - 8}
+                            textAnchor="middle" fontSize={8} fill="#3f3f46"
+                            fontFamily="sans-serif">
+                            {playTimeLabel}
+                          </text>
+                        )}
+                      </svg>
+
+                      {/* Live dot + pulsing ring — HTML overlay so % coords work with preserveAspectRatio="none" */}
+                      {fullEquitySeries.length > 1 && (
+                        <div style={{
+                          position: "absolute",
+                          left: `${(dotSvgX / EQ_W) * 100}%`,
+                          top: `${(dotSvgY / EQ_H) * 100}%`,
+                          width: 8, height: 8,
+                          transform: "translate(-50%, -50%)",
+                          transition: "left 0.4s cubic-bezier(0.16,1,0.3,1), top 0.4s cubic-bezier(0.16,1,0.3,1)",
+                          pointerEvents: "none",
+                          zIndex: 2,
+                        }}>
+                          {/* Pulsing ring */}
+                          <div style={{
+                            position: "absolute", inset: 0,
+                            borderRadius: "50%",
+                            background: "#D4A017",
+                            animation: "eq-ring 2s ease-out infinite",
+                            transformOrigin: "center",
+                          }} />
+                          {/* Solid gold dot */}
+                          <div style={{
+                            position: "absolute", inset: 0,
+                            borderRadius: "50%",
+                            background: "#D4A017",
+                            boxShadow: "0 0 8px rgba(212,160,23,0.9), 0 0 18px rgba(212,160,23,0.35)",
+                          }} />
+                        </div>
                       )}
 
-                      {/* Current position dot */}
-                      {equitySeries.length > 1 && (
-                        <circle
-                          cx={eqX(equitySeries.length - 1)}
-                          cy={eqY(equitySeries[equitySeries.length - 1])}
-                          r={4}
-                          fill={equitySeries[equitySeries.length - 1] >= 0 ? "#1D9E75" : "#E24B4A"}
-                          vectorEffect="non-scaling-stroke"
-                        />
+                      {/* Running P&L chip */}
+                      {fullEquitySeries.length > 1 && (
+                        <div style={{
+                          position: "absolute",
+                          left: `calc(${(dotSvgX / EQ_W) * 100}% + 14px)`,
+                          top: `calc(${(dotSvgY / EQ_H) * 100}% - 9px)`,
+                          transition: "left 0.4s cubic-bezier(0.16,1,0.3,1), top 0.4s cubic-bezier(0.16,1,0.3,1)",
+                          pointerEvents: "none",
+                          zIndex: 3,
+                          padding: "3px 8px",
+                          borderRadius: 7,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          fontFamily: "sans-serif",
+                          whiteSpace: "nowrap",
+                          background: currentEquity >= 0
+                            ? "rgba(93,202,165,0.14)"
+                            : "rgba(240,149,149,0.14)",
+                          border: `1px solid ${currentEquity >= 0
+                            ? "rgba(93,202,165,0.35)"
+                            : "rgba(240,149,149,0.35)"}`,
+                          color: eqLineColor,
+                        }}>
+                          {fmtChip(currentEquity)}
+                        </div>
                       )}
-                    </svg>
+                    </div>
                   </div>
 
                   {/* Playback controls */}
@@ -579,7 +707,7 @@ export default function ReplayPage() {
                         { label: "Lot",   value: String(currentTrade.lot) },
                         { label: "Entry", value: currentTrade.entry.toFixed(5) },
                         { label: "Exit",  value: currentTrade.exit_price.toFixed(5) },
-                        { label: "Running P&L", value: fmtPnl(equitySeries[playIndex + 1] ?? 0) },
+                        { label: "Running P&L", value: fmtPnl(fullEquitySeries[Math.max(0, playIndex + 1)] ?? 0) },
                       ].map(({ label, value }) => (
                         <div key={label} className="bg-[var(--cj-raised)] rounded-xl p-3">
                           <div className="text-[10px] text-zinc-600 uppercase tracking-wide mb-0.5">{label}</div>

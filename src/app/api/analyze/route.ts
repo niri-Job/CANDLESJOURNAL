@@ -2,7 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { analyzeJournal } from "@/lib/analyzeJournal";
-import { checkTrialAccess } from "@/lib/trial";
 
 // Increase Netlify/Vercel function timeout — Claude analysis takes 15–30s
 export const maxDuration = 60;
@@ -59,50 +58,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // ── Pro rate limiting (90 analyses / month) ──────────────────────────────
+  // ── Weekly AI analysis limit — 3 per week for all users ─────────────────
   const DEV_USER_ID = "b9433d15-02e3-44ed-b66f-b4f51f22fac7";
   if (user.id !== DEV_USER_ID) {
     const { data: prof } = await supabase
       .from("user_profiles")
-      .select("subscription_status, subscription_end, ai_credits_used, ai_credits_reset_at")
+      .select("ai_credits_used, ai_credits_reset_at")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const isProActive =
-      prof?.subscription_status === "pro" &&
-      !!prof?.subscription_end &&
-      new Date((prof as { subscription_end: string }).subscription_end) > new Date();
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // back to Sunday
+    weekStart.setHours(0, 0, 0, 0);
+    const weekStartStr = weekStart.toISOString().split("T")[0];
 
-    if (isProActive) {
-      const today = new Date();
-      const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
-      const resetAt = (prof as { ai_credits_reset_at?: string | null }).ai_credits_reset_at;
-      let used = (prof as { ai_credits_used?: number }).ai_credits_used ?? 0;
+    const resetAt = (prof as { ai_credits_reset_at?: string | null } | null)?.ai_credits_reset_at;
+    let used = (prof as { ai_credits_used?: number } | null)?.ai_credits_used ?? 0;
 
-      if (!resetAt || resetAt < monthStart) {
-        await supabase
-          .from("user_profiles")
-          .update({ ai_credits_used: 0, ai_credits_reset_at: monthStart })
-          .eq("user_id", user.id);
-        used = 0;
-      }
-
-      if (used >= 90) {
-        return NextResponse.json(
-          { error: "You've used your 90 AI analyses for this month. Your limit resets on the 1st of next month." },
-          { status: 429 }
-        );
-      }
+    if (!resetAt || resetAt < weekStartStr) {
+      await supabase
+        .from("user_profiles")
+        .update({ ai_credits_used: 0, ai_credits_reset_at: weekStartStr })
+        .eq("user_id", user.id);
+      used = 0;
     }
-  }
 
-  // ── Trial enforcement ─────────────────────────────────────────────────────
-  const trial = await checkTrialAccess(user.id, "ai_analyses", { consume: true });
-  if (!trial.ok) {
-    return NextResponse.json(
-      { error: trial.message, trial_reason: trial.reason },
-      { status: trial.httpStatus }
-    );
+    if (used >= 3) {
+      return NextResponse.json(
+        { error: "You've used your 3 AI analyses for this week. Your limit resets on Sunday." },
+        { status: 429 }
+      );
+    }
   }
 
   const today = new Date().toISOString().split("T")[0];

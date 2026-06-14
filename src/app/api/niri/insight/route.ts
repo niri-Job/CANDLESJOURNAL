@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -17,20 +16,6 @@ export async function POST(request: Request) {
   );
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  const { data: profile } = await svc
-    .from("user_profiles")
-    .select("subscription_status, subscription_end")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const isPro =
-    profile?.subscription_status === "pro" &&
-    !!profile?.subscription_end &&
-    new Date(profile.subscription_end) > new Date();
-
-  if (!isPro) return NextResponse.json({ error: "Pro subscription required" }, { status: 403 });
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });

@@ -78,7 +78,7 @@ export function useSubscription(): SubscriptionState {
 
   return {
     plan,
-    isPro:        plan === "pro" || plan === "trial",
+    isPro:        true, // All users have full access until July 1, 2026
     isTrial:      plan === "trial",
     trialDaysLeft,
     loading,

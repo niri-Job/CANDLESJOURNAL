@@ -155,9 +155,9 @@ export default function NiriOrbWrapper() {
     return () => { if (pageTimerRef.current) clearTimeout(pageTimerRef.current); };
   }, [pathname, authed]);
 
-  // ── Pro AI insights ───────────────────────────────────────────────────────────
+  // ── AI insights (all users) ───────────────────────────────────────────────────
   useEffect(() => {
-    if (!isPro) return;
+    if (!authed) return;
     if (trades.length === 0) return;
     if (pathname !== "/dashboard" && pathname !== "/reports") return;
 
@@ -202,7 +202,7 @@ export default function NiriOrbWrapper() {
     }, 6000); // 6s delay after page loads before the AI call
 
     return () => { if (aiTimerRef.current) clearTimeout(aiTimerRef.current); };
-  }, [pathname, isPro, trades.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, authed, trades.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!authed) return null;
 

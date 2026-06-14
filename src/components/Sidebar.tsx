@@ -33,9 +33,10 @@ const NAV_ITEMS = [
       <polygon points="5 3 19 12 5 21 5 3"/>
     </svg>
   )},
-  { href: "/intelligence", label: "Intelligence", icon: (
+  { href: "/alpha", label: "Alpha", icon: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      <path d="M12 2c0 6-6 8-6 14a6 6 0 0 0 12 0c0-6-6-8-6-14z"/>
+      <path d="M12 10c0 3-3 4-3 7a3 3 0 0 0 6 0c0-3-3-4-3-7z"/>
     </svg>
   )},
   { href: "/calculator",   label: "Calculator",   icon: (

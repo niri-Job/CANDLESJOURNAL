@@ -14,7 +14,7 @@ interface AlphaPost {
   timeframe: string | null; write_up: string | null;
   status: "pending" | "tp_hit" | "sl_hit" | "expired" | "running";
   created_at: string; expires_at: string | null;
-  user_profiles: { display_name: string | null; avatar_url: string | null } | null;
+  user_profiles: { name: string | null } | null;
   alpha_points:  { accuracy_rate: number; points: number; tp_hits: number; sl_hits: number; total_posts: number } | null;
   alpha_reactions: Reaction[];
   trade_stats: { wins: number; total: number };
@@ -23,7 +23,7 @@ interface Analyst {
   user_id: string; points: number; total_posts: number; tp_hits: number; sl_hits: number;
   accuracy_rate: number; win_rate: number; follower_count: number; score: number;
   trade_stats: { wins: number; total: number };
-  user_profiles: { display_name: string | null; avatar_url: string | null } | null;
+  user_profiles: { name: string | null } | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ function fmtP(n: number | null): string {
   return n.toFixed(5);
 }
 function analystName(post: AlphaPost): string {
-  return post.user_profiles?.display_name ?? "Anonymous";
+  return post.user_profiles?.name ?? "Trader";
 }
 function badge(accuracy: number, winRate: number): { label: string; color: string } | null {
   if (accuracy >= 75 && winRate >= 65) return { label: "Gold",   color: GOLD };
@@ -588,7 +588,7 @@ export default function AlphaPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: "#52525b" }}>#{i + 1}</span>
                       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--cj-text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {a.user_profiles?.display_name ?? "Analyst"}
+                        {a.user_profiles?.name ?? "Analyst"}
                       </span>
                       {b2 && <span style={{ fontSize: 7, fontWeight: 700, padding: "1px 4px", borderRadius: 3, border: `1px solid ${b2.color}`, color: b2.color }}>{b2.label}</span>}
                     </div>

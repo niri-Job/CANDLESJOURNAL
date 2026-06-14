@@ -35,7 +35,6 @@ export async function GET() {
   const { data: analysts, error } = await db
     .from("alpha_points")
     .select("user_id, points, total_posts, tp_hits, sl_hits, accuracy_rate")
-    .gt("total_posts", 0)
     .order("points", { ascending: false })
     .limit(20);
 
@@ -45,12 +44,12 @@ export async function GET() {
   const userIds = analysts.map((a: { user_id: string }) => a.user_id);
 
   const [profilesRes, tradesRes, followsRes] = await Promise.all([
-    db.from("user_profiles").select("user_id, display_name, avatar_url").in("user_id", userIds),
+    db.from("user_profiles").select("user_id, name").in("user_id", userIds),
     db.from("trades").select("user_id, pnl").in("user_id", userIds),
     db.from("alpha_follows").select("analyst_id").in("analyst_id", userIds),
   ]);
 
-  type Profile = { user_id: string; display_name: string | null; avatar_url: string | null };
+  type Profile = { user_id: string; name: string | null };
   type Trade   = { user_id: string; pnl: number };
   type Follow  = { analyst_id: string };
 

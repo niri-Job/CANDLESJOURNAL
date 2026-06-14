@@ -67,13 +67,13 @@ export async function GET(request: Request) {
   const postIds  = posts.map((p: { id: string }) => p.id);
 
   const [profilesRes, pointsRes, reactionsRes, tradesRes] = await Promise.all([
-    db.from("user_profiles").select("user_id, display_name, avatar_url").in("user_id", userIds),
+    db.from("user_profiles").select("user_id, name").in("user_id", userIds),
     db.from("alpha_points").select("user_id, accuracy_rate, points, tp_hits, sl_hits, total_posts").in("user_id", userIds),
     db.from("alpha_reactions").select("post_id, type, user_id").in("post_id", postIds),
     db.from("trades").select("user_id, pnl").in("user_id", userIds),
   ]);
 
-  type Profile  = { user_id: string; display_name: string | null; avatar_url: string | null };
+  type Profile  = { user_id: string; name: string | null };
   type Points   = { user_id: string; accuracy_rate: number; points: number; tp_hits: number; sl_hits: number; total_posts: number };
   type Reaction = { post_id: string; type: string; user_id: string };
   type Trade    = { user_id: string; pnl: number };

@@ -174,6 +174,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch live account information (balance, equity, floating P&L)
+    interface LiveAccountInfo { balance?: number; equity?: number; profit?: number; currency?: string; }
+    let liveInfo: LiveAccountInfo | null = null;
+    try {
+      liveInfo = await mGet<LiveAccountInfo>(
+        CLIENT_API, `/users/current/accounts/${accountId}/accountInformation`, token
+      );
+      console.log("[metaapi/sync] Live account info:", JSON.stringify(liveInfo));
+    } catch (e) {
+      console.warn("[metaapi/sync] accountInformation fetch failed (non-fatal):", (e as { message?: string }).message);
+    }
+
     // Fetch last 6 months of deal history via REST
     const to   = new Date();
     const from = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000);
@@ -256,7 +268,7 @@ export async function POST(request: Request) {
       const chunk = tradeRows.slice(i, i + CHUNK);
       const { data: upserted, error: upsertErr } = await svc
         .from("trades")
-        .upsert(chunk, { onConflict: "user_id,unique_trade_id", ignoreDuplicates: true })
+        .upsert(chunk, { onConflict: "user_id,unique_trade_id,source", ignoreDuplicates: true })
         .select("id");
 
       if (upsertErr) {
@@ -272,6 +284,12 @@ export async function POST(request: Request) {
       last_synced_at: new Date().toISOString(),
       sync_status:    "connected",
       sync_error:     null,
+      sync_source:    "metaapi",
+      ...(liveInfo ? {
+        balance:      liveInfo.balance      ?? null,
+        equity:       liveInfo.equity       ?? null,
+        floating_pnl: liveInfo.profit       ?? null,
+      } : {}),
     }).eq("user_id", user.id).eq("account_signature", account_signature.trim());
 
     return NextResponse.json({ success: true, total: tradeRows.length, inserted, duplicates });

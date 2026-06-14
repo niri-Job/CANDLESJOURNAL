@@ -5,6 +5,7 @@ interface AccountSwitcherProps {
     account_signature: string;
     account_login: string | null;
     account_server: string | null;
+    sync_source?: string | null;
   }[];
   selected: string;
   onChange: (sig: string) => void;
@@ -14,7 +15,7 @@ export function AccountSwitcher({ accounts, selected, onChange }: AccountSwitche
   if (accounts.length <= 1) return null;
 
   return (
-    <div className="relative inline-flex items-center mb-5">
+    <div className="relative inline-flex items-center mb-3">
       <select
         value={selected}
         onChange={(e) => onChange(e.target.value)}

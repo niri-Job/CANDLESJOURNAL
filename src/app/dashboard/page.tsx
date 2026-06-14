@@ -69,6 +69,10 @@ interface TradingAccount {
   verification_status?: string | null;
   is_verified?: boolean;
   import_status?: string | null;
+  sync_source?: "csv" | "metaapi" | null;
+  balance?: number | null;
+  equity?: number | null;
+  floating_pnl?: number | null;
 }
 
 interface Filters {
@@ -446,6 +450,7 @@ function AccountCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const isMetaApi = acc.sync_source === "metaapi";
   const todayStr  = new Date().toISOString().split("T")[0];
   const accTrades = trades.filter((t) => t.account_signature === acc.account_signature);
   const todayPnl  = accTrades.filter((t) => t.date === todayStr).reduce((s, t) => s + t.pnl, 0);
@@ -454,49 +459,71 @@ function AccountCard({
     <div
       onClick={onClick}
       className={`bg-[var(--cj-surface)] border rounded-xl p-4 cursor-pointer transition-colors
-                  ${selected ? "border-blue-500/60 bg-blue-500/5" : "border-zinc-800 hover:border-zinc-700"}`}
+                  ${selected
+                    ? isMetaApi ? "border-emerald-500/50 bg-emerald-500/5" : "border-blue-500/60 bg-blue-500/5"
+                    : "border-zinc-800 hover:border-zinc-700"}`}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-zinc-200 truncate">
-            {acc.account_label || acc.broker_name || "MT5 Account"}
-          </p>
-          <p className="text-[10px] text-zinc-600 mt-0.5 truncate">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            {isMetaApi && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />}
+            <p className="text-sm font-semibold text-zinc-200 truncate">
+              {acc.account_label || acc.broker_name || "MT5 Account"}
+            </p>
+          </div>
+          <p className="text-[10px] text-zinc-600 truncate">
             {acc.broker_name}{acc.account_login ? ` · #${acc.account_login}` : ""}
           </p>
         </div>
         <div className="flex gap-1 flex-wrap justify-end shrink-0">
-          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border
-            ${acc.account_type === "demo"
-              ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/25"
-              : "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
-            }`}>
-            {acc.account_type === "demo" ? "DEMO" : "LIVE"}
-          </span>
+          {isMetaApi ? (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold border bg-emerald-500/15 text-emerald-400 border-emerald-500/25">
+              LIVE
+            </span>
+          ) : (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold border bg-zinc-700/40 text-zinc-500 border-zinc-700">
+              CSV
+            </span>
+          )}
+          {acc.account_type === "demo" && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold border bg-yellow-500/15 text-yellow-400 border-yellow-500/25">
+              DEMO
+            </span>
+          )}
           {acc.is_cent && (
             <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold border bg-blue-500/15 text-blue-400 border-blue-500/25">
               CENT
             </span>
           )}
-          {acc.account_type !== "demo" && acc.verification_status !== "verified_ea" && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold border bg-zinc-700/50 text-zinc-500 border-zinc-700">
-              UNVERIFIED
-            </span>
-          )}
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-1 text-center">
-        {[
-          { label: "Balance", value: acc.current_balance != null ? `$${acc.current_balance.toFixed(0)}` : "—", cls: "text-zinc-300" },
-          { label: "Today",   value: fmt(todayPnl), cls: pnlColor(todayPnl) },
-          { label: "Trades",  value: String(accTrades.length), cls: "text-zinc-300" },
-        ].map(({ label, value, cls }) => (
-          <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-1.5">
-            <p className="text-[9px] text-zinc-600">{label}</p>
-            <p className={`font-sans text-xs font-semibold mt-0.5 ${cls}`}>{value}</p>
-          </div>
-        ))}
-      </div>
+      {isMetaApi ? (
+        <div className="grid grid-cols-3 gap-1 text-center">
+          {[
+            { label: "Balance",  value: acc.balance      != null ? `$${acc.balance.toFixed(2)}`      : "—", cls: "text-zinc-300" },
+            { label: "Equity",   value: acc.equity       != null ? `$${acc.equity.toFixed(2)}`       : "—", cls: "text-zinc-300" },
+            { label: "Floating", value: acc.floating_pnl != null ? fmt(acc.floating_pnl)             : "—", cls: acc.floating_pnl != null ? pnlColor(acc.floating_pnl) : "text-zinc-400" },
+          ].map(({ label, value, cls }) => (
+            <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-1.5">
+              <p className="text-[9px] text-zinc-600">{label}</p>
+              <p className={`font-sans text-xs font-semibold mt-0.5 ${cls}`}>{value}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-1 text-center">
+          {[
+            { label: "Balance", value: "—",                         cls: "text-zinc-500" },
+            { label: "Today",   value: fmt(todayPnl),               cls: pnlColor(todayPnl) },
+            { label: "Trades",  value: String(accTrades.length),    cls: "text-zinc-300" },
+          ].map(({ label, value, cls }) => (
+            <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-1.5">
+              <p className="text-[9px] text-zinc-600">{label}</p>
+              <p className={`font-sans text-xs font-semibold mt-0.5 ${cls}`}>{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -530,6 +557,7 @@ export default function TradingJournal() {
   const [aiCreditsLimit,   setAiCreditsLimit]   = useState<number>(3);
   const [trialDaysLeft,    setTrialDaysLeft]    = useState<number | null>(null);
   const [isSyncing,        setIsSyncing]        = useState(false);
+  const [sourceFilter,     setSourceFilter]     = useState<"csv" | "metaapi">("csv");
   const [strategies,       setStrategies]       = useState<Strategy[]>([]);
   const [shareOpen,        setShareOpen]        = useState(false);
   const [showCsvImport,    setShowCsvImport]    = useState(false);
@@ -580,9 +608,14 @@ export default function TradingJournal() {
       if (accountsRes.data) {
         const accounts = accountsRes.data as TradingAccount[];
         setTradingAccounts(accounts);
-        // Default to first real account; fall back to first demo if no real accounts
-        const real = accounts.filter((a) => a.account_type !== "demo");
-        const first = (real.length > 0 ? real : accounts)[0];
+        // Choose default source: prefer metaapi if available
+        const metaAccs = accounts.filter((a) => a.sync_source === "metaapi");
+        const csvAccs  = accounts.filter((a) => !a.sync_source || a.sync_source === "csv");
+        const defaultSrc: "csv" | "metaapi" = metaAccs.length > 0 ? "metaapi" : "csv";
+        setSourceFilter(defaultSrc);
+        const srcAccounts = defaultSrc === "metaapi" ? metaAccs : csvAccs;
+        const real  = srcAccounts.filter((a) => a.account_type !== "demo");
+        const first = (real.length > 0 ? real : srcAccounts)[0];
         if (first) setSelectedAccountSig(first.account_signature);
       }
 
@@ -702,6 +735,14 @@ export default function TradingJournal() {
     () => tradingAccounts.find((a) => a.account_signature === selectedAccountSig)?.account_type === "demo",
     [selectedAccountSig, tradingAccounts]
   );
+
+  // ── Source grouping ────────────────────────────────────────────────────────
+  const csvAccounts     = useMemo(() => tradingAccounts.filter((a) => !a.sync_source || a.sync_source === "csv"),     [tradingAccounts]);
+  const metaapiAccounts = useMemo(() => tradingAccounts.filter((a) => a.sync_source === "metaapi"),                   [tradingAccounts]);
+  const hasMultipleSources = csvAccounts.length > 0 && metaapiAccounts.length > 0;
+  const visibleAccounts = hasMultipleSources
+    ? (sourceFilter === "metaapi" ? metaapiAccounts : csvAccounts)
+    : tradingAccounts;
 
   // ── Computed stats (based on account-filtered trades) ─────────────────────
   const totalPnl = accountTrades.reduce((s, t) => s + t.pnl, 0);
@@ -1122,13 +1163,45 @@ export default function TradingJournal() {
           </div>
         )}
 
-        {/* ACCOUNT SWITCHER ── shown when MT5 accounts are connected */}
+        {/* ACCOUNT SWITCHER ── shown when accounts are connected */}
         {tradingAccounts.length > 0 && (() => {
           const selectedAcc = tradingAccounts.find((a) => a.account_signature === selectedAccountSig);
           return (
             <div className="mb-5">
+              {/* Source tabs — only shown when user has both CSV and MetaAPI accounts */}
+              {hasMultipleSources && (
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => {
+                      setSourceFilter("csv");
+                      const first = csvAccounts[0];
+                      if (first) setSelectedAccountSig(first.account_signature);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors
+                      ${sourceFilter === "csv"
+                        ? "bg-zinc-800 border-zinc-600 text-zinc-100"
+                        : "border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"}`}
+                  >
+                    📁 CSV History
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSourceFilter("metaapi");
+                      const first = metaapiAccounts[0];
+                      if (first) setSelectedAccountSig(first.account_signature);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors
+                      ${sourceFilter === "metaapi"
+                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
+                        : "border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sourceFilter === "metaapi" ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"}`} />
+                    LIVE: MetaAPI
+                  </button>
+                </div>
+              )}
               <AccountSwitcher
-                accounts={tradingAccounts}
+                accounts={visibleAccounts}
                 selected={selectedAccountSig}
                 onChange={setSelectedAccountSig}
               />

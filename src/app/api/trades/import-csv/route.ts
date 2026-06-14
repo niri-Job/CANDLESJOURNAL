@@ -226,14 +226,15 @@ export async function POST(request: Request) {
   }));
 
   // ── Pre-filter already-imported deal IDs to avoid constraint 23505 ──────────
-  // trades_mt5_deal_id_unique is a separate constraint from user_id+unique_trade_id,
-  // so ignoreDuplicates on the latter won't silence conflicts on the former.
+  // Only check CSV trades — MetaAPI trades have the same ticket numbers but are
+  // a different source and should not block CSV imports.
   const existingDealIds = new Set<string>();
   {
     const { data: existingRows } = await svc
       .from("trades")
       .select("mt5_deal_id")
       .eq("user_id", user.id)
+      .eq("source", "csv")
       .not("mt5_deal_id", "is", null);
     if (existingRows) {
       existingRows.forEach((r) => { if (r.mt5_deal_id) existingDealIds.add(String(r.mt5_deal_id)); });
@@ -251,7 +252,7 @@ export async function POST(request: Request) {
     const chunk = rowsToInsert.slice(i, i + CHUNK);
     const { data: upserted, error: upsertErr } = await svc
       .from("trades")
-      .upsert(chunk, { onConflict: "user_id,unique_trade_id", ignoreDuplicates: true })
+      .upsert(chunk, { onConflict: "user_id,unique_trade_id,source", ignoreDuplicates: true })
       .select("id");
 
     if (upsertErr) {
@@ -282,6 +283,7 @@ export async function POST(request: Request) {
     account_label:       accountLabel,
     broker_name:         accountBroker,
     sync_method:         "csv",
+    sync_source:         "csv",
     sync_status:         "connected",
     last_synced_at:      new Date().toISOString(),
     account_currency:    "USD",

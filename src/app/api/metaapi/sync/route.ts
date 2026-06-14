@@ -7,17 +7,24 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const PROVISIONING = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai";
-const CLIENT_API   = "https://mt-client-api-v1.agiliumtrade.agiliumtrade.ai";
+const CLIENT_API   = "https://mt-client-api-v1.london.agiliumtrade.ai";
 
 // ── MetaAPI REST helpers ──────────────────────────────────────────────────────
 
 interface MetaApiError { message?: string; details?: unknown; }
 
 async function mGet<T>(base: string, path: string, token: string): Promise<T> {
-  const res = await fetch(`${base}${path}`, {
-    headers: { "auth-token": token },
-    cache: "no-store",
-  });
+  const url = `${base}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { "auth-token": token }, cache: "no-store" });
+  } catch (netErr) {
+    console.error("[metaapi/sync] fetch network error GET", url, netErr);
+    throw Object.assign(
+      new Error(`Network error reaching MetaAPI: ${String(netErr)}`),
+      { status: 502 }
+    );
+  }
   if (!res.ok) {
     const err: MetaApiError = await res.json().catch(() => ({}));
     throw Object.assign(
@@ -29,11 +36,21 @@ async function mGet<T>(base: string, path: string, token: string): Promise<T> {
 }
 
 async function mPost<T>(base: string, path: string, token: string): Promise<T> {
-  const res = await fetch(`${base}${path}`, {
-    method: "POST",
-    headers: { "auth-token": token, "Content-Type": "application/json" },
-    cache: "no-store",
-  });
+  const url = `${base}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "auth-token": token, "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+  } catch (netErr) {
+    console.error("[metaapi/sync] fetch network error POST", url, netErr);
+    throw Object.assign(
+      new Error(`Network error reaching MetaAPI: ${String(netErr)}`),
+      { status: 502 }
+    );
+  }
   if (!res.ok) {
     const err: MetaApiError = await res.json().catch(() => ({}));
     throw Object.assign(
@@ -103,28 +120,6 @@ export async function POST(request: Request) {
 
   const svc = serviceDb();
 
-  // Developer always has access
-  const isDeveloper = !!process.env.NEXT_PUBLIC_DEVELOPER_EMAIL &&
-    user.email === process.env.NEXT_PUBLIC_DEVELOPER_EMAIL;
-
-  if (!isDeveloper) {
-    const { data: profile } = await svc
-      .from("user_profiles")
-      .select("subscription_status, subscription_end")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const isPro =
-      profile?.subscription_status === "pro" &&
-      !!profile?.subscription_end &&
-      new Date(profile.subscription_end) > new Date();
-    if (!isPro) {
-      return NextResponse.json(
-        { error: "MetaAPI sync is a Pro feature. Upgrade to unlock it." },
-        { status: 403 }
-      );
-    }
-  }
-
   let body: { account_signature?: string };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
@@ -154,6 +149,7 @@ export async function POST(request: Request) {
   }
 
   const token = process.env.METAAPI_TOKEN;
+  console.log("[metaapi/sync] token present:", !!token, "| PROVISIONING:", PROVISIONING, "| CLIENT_API:", CLIENT_API);
   if (!token) return NextResponse.json({ error: "MetaAPI is not configured on this server." }, { status: 503 });
 
   const accountId = tradingAccount.metaapi_account_id;

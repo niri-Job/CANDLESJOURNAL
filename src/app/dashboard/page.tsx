@@ -47,6 +47,7 @@ interface Trade {
   account_label?: string | null;
   opened_at?: string | null;
   closed_at?: string | null;
+  source?: string | null;
 }
 
 interface Strategy {
@@ -104,7 +105,10 @@ const EMOTION_EMOJI: Record<string, string> = {
 const pnlColor = (v: number) =>
   v > 0 ? "text-emerald-400" : v < 0 ? "text-rose-400" : "text-zinc-300";
 
-const fmt = (v: number) => (v >= 0 ? "+$" : "-$") + Math.abs(v).toFixed(2);
+const fmt = (v: number) => {
+  const abs = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (v >= 0 ? "+$" : "-$") + abs;
+};
 
 // ─── Tooltip components ───────────────────────────────────────────────────────
 function EquityTooltip({ active, payload, label }: {
@@ -452,7 +456,10 @@ function AccountCard({
 }) {
   const isMetaApi = acc.sync_source === "metaapi";
   const todayStr  = new Date().toISOString().split("T")[0];
-  const accTrades = trades.filter((t) => t.account_signature === acc.account_signature);
+  const accTrades = trades.filter((t) =>
+    t.account_signature === acc.account_signature &&
+    (acc.sync_source ? t.source === acc.sync_source : true)
+  );
   const todayPnl  = accTrades.filter((t) => t.date === todayStr).reduce((s, t) => s + t.pnl, 0);
 
   return (
@@ -502,7 +509,7 @@ function AccountCard({
           {[
             { label: "Balance",  value: acc.balance      != null ? `$${acc.balance.toFixed(2)}`      : "—", cls: "text-zinc-300" },
             { label: "Equity",   value: acc.equity       != null ? `$${acc.equity.toFixed(2)}`       : "—", cls: "text-zinc-300" },
-            { label: "Floating", value: acc.floating_pnl != null ? fmt(acc.floating_pnl)             : "—", cls: acc.floating_pnl != null ? pnlColor(acc.floating_pnl) : "text-zinc-400" },
+            { label: "Floating", value: (acc.floating_pnl != null && acc.floating_pnl !== 0) ? fmt(acc.floating_pnl) : "—", cls: (acc.floating_pnl != null && acc.floating_pnl !== 0) ? pnlColor(acc.floating_pnl) : "text-zinc-400" },
           ].map(({ label, value, cls }) => (
             <div key={label} className="bg-[var(--cj-raised)] rounded-lg p-1.5">
               <p className="text-[9px] text-zinc-600">{label}</p>
@@ -727,7 +734,13 @@ export default function TradingJournal() {
     // No accounts connected — show all manually-entered trades
     if (tradingAccounts.length === 0) return trades;
     if (!selectedAccountSig) return [];
-    return trades.filter((t) => t.account_signature === selectedAccountSig);
+    const selectedAcc = tradingAccounts.find((a) => a.account_signature === selectedAccountSig);
+    const srcFilter = selectedAcc?.sync_source;
+    return trades.filter((t) => {
+      if (t.account_signature !== selectedAccountSig) return false;
+      if (srcFilter) return t.source === srcFilter;
+      return true;
+    });
   }, [trades, selectedAccountSig, tradingAccounts]);
 
   // ── View mode: live vs demo ───────────────────────────────────────────────

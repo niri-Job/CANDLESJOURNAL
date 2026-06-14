@@ -67,6 +67,19 @@ export async function GET() {
     followerCount[f.analyst_id] = (followerCount[f.analyst_id] ?? 0) + 1;
   }
 
+  // Fetch email prefix for users whose name is null
+  const nullNameIds = userIds.filter((uid: string) => !profileMap[uid]?.name);
+  const emailMap: Record<string, string> = {};
+  if (nullNameIds.length) {
+    await Promise.all(nullNameIds.map(async (uid: string) => {
+      try {
+        const { data: au } = await db.auth.admin.getUserById(uid);
+        const email = (au as { user?: { email?: string } } | null)?.user?.email;
+        if (email) emailMap[uid] = email.split("@")[0];
+      } catch { /* ignore */ }
+    }));
+  }
+
   type Analyst = { user_id: string; points: number; total_posts: number; tp_hits: number; sl_hits: number; accuracy_rate: number };
 
   const leaderboard = (analysts as Analyst[]).map((a) => {
@@ -77,6 +90,7 @@ export async function GET() {
     const score    = winRate * 0.4 + accuracy * 0.4 + Math.min(followers, 100) * 0.2;
     return {
       ...a,
+      display_name:  profileMap[a.user_id]?.name || emailMap[a.user_id] || "Trader",
       user_profiles: profileMap[a.user_id] ?? null,
       trade_stats:   stats,
       win_rate:      winRate,

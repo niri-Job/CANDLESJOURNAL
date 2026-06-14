@@ -96,9 +96,23 @@ export async function GET(request: Request) {
     reactByPost[r.post_id].push(r);
   }
 
+  // Fetch email prefix for users whose name is null
+  const nullNameIds = (userIds as string[]).filter(uid => !profileMap[uid]?.name);
+  const emailMap: Record<string, string> = {};
+  if (nullNameIds.length) {
+    await Promise.all(nullNameIds.map(async (uid) => {
+      try {
+        const { data: au } = await db.auth.admin.getUserById(uid);
+        const email = (au as { user?: { email?: string } } | null)?.user?.email;
+        if (email) emailMap[uid] = email.split("@")[0];
+      } catch { /* ignore */ }
+    }));
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let enriched = posts.map((post: any) => ({
     ...post,
+    display_name:  profileMap[post.user_id]?.name || emailMap[post.user_id] || "Trader",
     user_profiles: profileMap[post.user_id] ?? null,
     alpha_points:  pointsMap[post.user_id]  ?? null,
     alpha_reactions: reactByPost[post.id]   ?? [],

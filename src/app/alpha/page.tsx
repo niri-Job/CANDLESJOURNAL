@@ -14,6 +14,7 @@ interface AlphaPost {
   timeframe: string | null; write_up: string | null;
   status: "pending" | "tp_hit" | "sl_hit" | "expired" | "running";
   created_at: string; expires_at: string | null;
+  display_name: string;
   user_profiles: { name: string | null } | null;
   alpha_points:  { accuracy_rate: number; points: number; tp_hits: number; sl_hits: number; total_posts: number } | null;
   alpha_reactions: Reaction[];
@@ -22,6 +23,7 @@ interface AlphaPost {
 interface Analyst {
   user_id: string; points: number; total_posts: number; tp_hits: number; sl_hits: number;
   accuracy_rate: number; win_rate: number; follower_count: number; score: number;
+  display_name: string;
   trade_stats: { wins: number; total: number };
   user_profiles: { name: string | null } | null;
 }
@@ -53,7 +55,7 @@ function fmtP(n: number | null): string {
   return n.toFixed(5);
 }
 function analystName(post: AlphaPost): string {
-  return post.user_profiles?.name ?? "Trader";
+  return post.display_name || post.user_profiles?.name || "Trader";
 }
 function badge(accuracy: number, winRate: number): { label: string; color: string } | null {
   if (accuracy >= 75 && winRate >= 65) return { label: "Gold",   color: GOLD };
@@ -587,8 +589,16 @@ export default function AlphaPage() {
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, color: "#52525b" }}>#{i + 1}</span>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                        background: "rgba(212,160,23,0.15)", border: "1px solid rgba(212,160,23,0.35)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 9, fontWeight: 700, color: GOLD,
+                      }}>
+                        {(a.display_name || "T").charAt(0).toUpperCase()}
+                      </div>
                       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--cj-text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {a.user_profiles?.name ?? "Analyst"}
+                        {a.display_name || "Analyst"}
                       </span>
                       {b2 && <span style={{ fontSize: 7, fontWeight: 700, padding: "1px 4px", borderRadius: 3, border: `1px solid ${b2.color}`, color: b2.color }}>{b2.label}</span>}
                     </div>

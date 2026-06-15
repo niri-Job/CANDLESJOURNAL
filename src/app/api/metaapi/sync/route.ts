@@ -289,7 +289,9 @@ export async function POST(request: Request) {
       ...(liveInfo ? {
         balance:      liveInfo.balance      ?? null,
         equity:       liveInfo.equity       ?? null,
-        floating_pnl: liveInfo.profit       ?? null,
+        floating_pnl: (liveInfo.equity != null && liveInfo.balance != null)
+          ? liveInfo.equity - liveInfo.balance
+          : null,
       } : {}),
     };
     console.log("[metaapi/sync] DB update payload:", JSON.stringify(dbPayload));

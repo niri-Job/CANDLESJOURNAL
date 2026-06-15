@@ -451,6 +451,7 @@ export default function SettingsPage() {
                         </label>
                         <input
                           type="text" inputMode="numeric"
+                          autoComplete="off"
                           value={mt5Login}
                           onChange={(e) => { setMt5Login(e.target.value); setMt5ConnectError(null); }}
                           disabled={mt5Connecting}
@@ -468,6 +469,7 @@ export default function SettingsPage() {
                         </label>
                         <input
                           type="text"
+                          autoComplete="off"
                           value={mt5Server}
                           onChange={(e) => { setMt5Server(e.target.value); setMt5ConnectError(null); }}
                           disabled={mt5Connecting}
@@ -488,6 +490,7 @@ export default function SettingsPage() {
                       <div className="relative">
                         <input
                           type={showPassword ? "text" : "password"}
+                          autoComplete="new-password"
                           value={mt5Password}
                           onChange={(e) => { setMt5Password(e.target.value); setMt5ConnectError(null); }}
                           disabled={mt5Connecting}

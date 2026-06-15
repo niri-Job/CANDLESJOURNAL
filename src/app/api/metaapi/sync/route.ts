@@ -175,15 +175,16 @@ export async function POST(request: Request) {
     }
 
     // Fetch live account information (balance, equity, floating P&L)
-    interface LiveAccountInfo { balance?: number; equity?: number; profit?: number; currency?: string; }
+    interface LiveAccountInfo { balance?: number; equity?: number; profit?: number; currency?: string; [k: string]: unknown; }
     let liveInfo: LiveAccountInfo | null = null;
+    const accountInfoPath = `/users/current/accounts/${accountId}/accountInformation`;
+    console.log("[metaapi/sync] Fetching accountInformation URL:", `${CLIENT_API}${accountInfoPath}`);
     try {
-      liveInfo = await mGet<LiveAccountInfo>(
-        CLIENT_API, `/users/current/accounts/${accountId}/accountInformation`, token
-      );
-      console.log("[metaapi/sync] Live account info:", JSON.stringify(liveInfo));
+      liveInfo = await mGet<LiveAccountInfo>(CLIENT_API, accountInfoPath, token);
+      console.log("[metaapi/sync] accountInformation raw:", JSON.stringify(liveInfo));
+      console.log("[metaapi/sync] profit:", liveInfo?.profit, "| balance:", liveInfo?.balance, "| equity:", liveInfo?.equity);
     } catch (e) {
-      console.warn("[metaapi/sync] accountInformation fetch failed (non-fatal):", (e as { message?: string }).message);
+      console.warn("[metaapi/sync] accountInformation fetch failed (non-fatal):", (e as { message?: string; status?: number }).message, "status:", (e as { status?: number }).status);
     }
 
     // Fetch last 6 months of deal history via REST
@@ -280,7 +281,7 @@ export async function POST(request: Request) {
       duplicates += chunk.length - (upserted?.length ?? 0);
     }
 
-    await svc.from("trading_accounts").update({
+    const dbPayload: Record<string, unknown> = {
       last_synced_at: new Date().toISOString(),
       sync_status:    "connected",
       sync_error:     null,
@@ -290,7 +291,18 @@ export async function POST(request: Request) {
         equity:       liveInfo.equity       ?? null,
         floating_pnl: liveInfo.profit       ?? null,
       } : {}),
-    }).eq("user_id", user.id).eq("account_signature", account_signature.trim());
+    };
+    console.log("[metaapi/sync] DB update payload:", JSON.stringify(dbPayload));
+    const { error: updateErr } = await svc
+      .from("trading_accounts")
+      .update(dbPayload)
+      .eq("user_id", user.id)
+      .eq("account_signature", account_signature.trim());
+    if (updateErr) {
+      console.error("[metaapi/sync] trading_accounts update ERROR:", JSON.stringify(updateErr));
+    } else {
+      console.log("[metaapi/sync] trading_accounts update OK — balance:", dbPayload.balance, "equity:", dbPayload.equity, "floating_pnl:", dbPayload.floating_pnl);
+    }
 
     return NextResponse.json({ success: true, total: tradeRows.length, inserted, duplicates });
   } catch (err: unknown) {

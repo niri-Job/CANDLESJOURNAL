@@ -70,26 +70,28 @@ export async function POST(request: Request) {
 
   const svc = serviceDb();
 
-  // Developer always has access
-  const isDeveloper = !!process.env.NEXT_PUBLIC_DEVELOPER_EMAIL &&
-    user.email === process.env.NEXT_PUBLIC_DEVELOPER_EMAIL;
+  // Fetch trial / subscription status up-front (used for gate checks and trial start)
+  const { data: profileData } = await svc
+    .from("user_profiles")
+    .select("subscription_status, mt5_trial_started_at, mt5_trial_ends_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  if (!isDeveloper) {
-    const { data: profile } = await svc
-      .from("user_profiles")
-      .select("subscription_status, subscription_end")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const isPro =
-      profile?.subscription_status === "pro" &&
-      !!profile?.subscription_end &&
-      new Date(profile.subscription_end) > new Date();
-    if (!isPro) {
-      return NextResponse.json(
-        { error: "MetaAPI Direct Connect is a Pro feature. Upgrade to unlock it." },
-        { status: 403 }
-      );
-    }
+  const isPro        = profileData?.subscription_status === "pro";
+  const trialExpired = !isPro
+    && !!profileData?.mt5_trial_ends_at
+    && new Date() >= new Date(profileData.mt5_trial_ends_at);
+
+  // Hard cap: max 20 MetaAPI-connected accounts across all users
+  const { count: metaapiCount } = await svc
+    .from("trading_accounts")
+    .select("*", { count: "exact", head: true })
+    .or("sync_source.eq.metaapi,sync_method.eq.metaapi");
+  if ((metaapiCount ?? 0) >= 20) {
+    return NextResponse.json(
+      { error: "MT5 Direct Sync spots are full for this week. Join the waitlist." },
+      { status: 503 }
+    );
   }
 
   let body: { login?: string; password?: string; server?: string; platform?: string };
@@ -122,6 +124,14 @@ export async function POST(request: Request) {
       accountId = existingRow.metaapi_account_id;
       console.log("[metaapi/connect] Already provisioned (from DB):", accountId);
     } else {
+      // Block new provisioning when trial has expired
+      if (trialExpired) {
+        return NextResponse.json({
+          error: "Your 7-day free trial has ended. Upgrade to connect MT5 accounts.",
+          trialExpired: true,
+        }, { status: 403 });
+      }
+
       // ── Step 2: check MetaAPI for an account with this login ────────────────
       const existingAccounts = await mGet<Record<string, unknown>[]>(
         "/users/current/accounts?limit=1000", token
@@ -175,8 +185,8 @@ export async function POST(request: Request) {
       account_server:      server.trim(),
       account_label:       accountLabel,
       sync_method:         "metaapi",
+      sync_source:         "metaapi",
       sync_status:         "connected",
-      last_synced_at:      new Date().toISOString(),
       account_currency:    "USD",
       account_type:        "real",
       is_cent:             false,
@@ -203,6 +213,18 @@ export async function POST(request: Request) {
       if (!msg.toLowerCase().includes("already") && !msg.includes("E_ALREADY")) {
         console.warn("[metaapi/connect] Deploy warning (non-fatal):", msg);
       }
+    }
+
+    // Start MT5 trial on the user's very first MetaAPI connect
+    if (!profileData?.mt5_trial_started_at) {
+      const now    = new Date();
+      const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      await svc.from("user_profiles").upsert({
+        user_id:              user.id,
+        mt5_trial_started_at: now.toISOString(),
+        mt5_trial_ends_at:    trialEnd.toISOString(),
+      }, { onConflict: "user_id" });
+      console.log("[metaapi/connect] Trial started — ends:", trialEnd.toISOString());
     }
 
     return NextResponse.json({

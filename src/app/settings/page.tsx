@@ -40,10 +40,8 @@ function timeAgo(iso: string | null): string {
 function ReferralQuickView() {
   const [data, setData] = useState<{
     referral_code: string | null;
-    referral_enabled: boolean;
-    subscription_status: string;
-    active_referrals: number;
-    this_month_earnings: number;
+    total:         number;
+    converted:     number;
   } | null>(null);
 
   useEffect(() => {
@@ -51,8 +49,6 @@ function ReferralQuickView() {
       .then(r => r.ok ? r.json() : null)
       .then(d => d && setData(d));
   }, []);
-
-  const isFree = !data || data.subscription_status !== "pro";
 
   return (
     <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
@@ -64,36 +60,22 @@ function ReferralQuickView() {
         </Link>
       </div>
 
-      {isFree ? (
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-zinc-300 mb-1">Earn recurring commissions</p>
-            <p className="text-xs text-zinc-500">
-              Upgrade to Pro to unlock your referral link and start earning ₦1,000/month per referral.
-            </p>
-          </div>
-          <Link href="#" className="btn-gold px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
-            Upgrade
-          </Link>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Your Code</p>
+          <p className="font-mono font-bold text-sm" style={{ color: "var(--cj-gold)" }}>
+            {data?.referral_code ?? "—"}
+          </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
-            <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Your Code</p>
-            <p className="font-sans font-bold text-[var(--cj-gold)] text-sm">{data?.referral_code ?? "—"}</p>
-          </div>
-          <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
-            <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Active</p>
-            <p className="font-bold text-zinc-100 text-lg">{data?.active_referrals ?? 0}</p>
-          </div>
-          <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
-            <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">This Month</p>
-            <p className="font-bold text-zinc-100 text-lg">
-              ₦{(data?.this_month_earnings ?? 0).toLocaleString("en-NG")}
-            </p>
-          </div>
+        <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Referred</p>
+          <p className="font-bold text-zinc-100 text-lg">{data?.total ?? 0}</p>
         </div>
-      )}
+        <div className="bg-[var(--cj-raised)] rounded-xl p-3 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Converted</p>
+          <p className="font-bold text-zinc-100 text-lg">{data?.converted ?? 0}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -103,6 +85,7 @@ export default function SettingsPage() {
   const [user,            setUser]            = useState<User | null>(null);
   const [loading,         setLoading]         = useState(true);
   const [sub,             setSub]             = useState<SubState>({ status: "free", end: null });
+  const [mt5TrialEndsAt,  setMt5TrialEndsAt]  = useState<string | null>(null);
   const [tradingAccounts, setTradingAccounts] = useState<TradingAccountRow[]>([]);
 
   // MT5 Direct Connect
@@ -168,7 +151,7 @@ export default function SettingsPage() {
       const [subRes, accountsRes] = await Promise.all([
         supabase
           .from("user_profiles")
-          .select("subscription_status, subscription_end")
+          .select("subscription_status, subscription_end, mt5_trial_ends_at")
           .eq("user_id", user.id)
           .maybeSingle(),
         supabase
@@ -178,8 +161,9 @@ export default function SettingsPage() {
           .order("last_synced_at", { ascending: false, nullsFirst: false }),
       ]);
 
-      const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null } | null;
+      const subData = subRes.data as { subscription_status: string | null; subscription_end: string | null; mt5_trial_ends_at: string | null } | null;
       setSub({ status: subData?.subscription_status ?? "free", end: subData?.subscription_end ?? null });
+      setMt5TrialEndsAt(subData?.mt5_trial_ends_at ?? null);
       if (accountsRes.data) setTradingAccounts(accountsRes.data as TradingAccountRow[]);
       setLoading(false);
     }
@@ -225,13 +209,22 @@ export default function SettingsPage() {
           platform: mt5Platform,
         }),
       });
-      const json = await res.json() as { success?: boolean; account_label?: string; error?: string };
+      const json = await res.json() as { success?: boolean; account_label?: string; account_signature?: string; error?: string };
       if (!res.ok) {
         setMt5ConnectError(json.error ?? "Connection failed. Please try again.");
       } else {
+        const newSig = json.account_signature;
         setMt5Login(""); setMt5Password(""); setMt5Server("");
-        showToast(`Connected: ${json.account_label ?? mt5Login.trim()}`);
+        showToast("Connected! Syncing your trades in the background...");
         await refreshTradingAccounts();
+        autoSynced.current = false;
+        if (newSig) {
+          fetch("/api/metaapi/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ account_signature: newSig }),
+          }).catch(() => undefined);
+        }
       }
     } catch {
       setMt5ConnectError("Network error. Check your connection and try again.");
@@ -248,9 +241,20 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ account_signature: accountSig }),
       });
-      const json = await res.json() as { success?: boolean; inserted?: number; error?: string };
+      const json = await res.json() as { success?: boolean; inserted?: number; error?: string; alreadySynced?: boolean; message?: string; historyNotReady?: boolean; trialExpired?: boolean };
+      if (res.status === 202) {
+        showToast(json.error ?? "Your account is still connecting to your broker. Please try syncing again in 2 minutes.");
+        return;
+      }
       if (!res.ok) {
+        if (json.trialExpired) setMt5TrialEndsAt(new Date(0).toISOString());
         showToast(json.error ?? "Sync failed.");
+      } else if (json.historyNotReady) {
+        showToast(json.message ?? "No trade history yet. Your broker may still be loading — try again in a few minutes.");
+        await refreshTradingAccounts();
+      } else if (json.alreadySynced) {
+        showToast(json.message ?? "Already synced today. Try again tomorrow.");
+        await refreshTradingAccounts();
       } else {
         const n = json.inserted ?? 0;
         showToast(`Synced ${n} new trade${n !== 1 ? "s" : ""}.`);
@@ -395,10 +399,45 @@ export default function SettingsPage() {
                       LIVE
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-500 leading-relaxed mb-5">
+                  <p className="text-xs text-zinc-500 leading-relaxed mb-4">
                     Enter your MT5 credentials. NIRI connects via MetaAPI and fetches your trade history
                     automatically. Your password is encrypted in transit and never stored by NIRI.
                   </p>
+
+                  {/* MT5 trial status banner */}
+                  {mt5TrialEndsAt && (() => {
+                    const now      = new Date();
+                    const trialEnd = new Date(mt5TrialEndsAt);
+                    if (now >= trialEnd) {
+                      return (
+                        <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl"
+                             style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)" }}>
+                          <p className="text-xs leading-relaxed" style={{ color: "#fbbf24" }}>
+                            Your free trial has ended. Upgrade to continue syncing.
+                          </p>
+                          <a href="/pricing"
+                             className="text-xs font-bold px-2.5 py-1 rounded-lg whitespace-nowrap shrink-0"
+                             style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                            Upgrade
+                          </a>
+                        </div>
+                      );
+                    }
+                    const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                    const urgent   = daysLeft <= 3;
+                    return (
+                      <div className="mb-4 px-3 py-2.5 rounded-xl"
+                           style={{
+                             background: urgent ? "rgba(251,191,36,0.08)" : "rgba(52,211,153,0.06)",
+                             border:     `1px solid ${urgent ? "rgba(251,191,36,0.3)" : "rgba(52,211,153,0.2)"}`,
+                           }}>
+                        <p className="text-xs font-semibold"
+                           style={{ color: urgent ? "#fbbf24" : "#34d399" }}>
+                          MT5 Free Trial &mdash; {daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining
+                        </p>
+                      </div>
+                    );
+                  })()}
 
                   {/* Connected MetaAPI accounts */}
                   {metaapiAccounts.length > 0 && (
@@ -408,6 +447,9 @@ export default function SettingsPage() {
                           [account.account_login, account.account_server].filter(Boolean).join(" — ") ||
                           account.account_signature;
                         const isSyncing = syncingAccount === account.account_signature;
+                        const msSinceSync = account.last_synced_at ? Date.now() - new Date(account.last_synced_at).getTime() : Infinity;
+                        const isThrottled = msSinceSync < 86400000;
+                        const nextSyncAt = isThrottled ? new Date(new Date(account.last_synced_at!).getTime() + 86400000) : null;
                         return (
                           <div key={account.id}
                                className="flex items-center justify-between gap-2 bg-[var(--cj-raised)] border border-emerald-500/20 rounded-xl px-3 py-2.5">
@@ -420,22 +462,29 @@ export default function SettingsPage() {
                                 Last synced: {timeAgo(account.last_synced_at)}
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleMetaApiSync(account.account_signature)}
-                              disabled={isSyncing}
-                              className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg
-                                         border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10
-                                         transition-all disabled:opacity-50 shrink-0">
-                              {isSyncing
-                                ? <span className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                                : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                                  </svg>
-                              }
-                              {isSyncing ? "Syncing…" : "Sync"}
-                            </button>
+                            <div className="flex flex-col items-end gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleMetaApiSync(account.account_signature)}
+                                disabled={isSyncing || isThrottled}
+                                className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg
+                                           border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10
+                                           transition-all disabled:opacity-50">
+                                {isSyncing
+                                  ? <span className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                                  : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                    </svg>
+                                }
+                                {isSyncing ? "Syncing…" : "Sync"}
+                              </button>
+                              {nextSyncAt && (
+                                <p className="text-[9px] text-amber-400">
+                                  Next sync {nextSyncAt.getUTCHours().toString().padStart(2, "0")}:{nextSyncAt.getUTCMinutes().toString().padStart(2, "0")} UTC
+                                </p>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -756,8 +805,11 @@ export default function SettingsPage() {
                   const title      = account.account_label ||
                     [account.account_login, account.account_server].filter(Boolean).join(" — ") ||
                     account.account_signature;
-                  const isDeleting = deletingAccount === account.account_signature;
-                  const isSyncing  = syncingAccount  === account.account_signature;
+                  const isDeleting  = deletingAccount === account.account_signature;
+                  const isSyncing   = syncingAccount  === account.account_signature;
+                  const msSinceSync = isMetaApi && account.last_synced_at ? Date.now() - new Date(account.last_synced_at).getTime() : Infinity;
+                  const isThrottled = msSinceSync < 86400000;
+                  const nextSyncAt  = isThrottled ? new Date(new Date(account.last_synced_at!).getTime() + 86400000) : null;
 
                   return (
                     <div key={account.id}
@@ -795,22 +847,29 @@ export default function SettingsPage() {
 
                         <div className="flex items-center gap-2 shrink-0">
                           {isMetaApi && account.metaapi_account_id && (
-                            <button
-                              type="button"
-                              onClick={() => handleMetaApiSync(account.account_signature)}
-                              disabled={isSyncing}
-                              className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
-                                         border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10
-                                         hover:border-emerald-500/50 transition-all disabled:opacity-50">
-                              {isSyncing
-                                ? <span className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                                : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                                  </svg>
-                              }
-                              {isSyncing ? "Syncing…" : "Sync Now"}
-                            </button>
+                            <div className="flex flex-col items-end gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleMetaApiSync(account.account_signature)}
+                                disabled={isSyncing || isThrottled}
+                                className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg
+                                           border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10
+                                           hover:border-emerald-500/50 transition-all disabled:opacity-50">
+                                {isSyncing
+                                  ? <span className="w-3 h-3 border border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                                  : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                    </svg>
+                                }
+                                {isSyncing ? "Syncing…" : "Sync Now"}
+                              </button>
+                              {nextSyncAt && (
+                                <p className="text-[9px] text-amber-400">
+                                  Next sync {nextSyncAt.getUTCHours().toString().padStart(2, "0")}:{nextSyncAt.getUTCMinutes().toString().padStart(2, "0")} UTC
+                                </p>
+                              )}
+                            </div>
                           )}
                           <button
                             type="button"

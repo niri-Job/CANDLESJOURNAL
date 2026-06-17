@@ -563,7 +563,10 @@ export default function TradingJournal() {
   const [aiCreditsUsed,    setAiCreditsUsed]    = useState<number>(0);
   const [aiCreditsLimit,   setAiCreditsLimit]   = useState<number>(3);
   const [trialDaysLeft,    setTrialDaysLeft]    = useState<number | null>(null);
+  const [trialEndsAt,      setTrialEndsAt]      = useState<Date | null>(null);
   const [isSyncing,        setIsSyncing]        = useState(false);
+  const [syncingBanner,    setSyncingBanner]    = useState(false);
+  const [mt5TrialExpired,  setMt5TrialExpired]  = useState(false);
   const [sourceFilter,     setSourceFilter]     = useState<"csv" | "metaapi">("csv");
   const [strategies,       setStrategies]       = useState<Strategy[]>([]);
   const [shareOpen,        setShareOpen]        = useState(false);
@@ -576,6 +579,34 @@ export default function TradingJournal() {
     setIsSyncing(true);
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => setIsSyncing(false), 5000);
+  }
+
+  async function handleSyncNow(accountSig: string) {
+    setSyncingBanner(true);
+    try {
+      const res = await fetch("/api/metaapi/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_signature: accountSig }),
+      });
+      const json = await res.json() as { success?: boolean; inserted?: number; historyNotReady?: boolean; message?: string; error?: string; trialExpired?: boolean };
+      if (res.status === 202) {
+        showToast(json.error ?? "Still connecting to broker — try again in 2 minutes.", "err");
+      } else if (!res.ok) {
+        if (json.trialExpired) setMt5TrialExpired(true);
+        showToast(json.error ?? "Sync failed.", "err");
+      } else if (json.historyNotReady) {
+        showToast(json.message ?? "No history yet — try again in a few minutes.", "err");
+      } else {
+        const n = json.inserted ?? 0;
+        showToast(`Synced ${n} new trade${n !== 1 ? "s" : ""}.`, "ok");
+        window.location.reload();
+      }
+    } catch {
+      showToast("Network error — sync failed.", "err");
+    } finally {
+      setSyncingBanner(false);
+    }
   }
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
@@ -626,10 +657,11 @@ export default function TradingJournal() {
         if (first) setSelectedAccountSig(first.account_signature);
       }
 
-      // Onboarding gate: redirect new users who haven't completed setup and have no trades
+      // Onboarding gate: redirect only when we're certain there are no trades and onboarding
+      // hasn't been completed. Guard against a failed trades query causing a false redirect.
       const hasTrades = (tradesRes.data?.length ?? 0) > 0;
       const profileData = profileRes.data as { onboarding_completed?: boolean } | null;
-      if (!profileData?.onboarding_completed && !hasTrades) {
+      if (!tradesRes.error && !profileData?.onboarding_completed && !hasTrades) {
         window.location.href = "/onboarding";
         return;
       }
@@ -655,8 +687,10 @@ export default function TradingJournal() {
             const trialEnd = new Date(new Date(p.created_at).getTime() + 3 * 86_400_000);
             const days = Math.max(0, Math.ceil((trialEnd.getTime() - Date.now()) / 86_400_000));
             setTrialDaysLeft(days);
+            setTrialEndsAt(trialEnd);
           } else if (isPaid) {
             setTrialDaysLeft(null);
+            setTrialEndsAt(null);
           }
         }
       }
@@ -1145,8 +1179,10 @@ export default function TradingJournal() {
                 </svg>
               </div>
               <p className="text-xs" style={{ color: "#C4B89A" }}>
-                <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>Free trial</span>
-                {" "}— {trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""} remaining. All Pro features are unlocked.
+                <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>MT5 Free Trial</span>
+                {" "}— {trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""} remaining.
+                {" "}Your account syncs automatically until{" "}
+                {trialEndsAt ? trialEndsAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "end of trial"}.
               </p>
             </div>
             <a href="/pricing"
@@ -1231,6 +1267,53 @@ export default function TradingJournal() {
         })()}
 
 
+        {/* MetaAPI connected but no trades yet — Sync Now or trial expired */}
+        {!loading && (() => {
+          const selectedAcc = tradingAccounts.find((a) => a.account_signature === selectedAccountSig);
+          if (!selectedAcc || selectedAcc.sync_source !== "metaapi" || accountTrades.length > 0) return null;
+
+          if (mt5TrialExpired) {
+            return (
+              <div className="mb-5 flex items-center justify-between gap-4 px-4 py-3 rounded-xl"
+                   style={{ background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.3)" }}>
+                <div className="flex items-center gap-3">
+                  <span className="text-lg shrink-0">⏰</span>
+                  <p className="text-xs leading-relaxed" style={{ color: "#C4B89A" }}>
+                    <span className="font-semibold" style={{ color: "#fbbf24" }}>Your 7-day MT5 trial has ended.</span>
+                    {" "}Upgrade to keep syncing.
+                  </p>
+                </div>
+                <a href="/pricing"
+                   className="text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0"
+                   style={{ background: "linear-gradient(135deg,#F5C518,#C9A227)", color: "#0A0A0F" }}>
+                  Upgrade
+                </a>
+              </div>
+            );
+          }
+
+          return (
+            <div className="mb-5 flex items-center justify-between gap-4 px-4 py-3 rounded-xl"
+                 style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.25)" }}>
+              <div className="flex items-center gap-3">
+                <span className="text-lg shrink-0">📡</span>
+                <p className="text-xs leading-relaxed" style={{ color: "#C4B89A" }}>
+                  <span className="font-semibold" style={{ color: "#34d399" }}>Your MT5 account is connected</span>
+                  {" "}but we haven&apos;t synced your trades yet.
+                </p>
+              </div>
+              <button
+                onClick={() => handleSyncNow(selectedAccountSig)}
+                disabled={syncingBanner}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg,#34d399,#059669)", color: "#0A0A0F" }}
+              >
+                {syncingBanner ? "Syncing..." : "Sync Now"}
+              </button>
+            </div>
+          );
+        })()}
+
         {/* DEMO disclaimer */}
         {isViewingDemo && tradingAccounts.length > 0 && (
           <div className="mb-4 px-4 py-3 rounded-xl text-xs text-yellow-400 font-medium"
@@ -1304,18 +1387,21 @@ export default function TradingJournal() {
           }
         </div>
 
-        {/* ── ROW 3: Discipline | Calendar | Win Rate — 3 equal-height columns ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6 items-start">
-          <DisciplineScore trades={accountTrades} hideTrend />
-
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Daily P&L Calendar</p>
-            <CalendarHeatmap dailyData={dailyData} trades={accountTrades} compact />
+        {/* ── ROW 3: Left pane (Discipline + Win Rate) | Right pane (Calendar) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-5 mb-6">
+          {/* Left pane — 2/5 width: Discipline Score stacked above Win Rate by Pair */}
+          <div className="md:col-span-2 flex flex-col gap-4">
+            <DisciplineScore trades={accountTrades} hideTrend />
+            <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5 flex-1">
+              <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">Win Rate by Pair</p>
+              <PremiumWinRateChart data={pairWinRateData} />
+            </div>
           </div>
 
-          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
-            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">Win Rate by Pair</p>
-            <PremiumWinRateChart data={pairWinRateData} />
+          {/* Right pane — 3/5 width: Calendar expanded to fill all available space */}
+          <div className="md:col-span-3 bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-5">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-3">Daily P&L Calendar</p>
+            <CalendarHeatmap dailyData={dailyData} trades={accountTrades} />
           </div>
         </div>
 

@@ -1,649 +1,310 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { Sidebar } from "@/components/Sidebar";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend,
-} from "recharts";
 import type { User } from "@supabase/supabase-js";
-import { QRCodeSVG } from "qrcode.react";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+const REWARDS_UNLOCK = new Date("2026-07-01T00:00:00Z");
+const BASE_URL       = "https://niri.live";
 
 interface Stats {
   referral_code: string | null;
-  referral_enabled: boolean;
-  total_referrals: number;
-  active_referrals: number;
-  inactive_referrals: number;
-  pending_referrals: number;
-  conversion_rate: number;
-  this_month_earnings: number;
-  lifetime_earnings: number;
-  pending_earnings: number;
-  paid_earnings: number;
-  available_for_payout: number;
+  total:         number;
+  pending:       number;
+  converted:     number;
+  total_earned:  number;
 }
 
 interface Referral {
-  id: string;
-  referred_anon: string;
-  status: string;
-  plan_type: string;
-  commission_rate: number;
-  joined_at: string | null;
-  activated_at: string | null;
-  last_payment_at: string | null;
-  earnings: number;
-}
-
-interface EarningMonth {
-  month: string;
-  month_key: string;
-  confirmed: number;
-  pending: number;
-  total: number;
-}
-
-interface Payout {
-  id: string;
-  amount: number;
-  status: string;
-  payout_method: string;
-  requested_at: string | null;
-  paid_at: string | null;
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmt(n: number) { return `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`; }
-
-function fmtDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  id:        string;
+  email:     string;
+  status:    "pending" | "converted" | "paid";
+  joined_at: string;
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { bg: string; text: string; label: string }> = {
-    active:   { bg: "bg-emerald-500/15 border-emerald-500/30", text: "text-emerald-400", label: "Active"   },
-    inactive: { bg: "bg-zinc-700/40 border-zinc-700",          text: "text-zinc-500",    label: "Inactive" },
-    pending:  { bg: "bg-amber-500/15 border-amber-500/30",     text: "text-amber-400",   label: "Pending"  },
+  const cfg: Record<string, { bg: string; color: string; label: string }> = {
+    pending:   { bg: "rgba(113,113,122,0.25)", color: "#a1a1aa", label: "Pending"   },
+    converted: { bg: "rgba(52,211,153,0.15)",  color: "#34d399", label: "Converted" },
+    paid:      { bg: "rgba(245,197,24,0.15)",  color: "#F5C518", label: "Paid"      },
   };
-  const s = map[status] ?? map.pending;
+  const s = cfg[status] ?? cfg.pending;
   return (
-    <span className={`inline-block text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full border ${s.bg} ${s.text}`}>
+    <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+          style={{ background: s.bg, color: s.color }}>
       {s.label}
     </span>
   );
 }
 
-// ── Copy button ───────────────────────────────────────────────────────────────
-
-function CopyBtn({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  function copy() {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }
-  return (
-    <button
-      onClick={copy}
-      className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-      style={{
-        background: copied ? "rgba(52,211,153,0.15)" : "var(--cj-raised)",
-        border: `1px solid ${copied ? "rgba(52,211,153,0.35)" : "var(--cj-border)"}`,
-        color: copied ? "#34d399" : "var(--cj-text-muted)",
-      }}
-    >
-      {copied ? "✓ Copied!" : label}
-    </button>
-  );
-}
-
-// ── Stat card ────────────────────────────────────────────────────────────────
-
-function StatCard({
-  label, value, sub, accent = false,
-}: { label: string; value: string; sub?: string; accent?: boolean }) {
-  return (
-    <div
-      className="bg-[var(--cj-surface)] rounded-2xl p-4 flex flex-col gap-1"
-      style={{
-        border: `1px solid ${accent ? "rgba(245,197,24,0.35)" : "var(--cj-border)"}`,
-        background: accent ? "rgba(245,197,24,0.05)" : undefined,
-      }}
-    >
-      <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">{label}</p>
-      <p className={`text-xl font-bold ${accent ? "text-[var(--cj-gold)]" : "text-zinc-100"}`}>{value}</p>
-      {sub && <p className="text-[11px] text-zinc-600">{sub}</p>}
-    </div>
-  );
-}
-
-// ── Payout modal ─────────────────────────────────────────────────────────────
-
-function PayoutModal({
-  available,
-  onClose,
-  onSuccess,
-}: { available: number; onClose: () => void; onSuccess: () => void }) {
-  const [method, setMethod]     = useState("bank_transfer");
-  const [details, setDetails]   = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [error,   setError]     = useState("");
-
-  async function submit() {
-    setError("");
-    if (!details.trim()) { setError("Please enter your account details"); return; }
-    setLoading(true);
-    const res = await fetch("/api/referrals/payout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method, account_details: { info: details } }),
-    });
-    const json = await res.json();
-    setLoading(false);
-    if (!res.ok) { setError(json.error || "Request failed"); return; }
-    onSuccess();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4"
-         onClick={onClose}>
-      <div className="w-full max-w-md bg-[var(--cj-surface)] rounded-2xl p-6"
-           style={{ border: "1px solid var(--cj-border)", borderTop: "2px solid var(--cj-gold-muted)" }}
-           onClick={e => e.stopPropagation()}>
-
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-zinc-100 text-lg">Request Payout</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors text-xl leading-none">×</button>
-        </div>
-
-        <div className="bg-[var(--cj-raised)] rounded-xl p-3 mb-5 flex items-center justify-between">
-          <span className="text-xs text-zinc-500">Available balance</span>
-          <span className="font-bold text-[var(--cj-gold)]">{fmt(available)}</span>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[11px] uppercase tracking-[0.1em] font-medium mb-2"
-                   style={{ color: "var(--cj-gold-muted)" }}>Payout Method</label>
-            <select
-              value={method}
-              onChange={e => setMethod(e.target.value)}
-              className="inp"
-            >
-              <option value="bank_transfer">Bank Transfer</option>
-              <option value="paypal">PayPal</option>
-              <option value="crypto">Crypto (USDT / BTC)</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] uppercase tracking-[0.1em] font-medium mb-2"
-                   style={{ color: "var(--cj-gold-muted)" }}>Account Details</label>
-            <textarea
-              value={details}
-              onChange={e => setDetails(e.target.value)}
-              rows={3}
-              placeholder={
-                method === "bank_transfer" ? "Bank name, account number, routing/sort code..." :
-                method === "paypal"        ? "Your PayPal email address" :
-                method === "crypto"        ? "Wallet address (network: TRC20 / ERC20 / BTC)" :
-                "Describe your preferred payment method..."
-              }
-              className="inp resize-none"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="mt-3 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-3 mt-5">
-          <button onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-zinc-400 hover:text-zinc-200 transition-colors"
-            style={{ border: "1px solid var(--cj-border)" }}>
-            Cancel
-          </button>
-          <button onClick={submit} disabled={loading}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 btn-gold">
-            {loading ? "Submitting…" : `Request ${fmt(available)}`}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main page ────────────────────────────────────────────────────────────────
-
 export default function ReferralsPage() {
-  const [user,         setUser]         = useState<User | null>(null);
-  const [stats,        setStats]        = useState<Stats | null>(null);
-  const [referrals,    setReferrals]    = useState<Referral[]>([]);
-  const [earnings,     setEarnings]     = useState<EarningMonth[]>([]);
-  const [payouts,      setPayouts]      = useState<Payout[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [showPayout,   setShowPayout]   = useState(false);
-  const [payoutDone,   setPayoutDone]   = useState(false);
-  const [enabling,     setEnabling]     = useState(false);
-  const [showQr,       setShowQr]       = useState(false);
+  const [user,      setUser]      = useState<User | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [stats,     setStats]     = useState<Stats | null>(null);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [copied,    setCopied]    = useState(false);
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
-    ?? (typeof window !== "undefined" ? window.location.origin : "");
-  const referralLink = stats?.referral_code
-    ? `${baseUrl}/login?ref=${stats.referral_code}`
-    : "";
+  const rewardsLocked = new Date() < REWARDS_UNLOCK;
 
-  const load = useCallback(async () => {
-    const supabase = createClient();
-    const { data: { user: u } } = await supabase.auth.getUser();
-    setUser(u);
-
-    const nc = { cache: "no-store" } as RequestInit;
-    const [statsRes, listRes, earningsRes, payoutsRes] = await Promise.all([
-      fetch("/api/referrals/stats",    nc),
-      fetch("/api/referrals/list",     nc),
-      fetch("/api/referrals/earnings", nc),
-      fetch("/api/referrals/payout",   nc),
-    ]);
-
-    if (statsRes.ok) {
-      const s = (await statsRes.json()) as Stats;
-      console.log("[Referrals] stats loaded:", {
-        referral_enabled: s.referral_enabled,
-        referral_code: s.referral_code,
-      });
-      setStats(s);
-    }
-    if (listRes.ok)     setReferrals(((await listRes.json()) as { referrals: Referral[] }).referrals);
-    if (earningsRes.ok) setEarnings(((await earningsRes.json()) as { earnings: EarningMonth[] }).earnings);
-    if (payoutsRes.ok)  setPayouts(((await payoutsRes.json()) as { payouts: Payout[] }).payouts);
-
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  async function handleSignOut() {
+  async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
     window.location.href = "/login";
   }
 
-  async function enableReferrals() {
-    setEnabling(true);
-    const res = await fetch("/api/referrals/stats", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enable: true }),
-    });
-    setEnabling(false);
-    if (res.ok) load();
-  }
+  const load = useCallback(async () => {
+    const [statsRes, listRes] = await Promise.all([
+      fetch("/api/referrals/stats"),
+      fetch("/api/referrals/list"),
+    ]);
+    if (statsRes.ok) setStats(await statsRes.json() as Stats);
+    if (listRes.ok) {
+      const d = await listRes.json() as { referrals: Referral[] };
+      setReferrals(d.referrals ?? []);
+    }
+  }, []);
 
-  // ── Loading ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    async function init() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { window.location.href = "/login"; return; }
+      setUser(user);
+      await load();
+      setLoading(false);
+    }
+    init();
+  }, [load]);
+
+  const referralLink = stats?.referral_code
+    ? `${BASE_URL}/login?ref=${stats.referral_code}`
+    : null;
+
+  const waText = referralLink
+    ? `I've been using NIRI to track my trading behaviour and it's actually really eye-opening. You can see exactly where you're going wrong — revenge trades, overtrading, all of it. Beta access is free right now. Join here: ${referralLink}`
+    : "";
+
+  const tweetText = referralLink
+    ? `Been tracking my trades with NIRI — it flags revenge trades, overtrading, all your patterns. Beta is free. ${referralLink}`
+    : "";
+
+  function copy() {
+    if (!referralLink) return;
+    navigator.clipboard.writeText(referralLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--cj-bg)] flex items-center justify-center">
-        <p className="text-zinc-500 text-sm animate-pulse">Loading…</p>
+        <div className="text-zinc-500 text-sm">Loading…</div>
       </div>
     );
   }
 
-  const isFree = stats?.referral_enabled !== true;
-
-  // ── Locked (free tier) — single overlay over all content ────────────────
-
-  const LockedOverlay = () => (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 p-6 text-center"
-         style={{ background: "rgba(10,10,15,0.75)", backdropFilter: "blur(6px)" }}>
-      <div className="w-14 h-14 rounded-2xl bg-[var(--cj-surface)] border border-zinc-700
-                      flex items-center justify-center">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-      </div>
-      <p className="font-bold text-zinc-100 text-lg">Upgrade to unlock Referrals</p>
-      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
-        Earn recurring commissions by inviting traders to NIRI.<br/>
-        Available on the Pro plan.
-      </p>
-      <Link href="/settings" className="btn-gold px-6 py-3 rounded-xl text-sm font-bold">
-        Upgrade Now
-      </Link>
-    </div>
-  );
-
-  // ── Main render ───────────────────────────────────────────────────────────
-
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--cj-bg)]">
-      <Sidebar user={user} onSignOut={handleSignOut} />
+    <div className="min-h-screen bg-[var(--cj-bg)] text-zinc-100 font-sans">
+      <Sidebar user={user} onSignOut={handleLogout} />
 
-      <main className="flex-1 md:ml-[240px] overflow-y-auto">
-        {/* Top bar */}
-        <div className="sticky top-0 z-20 px-6 h-14 flex items-center justify-between"
-             style={{ background: "var(--cj-bg)", borderBottom: "1px solid var(--cj-border)" }}>
-          <h1 className="font-bold text-zinc-100 text-base">Referrals & Earnings</h1>
-          {stats?.referral_enabled && (
-            <CopyBtn text={referralLink} label="Copy Link" />
-          )}
-        </div>
+      <div className="md:ml-[240px] pt-14 md:pt-0">
+        <main className="max-w-[760px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
-        <div className="px-4 sm:px-6 py-6 space-y-6 max-w-5xl mx-auto">
+          {/* Header */}
+          <div className="mb-7">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Referrals</p>
+            <h1 className="text-2xl font-bold text-zinc-100">Earn ₦3,000 per subscriber</h1>
+          </div>
 
-          {/* Commission info banner */}
-          <div className="rounded-2xl p-5"
-               style={{
-                 background: "linear-gradient(135deg, rgba(245,197,24,0.1) 0%, rgba(201,162,39,0.05) 100%)",
-                 border: "1px solid rgba(245,197,24,0.25)",
-               }}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex items-center justify-center w-10 h-10">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--cj-gold)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 12 20 22 4 22 4 12"/>
-                  <rect x="2" y="7" width="20" height="5"/>
-                  <line x1="12" y1="22" x2="12" y2="7"/>
-                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
-                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-zinc-100 mb-1">Earn recurring commissions every month</p>
-                <p className="text-xs text-zinc-400 leading-relaxed">
-                  Share your referral link and earn <span className="text-[var(--cj-gold)] font-semibold">₦1,000/month</span> for
-                  every Pro subscriber you refer — for as long as they stay subscribed. Minimum payout is ₦5,000.
+          {/* ── LOCKED BANNER ── */}
+          {rewardsLocked && (
+            <div className="mb-6 flex items-start gap-3 px-4 py-3.5 rounded-xl"
+                 style={{ background: "rgba(245,197,24,0.07)", border: "1px solid rgba(245,197,24,0.25)" }}>
+              <span className="text-base shrink-0 mt-0.5">🔒</span>
+              <div>
+                <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--cj-gold)" }}>
+                  Referral rewards activate July 1, 2026 when subscriptions go live.
+                </p>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Share your link now to build your referral list early.
+                  Every referred subscriber earns you <strong className="text-zinc-300">₦3,000</strong>.
                 </p>
               </div>
-              {isFree && (
-                <Link href="/settings"
-                  className="btn-gold px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap">
-                  Upgrade to Earn
-                </Link>
-              )}
+            </div>
+          )}
+
+          {/* ── YOUR REFERRAL LINK ── */}
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
+              Your Referral Link
+            </p>
+
+            {referralLink ? (
+              <>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex-1 min-w-0 bg-[var(--cj-raised)] border border-zinc-700 rounded-xl px-3.5 py-2.5">
+                    <p className="text-xs font-mono text-zinc-300 truncate">{referralLink}</p>
+                  </div>
+                  <button
+                    onClick={copy}
+                    className="shrink-0 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all"
+                    style={{
+                      background: copied ? "rgba(52,211,153,0.15)" : "rgba(245,197,24,0.12)",
+                      border:     `1px solid ${copied ? "rgba(52,211,153,0.4)" : "rgba(245,197,24,0.3)"}`,
+                      color:      copied ? "#34d399" : "var(--cj-gold)",
+                    }}>
+                    {copied ? "Copied ✓" : "Copy"}
+                  </button>
+                </div>
+
+                <div className="flex items-center flex-wrap gap-2">
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(waText)}`}
+                    target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors"
+                    style={{ borderColor: "rgba(52,211,153,0.3)", color: "#34d399" }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                    WhatsApp
+                  </a>
+
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`}
+                    target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    </svg>
+                    X (Twitter)
+                  </a>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-zinc-800 flex items-center gap-2">
+                  <span className="text-[10px] text-zinc-600">Your code:</span>
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded"
+                        style={{ background: "rgba(245,197,24,0.10)", color: "var(--cj-gold)" }}>
+                    {stats!.referral_code}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-zinc-500">Generating your referral link…</p>
+            )}
+          </div>
+
+          {/* ── STATS ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            {[
+              { label: "Total Referrals", value: String(stats?.total     ?? 0) },
+              { label: "Pending",         value: String(stats?.pending   ?? 0) },
+              { label: "Converted",       value: String(stats?.converted ?? 0) },
+              {
+                label: "Total Earned",
+                value: rewardsLocked
+                  ? "₦0 🔒"
+                  : `₦${(stats?.total_earned ?? 0).toLocaleString("en-NG")}`,
+              },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-[var(--cj-surface)] border border-zinc-800 rounded-xl p-4">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-2">{label}</p>
+                <p className="text-2xl font-bold text-zinc-100">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── REFERRAL LIST ── */}
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6 mb-5">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
+              Your Referrals
+            </p>
+
+            {referrals.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-4xl mb-3">🤝</p>
+                <p className="text-sm font-semibold text-zinc-300 mb-1">No referrals yet</p>
+                <p className="text-xs text-zinc-500">
+                  Share your link to start earning ₦3,000 per subscriber
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-zinc-800">
+                      <th className="text-left pb-3 text-[10px] uppercase tracking-widest text-zinc-500 font-medium pr-4">Email</th>
+                      <th className="text-left pb-3 text-[10px] uppercase tracking-widest text-zinc-500 font-medium pr-4">Date Joined</th>
+                      <th className="text-right pb-3 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/50">
+                    {referrals.map((r) => (
+                      <tr key={r.id}>
+                        <td className="py-3 pr-4 text-xs font-mono text-zinc-300">{r.email}</td>
+                        <td className="py-3 pr-4 text-xs text-zinc-500">
+                          {new Date(r.joined_at).toLocaleDateString("en-GB", {
+                            day: "2-digit", month: "short", year: "2-digit",
+                          })}
+                        </td>
+                        <td className="py-3 text-right">
+                          <StatusBadge status={r.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* ── HOW IT WORKS ── */}
+          <div className="bg-[var(--cj-surface)] border border-zinc-800 rounded-2xl p-6">
+            <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-5">
+              How It Works
+            </p>
+            <div className="space-y-5">
+              {[
+                {
+                  step:  "1",
+                  title: "Share your unique NIRI link",
+                  desc:  "Copy your referral link and share it in WhatsApp groups, Twitter, trading communities — anywhere.",
+                },
+                {
+                  step:  "2",
+                  title: "Friend signs up and connects their MT5",
+                  desc:  "They create a free account and connect their MT5 account to start tracking their trades with NIRI.",
+                },
+                {
+                  step:  "3",
+                  title: "When they subscribe, you earn ₦3,000",
+                  desc:  "As soon as they take out a paid subscription, ₦3,000 is automatically credited to your referral balance.",
+                },
+              ].map(({ step, title, desc }) => (
+                <div key={step} className="flex gap-4">
+                  <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                       style={{ background: "rgba(245,197,24,0.12)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.25)" }}>
+                    {step}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-200 mb-0.5">{title}</p>
+                    <p className="text-xs text-zinc-500 leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+
+              <p className="text-[11px] text-zinc-600 pt-3 border-t border-zinc-800">
+                Payouts activate July 1, 2026 when subscriptions go live.
+                Referrals tracked now will be credited on launch day.
+              </p>
             </div>
           </div>
 
-          {/* ── All sections below — single overlay for free users ── */}
-          <div className="relative">
-            {isFree && <LockedOverlay />}
-            <div className={`space-y-6${isFree ? " pointer-events-none select-none" : ""}`}>
-
-              {/* Stats grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard label="Total Referrals"  value={String(stats?.total_referrals ?? 0)} />
-                <StatCard label="Active"           value={String(stats?.active_referrals ?? 0)}
-                          sub={`${stats?.conversion_rate ?? 0}% converted`} />
-                <StatCard label="This Month"       value={fmt(stats?.this_month_earnings ?? 0)} accent />
-                <StatCard label="Available Payout" value={fmt(stats?.available_for_payout ?? 0)} accent />
-                <StatCard label="Lifetime Earned"  value={fmt(stats?.lifetime_earnings ?? 0)} />
-                <StatCard label="Pending"          value={fmt(stats?.pending_earnings ?? 0)}
-                          sub="Confirms after 7 days" />
-                <StatCard label="Paid Out"         value={fmt(stats?.paid_earnings ?? 0)} />
-                <StatCard label="Inactive"         value={String(stats?.inactive_referrals ?? 0)}
-                          sub="Cancelled/downgraded" />
-              </div>
-
-              {/* Referral link & sharing */}
-              <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
-                   style={{ border: "1px solid var(--cj-border)" }}>
-                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
-                  Your Referral Link
-                </p>
-
-                {!stats?.referral_enabled ? (
-                  <div className="flex flex-col items-center gap-3 py-4">
-                    <p className="text-sm text-zinc-400">Activate your referral link to start earning</p>
-                    <button
-                      onClick={enableReferrals}
-                      disabled={enabling}
-                      className="btn-gold px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50">
-                      {enabling ? "Activating…" : "Activate Referral Link"}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {/* Link box */}
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="flex-1 bg-[var(--cj-raised)] rounded-xl px-3 py-2.5 text-xs font-sans text-zinc-300 truncate"
-                           style={{ border: "1px solid var(--cj-border)" }}>
-                        {referralLink}
-                      </div>
-                      <CopyBtn text={referralLink} />
-                    </div>
-
-                    {/* Code badge */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="bg-[var(--cj-raised)] rounded-xl px-4 py-2 flex items-center gap-3"
-                           style={{ border: "1px solid var(--cj-border)" }}>
-                        <span className="text-xs text-zinc-500">Code:</span>
-                        <span className="font-sans font-bold text-[var(--cj-gold)] tracking-widest text-sm">
-                          {stats?.referral_code}
-                        </span>
-                        <CopyBtn text={stats?.referral_code ?? ""} label="Copy Code" />
-                      </div>
-                    </div>
-
-                    {/* Share buttons */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <a href={`https://wa.me/?text=${encodeURIComponent(`Join me on NIRI — the best trading journal for serious traders! Use my link: ${referralLink}`)}`}
-                         target="_blank" rel="noopener noreferrer"
-                         className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                         style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)", color: "#25d366" }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                        WhatsApp
-                      </a>
-                      <a href={`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent("Track your trades with NIRI. Join using my referral link!")}`}
-                         target="_blank" rel="noopener noreferrer"
-                         className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                         style={{ background: "rgba(36,161,222,0.15)", border: "1px solid rgba(36,161,222,0.3)", color: "#24a1de" }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        Telegram
-                      </a>
-                      <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Level up your trading with NIRI! Use my referral link: ${referralLink}`)}`}
-                         target="_blank" rel="noopener noreferrer"
-                         className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                         style={{ background: "rgba(29,161,242,0.15)", border: "1px solid rgba(29,161,242,0.3)", color: "#1da1f2" }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l16 16M20 4L4 20"/></svg>
-                        Twitter / X
-                      </a>
-                      <button
-                        onClick={() => setShowQr(q => !q)}
-                        className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
-                        style={{ background: "var(--cj-raised)", border: "1px solid var(--cj-border)", color: "var(--cj-text-muted)" }}>
-                        {showQr ? "Hide QR" : "QR Code"}
-                      </button>
-                    </div>
-
-                    {showQr && (
-                      <div className="flex justify-center p-4 bg-white rounded-2xl w-fit">
-                        <QRCodeSVG value={referralLink} size={160} />
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Earnings chart */}
-              <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
-                   style={{ border: "1px solid var(--cj-border)" }}>
-                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
-                  Earnings — Last 6 Months
-                </p>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={earnings} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#71717a" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "#71717a" }} axisLine={false} tickLine={false}
-                           tickFormatter={(v: number) => `$${v}`} />
-                    <Tooltip
-                      contentStyle={{ background: "var(--cj-surface)", border: "1px solid var(--cj-border)", borderRadius: 12 }}
-                      labelStyle={{ color: "#a1a1aa", fontSize: 11 }}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      formatter={(v: any, name: any) => [`$${Number(v).toFixed(2)}`, name === "confirmed" ? "Confirmed" : "Pending"]}
-                    />
-                    <Legend
-                      formatter={(v: string) => v === "confirmed" ? "Confirmed" : "Pending"}
-                      wrapperStyle={{ fontSize: 11, color: "#71717a" }}
-                    />
-                    <Bar dataKey="confirmed" stackId="a" fill="#F5C518" radius={[0, 0, 4, 4]} />
-                    <Bar dataKey="pending"   stackId="a" fill="rgba(245,197,24,0.25)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Referred users table */}
-              <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
-                   style={{ border: "1px solid var(--cj-border)" }}>
-                <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium mb-4">
-                  Referred Users ({referrals.length})
-                </p>
-                {referrals.length === 0 ? (
-                  <div className="flex flex-col items-center py-8 gap-2">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#52525b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-1"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <p className="text-sm text-zinc-500">No referrals yet</p>
-                    <p className="text-xs text-zinc-600">Share your link to start earning</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto -mx-1">
-                    <table className="w-full text-xs min-w-[560px]">
-                      <thead>
-                        <tr className="text-left text-zinc-600 border-b border-zinc-800">
-                          <th className="pb-2 font-medium pr-4">User ID</th>
-                          <th className="pb-2 font-medium pr-4">Status</th>
-                          <th className="pb-2 font-medium pr-4">Plan</th>
-                          <th className="pb-2 font-medium pr-4">Rate/mo</th>
-                          <th className="pb-2 font-medium pr-4">Joined</th>
-                          <th className="pb-2 font-medium text-right">Total Earned</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/50">
-                        {referrals.map(r => (
-                          <tr key={r.id} className="hover:bg-[var(--cj-raised)] transition-colors">
-                            <td className="py-2.5 pr-4 font-sans text-zinc-400">{r.referred_anon}…</td>
-                            <td className="py-2.5 pr-4"><StatusBadge status={r.status} /></td>
-                            <td className="py-2.5 pr-4 capitalize text-zinc-400">{r.plan_type}</td>
-                            <td className="py-2.5 pr-4 text-zinc-400">
-                              {r.commission_rate > 0 ? `₦${r.commission_rate.toLocaleString("en-NG")}` : "—"}
-                            </td>
-                            <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(r.joined_at)}</td>
-                            <td className="py-2.5 text-right font-semibold text-zinc-300">{fmt(r.earnings)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Payout section */}
-              {(() => {
-                const today = new Date();
-                const dom = today.getDate(); // day of month
-                const isPayoutWindow = dom >= 28;
-                const daysUntilWindow = isPayoutWindow ? 0 : 28 - dom;
-                const canRequest = isPayoutWindow && (stats?.available_for_payout ?? 0) >= 5;
-                return (
-              <div className="bg-[var(--cj-surface)] rounded-2xl p-5"
-                   style={{ border: "1px solid var(--cj-border)" }}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">Payout</p>
-                  {isPayoutWindow && (stats?.available_for_payout ?? 0) >= 5 ? (
-                    <button
-                      onClick={() => { setPayoutDone(false); setShowPayout(true); }}
-                      className="btn-gold px-4 py-2 rounded-xl text-xs font-bold">
-                      Request Payout
-                    </button>
-                  ) : !isPayoutWindow ? (
-                    <span className="text-[11px] text-zinc-600">
-                      Opens in {daysUntilWindow} day{daysUntilWindow !== 1 ? "s" : ""}
-                    </span>
-                  ) : null}
-                </div>
-
-                {!isPayoutWindow && (
-                  <div className="mb-4 px-4 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700">
-                    <p className="text-xs text-zinc-500 font-semibold mb-0.5">Payout window opens on the 28th</p>
-                    <p className="text-[11px] text-zinc-600">
-                      Requests are accepted on days 28–31 of each month. Opens in {daysUntilWindow} day{daysUntilWindow !== 1 ? "s" : ""}.
-                    </p>
-                  </div>
-                )}
-
-                {payoutDone && (
-                  <div className="mb-4 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">
-                    ✓ Payout request submitted! We'll process it within 3–5 business days.
-                  </div>
-                )}
-
-                {canRequest === false && isPayoutWindow && (stats?.available_for_payout ?? 0) < 5000 && (
-                  <p className="text-xs text-zinc-600 mb-4">
-                    Minimum payout is ₦5,000. You have {fmt(stats?.available_for_payout ?? 0)} available.
-                  </p>
-                )}
-
-                {payouts.length === 0 ? (
-                  <p className="text-xs text-zinc-600 py-4 text-center">No payouts yet</p>
-                ) : (
-                  <div className="overflow-x-auto -mx-1">
-                    <table className="w-full text-xs min-w-[440px]">
-                      <thead>
-                        <tr className="text-left text-zinc-600 border-b border-zinc-800">
-                          <th className="pb-2 font-medium pr-4">Date</th>
-                          <th className="pb-2 font-medium pr-4">Method</th>
-                          <th className="pb-2 font-medium pr-4">Status</th>
-                          <th className="pb-2 font-medium pr-4">Paid At</th>
-                          <th className="pb-2 font-medium text-right">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/50">
-                        {payouts.map(p => (
-                          <tr key={p.id}>
-                            <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(p.requested_at)}</td>
-                            <td className="py-2.5 pr-4 capitalize text-zinc-400">
-                              {p.payout_method.replace(/_/g, " ")}
-                            </td>
-                            <td className="py-2.5 pr-4">
-                              <StatusBadge status={p.status === "paid" ? "active" : p.status === "rejected" ? "inactive" : "pending"} />
-                            </td>
-                            <td className="py-2.5 pr-4 text-zinc-500">{fmtDate(p.paid_at)}</td>
-                            <td className="py-2.5 text-right font-semibold text-zinc-300">{fmt(p.amount)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-                );
-              })()}
-
-            </div>{/* end space-y-6 */}
-          </div>{/* end relative overlay wrapper */}
-
-        </div>
-      </main>
-
-      {showPayout && stats && (
-        <PayoutModal
-          available={stats.available_for_payout}
-          onClose={() => setShowPayout(false)}
-          onSuccess={() => { setShowPayout(false); setPayoutDone(true); load(); }}
-        />
-      )}
+        </main>
+      </div>
     </div>
   );
 }

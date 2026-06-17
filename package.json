@@ -14,6 +14,7 @@
     "@supabase/supabase-js": "^2.103.3",
     "framer-motion": "^12.40.0",
     "lightweight-charts": "^5.2.0",
+    "metaapi.cloud-sdk": "^29.3.3",
     "next": "16.2.4",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",

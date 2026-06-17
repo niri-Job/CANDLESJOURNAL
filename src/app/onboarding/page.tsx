@@ -110,6 +110,22 @@ export default function OnboardingPage() {
       if (!user) { window.location.href = "/login"; return; }
       setUser(user);
 
+      // Fallback: track referral if ?ref= is in the URL or stored from a previous page
+      const refFromUrl  = new URLSearchParams(window.location.search).get("ref");
+      const refFromStore = localStorage.getItem("cj_ref");
+      const refCode = (refFromUrl || refFromStore)?.toUpperCase();
+      if (refCode) {
+        try {
+          await fetch("/api/referrals/track", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ referral_code: refCode }),
+          });
+        } finally {
+          localStorage.removeItem("cj_ref");
+        }
+      }
+
       const [profileRes, countRes] = await Promise.all([
         supabase
           .from("user_profiles")
@@ -126,15 +142,11 @@ export default function OnboardingPage() {
       ]);
 
       const profile = profileRes.data as ProfileRow | null;
-      const hasTrades = (countRes.count ?? 0) > 0;
 
-      if (profile?.onboarding_completed || hasTrades) {
-        if (hasTrades && !profile?.onboarding_completed) {
-          await supabase.from("user_profiles").upsert(
-            { user_id: user.id, onboarding_completed: true, updated_at: new Date().toISOString() },
-            { onConflict: "user_id" }
-          );
-        }
+      // Only redirect away from onboarding if the user has explicitly completed it.
+      // Never redirect based on hasTrades — that causes a redirect loop for users
+      // who have trades but haven't clicked "Start Journalling" yet.
+      if (profile?.onboarding_completed === true) {
         window.location.href = "/dashboard";
         return;
       }

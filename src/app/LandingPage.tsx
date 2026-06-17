@@ -310,7 +310,7 @@ export default function LandingPage() {
   const ctaRef     = useFadeUp();
 
   const stat1 = useCountUp(10000, "+");
-  const stat2 = useCountUp(500, "+");
+  const stat2 = useCountUp(20, "+");
   const stat3 = useCountUp(8, "");
   const stat4 = useCountUp(8, "");
 
@@ -338,22 +338,22 @@ export default function LandingPage() {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   const features = [
-    { ico: <IcoSync />, title: "Sync your MT5 account automatically",
-      desc: "Enter your MT5 login, password and broker server — our server connects directly and syncs every closed trade to your journal 24/7. No EA, no downloads, works from your phone." },
+    { ico: <IcoSync />, title: "MT5 Direct Sync + CSV Import",
+      desc: "Connect your MT5 account directly (no EA needed) or upload trades via CSV — no trade limits. MT5 syncs automatically 24/7 from our VPS. Works from any device, even when your PC is off." },
     { ico: <IcoCoach />, title: "Know exactly what to fix after every session",
       desc: "After each session, NIRI analyses your entry timing, exit behavior, pair performance and session patterns, then generates a coaching report with specific observations." },
-    { ico: <IcoChart />, title: "See every trade on the actual chart",
-      desc: "Select any closed trade to load it on a live chart. Entry, exit, stop loss and take profit levels are drawn as price lines on the relevant candles." },
-    { ico: <IcoEmotion />, title: "Discover which emotion is costing you most",
-      desc: "Tag each trade with an emotion at the time of entry. NIRI calculates win rate and average PnL per emotion category across your full trade history." },
-    { ico: <IcoBar />, title: "See your real performance, not your imagined performance",
-      desc: "The dashboard shows equity curve, win rate segmented by pair and session, drawdown periods, and streak history across your connected accounts." },
-    { ico: <IcoFile />, title: "8 types of reports that expose your patterns",
-      desc: "The Reports section contains eight analysis views: Overview, Performance, Time Analysis, Risk Management, Psychology, Wins vs Losses, Streaks, and Period Comparison." },
-    { ico: <IcoSearch />, title: "Know which setups actually make you money",
-      desc: "NIRI segments your results by setup type and session so you can see exactly which approaches generate positive expectancy." },
-    { ico: <IcoGlobe />, title: "Works with any MT5 broker worldwide",
-      desc: "Compatible with Deriv, Exness, ICMarkets, HFM, XM, FBS, OctaFX and hundreds more. Including Deriv synthetic indices. Any country, any timezone." },
+    { ico: <IcoChart />, title: "Trade Replay on live candlestick charts",
+      desc: "Select any closed trade to replay it on a real chart. Entry, exit, stop loss and take profit are marked. A behavioral grid and NIRI verdict explain exactly what went right or wrong." },
+    { ico: <IcoTarget color="#F5C518" />, title: "NIRI Orb AI Companion",
+      desc: "Your personal behavioral AI coach. Detects 10 behavioral trading patterns across your full history and answers up to 10 natural-language questions per day about your performance." },
+    { ico: <IcoBar />, title: "Full dashboard — every metric that matters",
+      desc: "Equity curve, P&L, win rate by pair and session, discipline score, daily heatmap, and drawdown analysis — all computed automatically from your trade history." },
+    { ico: <IcoFile />, title: "8 visual reports that expose your patterns",
+      desc: "Nightingale rose, trading clock, waterfall P&L, radar, day-of-week bars, streaks, risk management, and period comparison — eight views of the same data." },
+    { ico: <IcoStar color="#F5C518" />, title: "NIRI Alpha — Social Feed & Leaderboard",
+      desc: "Compare your performance with other traders on the social feed. View the leaderboard, follow top performers, and get your trades scored by the NIRI analyst." },
+    { ico: <IcoLightbulb color="#F5C518" />, title: "AI Journal Analysis — 3 per week",
+      desc: "Submit a session journal and receive a structured AI analysis of your behavioral patterns, emotional state, and specific improvements to make. Quota resets every Monday." },
   ];
 
   return (
@@ -573,7 +573,7 @@ export default function LandingPage() {
         <div className="desktop-nav" style={{ display: "flex", alignItems: "center", gap: "2.25rem" }}>
           <a href="#why" className="nav-a">Why NIRI</a>
           <a href="#features" className="nav-a">Features</a>
-          <a href="#pricing" className="nav-a">Pricing</a>
+          <a href="#access" className="nav-a">Beta Access</a>
           <a href="#faq" className="nav-a">FAQ</a>
           {/* Theme toggle */}
           <div style={{ display: "flex", gap: "0.375rem" }}>
@@ -595,7 +595,7 @@ export default function LandingPage() {
           <Link href="/login" className="nav-a">Log in</Link>
           <Link href="/login">
             <button className="gold-btn" style={{ padding: "0.5rem 1.25rem", fontSize: "0.875rem" }}>
-              Start 30-Day Free Trial
+              Join Free Beta
             </button>
           </Link>
         </div>
@@ -617,13 +617,13 @@ export default function LandingPage() {
         transform: menuOpen ? "translateX(0)" : "translateX(100%)",
         transition: "transform 0.3s ease",
       }}>
-        {[["#why","Why NIRI"],["#features","Features"],["#pricing","Pricing"],["#faq","FAQ"]].map(([href,label]) => (
+        {[["#why","Why NIRI"],["#features","Features"],["#access","Beta Access"],["#faq","FAQ"]].map(([href,label]) => (
           <a key={href} href={href} className="nav-a" style={{ fontSize: "1.25rem" }} onClick={closeMenu}>{label}</a>
         ))}
         <Link href="/login" className="nav-a" style={{ fontSize: "1.25rem" }} onClick={closeMenu}>Log in</Link>
         <Link href="/login" onClick={closeMenu}>
           <button className="gold-btn" style={{ padding: "1rem 2rem", fontSize: "1rem", width: "100%", marginTop: "0.5rem" }}>
-            Start 30-Day Free Trial
+            Join Free Beta
           </button>
         </Link>
         <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.5rem" }}>
@@ -704,7 +704,7 @@ export default function LandingPage() {
               </div>
 
               <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                {["14-day free trial", "No credit card required", "MT5 sync in under 5 minutes"].map(t => (
+                {["Free until July 1, 2026", "No credit card required", "MT5 sync in under 5 minutes"].map(t => (
                   <span key={t} style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>• {t}</span>
                 ))}
               </div>
@@ -1108,7 +1108,7 @@ export default function LandingPage() {
           <div style={{ textAlign: "center" }}>
             <Link href="/login">
               <button className="gold-btn" style={{ padding: "0.875rem 2.25rem", fontSize: "1rem" }}>
-                Get Your First Report Free
+                Join Free Beta — See Your Report
               </button>
             </Link>
           </div>
@@ -1165,18 +1165,17 @@ export default function LandingPage() {
               <tbody>
                 <CmpRow label="MT5 direct auto-sync" niri="Yes" other="Yes" />
                 <CmpRow label="Coaching reports" niri="Behavior-based pattern analysis" other="Session summary only" highlight />
-                <CmpRow label="Emotion tracking per trade" niri="Yes" other="No" />
-                <CmpRow label="Trade visualized on live chart" niri="Yes" other="No" highlight />
-                <CmpRow label="Psychology report tab" niri="Yes" other="No" />
+                <CmpRow label="Trade visualized on live chart" niri="Yes — with behavioral grid" other="No" />
+                <CmpRow label="NIRI Orb AI companion" niri="Yes — 10 patterns, 10 Q&A/day" other="No" highlight />
+                <CmpRow label="Social feed & leaderboard" niri="Yes — NIRI Alpha" other="No" />
                 <CmpRow label="Report types" niri="8 full report types" other="Overview and basic metrics only" highlight />
-                <CmpRow label="Referral earnings program" niri="Yes" other="No" />
-                <CmpRow label="African broker support" niri="WAT timezone, African broker support" other="No regional optimization" highlight />
-                <CmpRow label="Monthly price" niri="₦15,000/month" other="$29 to $49" />
+                <CmpRow label="African broker support" niri="WAT timezone, African broker support" other="No regional optimization" />
+                <CmpRow label="Current access" niri="Free Beta (until July 2026)" other="$29 to $49/month" highlight />
               </tbody>
             </table>
           </div>
           <p style={{ textAlign: "center", color: "#F5C518", fontWeight: 800, fontSize: "1.25rem", marginTop: "2rem" }}>
-            Same capability. A fraction of the price.
+            More capability. Free during beta.
           </p>
         </div>
       </section>
@@ -1278,15 +1277,15 @@ export default function LandingPage() {
             </div>
             <div ref={stat2.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem", fontVariantNumeric: "tabular-nums" }}>{stat2.val}</div>
-              <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Active Traders</div>
+              <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Beta Users</div>
             </div>
             <div ref={stat3.ref} style={{ textAlign: "center" }}>
               <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>{stat3.val}</div>
               <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Report Types</div>
             </div>
-            <div ref={stat4.ref} style={{ textAlign: "center" }}>
-              <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>${stat4.val}</div>
-              <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Starting Price / mo</div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ color: "#F5C518", fontWeight: 900, fontSize: "2.5rem" }}>Free</div>
+              <div style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "0.375rem" }}>Beta Access</div>
             </div>
           </div>
         </div>
@@ -1309,15 +1308,15 @@ export default function LandingPage() {
               Built for African Traders.<br /><span className="shimmer-text">Finally.</span>
             </h2>
             <p style={{ color: "#CCCCCC", fontSize: "1.0625rem", lineHeight: 1.8, maxWidth: 560, margin: "0 auto" }}>
-              NIRI is the first AI-powered trading journal designed specifically for African traders. Priced in Naira. Built for the brokers you use. Understands your market.
+              NIRI is the first AI-powered trading journal designed specifically for African traders. Free during beta. Built for the brokers you use. Understands your market.
             </p>
           </div>
           <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1.25rem", marginBottom: "3rem" }}>
             {[
               { val: "1M+", label: "Nigerian Traders", sub: "Active MT5 accounts in Nigeria" },
-              { val: "₦15,000", label: "Per Month", sub: "Fraction of USD competitors" },
+              { val: "Free Beta", label: "Current Access", sub: "Full access, no card required" },
               { val: "HFM, Exness, Deriv", label: "Top Brokers Supported", sub: "Works with all MT5 platforms" },
-              { val: "Naira", label: "Pricing", sub: "African support, African prices" },
+              { val: "₦0", label: "Beta Price", sub: "Free until July 1, 2026" },
             ].map((s) => (
               <div key={s.label} className="lp-card" style={{
                 background: "linear-gradient(145deg,rgba(245,197,24,0.08),rgba(139,53,255,0.05))",
@@ -1341,69 +1340,66 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PRICING ──────────────────────────────────────────────────────────── */}
-      <section id="pricing" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
-        <div style={{ maxWidth: 920, margin: "0 auto" }}>
-          <div ref={pricingRef} className="fade-up" style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+      {/* ── BETA ACCESS ──────────────────────────────────────────────────────── */}
+      <section id="access" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+        <div style={{ maxWidth: 680, margin: "0 auto" }}>
+          <div ref={pricingRef} className="fade-up" style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: "0.5rem",
+              background: "rgba(74,158,74,0.12)", border: "1px solid rgba(74,158,74,0.35)",
+              borderRadius: "2rem", padding: "0.375rem 1rem",
+              color: "#4ade80", fontSize: "0.8125rem", fontWeight: 700,
+              marginBottom: "1.25rem", letterSpacing: "0.05em",
+            }}>
+              ● Currently in Free Beta
+            </div>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
-              Invest in Your <span className="shimmer-text">Trading Education</span>
+              Full Access. <span className="shimmer-text">Completely Free.</span>
             </h2>
-            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 560, margin: "0 auto" }}>
-              Behavioral mistakes cost the average trader $200 to $500 per month. NIRI costs ₦15,000/month. The math is straightforward.
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
+              NIRI is in early access. Every feature is available to all beta users at no cost until July 1, 2026.
             </p>
           </div>
-          <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", maxWidth: 800, margin: "3rem auto 0" }}>
 
-            <div className="lp-card" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(245,197,24,0.30)", borderRadius: "1.375rem", padding: "2.25rem" }}>
-              <p style={{ color: "#AAAAAA", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "0.5rem", textTransform: "uppercase" }}>Free</p>
-              <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Start tracking with no credit card</p>
-              <div style={{ marginBottom: "1.75rem" }}>
-                <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦0</span>
-                <span style={{ color: "#888888", fontSize: "0.875rem" }}> / month</span>
-              </div>
-              <CheckItem text="Up to 20 trades per month" dim />
-              <CheckItem text="Manual trade entry" dim />
-              <CheckItem text="Basic dashboard" dim />
-              <CheckItem text="3 AI analyses per month" dim />
-              <CheckItem text="1 trading account" dim />
-              <Link href="/login">
-                <button className="outline-btn" style={{ width: "100%", padding: "0.9375rem", fontSize: "0.9375rem", marginTop: "1.75rem" }}>
-                  Start 30-Day Free Trial
-                </button>
-              </Link>
+          <div className="lp-card" style={{ background: "linear-gradient(145deg,#160028,#0C0018)", border: "2px solid #F5C518", borderRadius: "1.375rem", padding: "2.5rem", position: "relative", boxShadow: "0 0 60px rgba(245,197,24,0.18), 0 0 80px rgba(139,53,255,0.10), inset 0 0 30px rgba(245,197,24,0.04)" }}>
+            <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#F5C518 0%,#8B35FF 100%)", color: "#FFFFFF", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>
+              Early Access — 30 spots remaining
             </div>
-
-            <div className="lp-card" style={{ background: "linear-gradient(145deg,#160028,#0C0018)", border: "2px solid #F5C518", borderRadius: "1.375rem", padding: "2.25rem", position: "relative", boxShadow: "0 0 60px rgba(245,197,24,0.18), 0 0 80px rgba(139,53,255,0.10), inset 0 0 30px rgba(245,197,24,0.04)" }}>
-              <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#F5C518 0%,#8B35FF 100%)", color: "#FFFFFF", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>
-                30-Day Free Trial — No Card Required
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Pro</p>
-                <span style={{ background: "rgba(245,197,24,0.12)", border: "1px solid rgba(245,197,24,0.35)", color: "#F5C518", fontSize: "0.6875rem", fontWeight: 700, padding: "0.2rem 0.625rem", borderRadius: "2rem", letterSpacing: "0.06em" }}>🌍 Priced for Africa</span>
-              </div>
-              <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>Everything you need to improve as a trader</p>
-              <div style={{ marginBottom: "1.75rem" }}>
-                <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦15,000</span>
-                <span style={{ color: "#888888", fontSize: "0.875rem" }}> / month</span>
-              </div>
-              <CheckItem text="Unlimited trades + MT5 Direct Sync" />
-              <CheckItem text="Full dashboard, reports, chart review" />
-              <CheckItem text="Trade journal with emotions" />
-              <CheckItem text="Market Intelligence (AI setups)" />
-              <CheckItem text="90 AI analyses per month" />
-              <CheckItem text="Strategy Library + 10 accounts" />
-              <CheckItem text="Referral earnings + priority support" />
-              <Link href="/login">
-                <button className="gold-btn" style={{ width: "100%", padding: "0.9375rem", fontSize: "0.9375rem", marginTop: "1.75rem" }}>
-                  Start Your 30-Day Free Trial
-                </button>
-              </Link>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+              <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>Free Beta</p>
+              <span style={{ background: "rgba(245,197,24,0.12)", border: "1px solid rgba(245,197,24,0.35)", color: "#F5C518", fontSize: "0.6875rem", fontWeight: 700, padding: "0.2rem 0.625rem", borderRadius: "2rem", letterSpacing: "0.06em" }}>🌍 Built for Africa</span>
             </div>
+            <p style={{ color: "#AAAAAA", fontSize: "0.875rem", marginBottom: "1.5rem" }}>All features. No credit card. Free until July 1, 2026.</p>
+            <div style={{ marginBottom: "1.75rem", display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+              <span style={{ color: "var(--cj-text)", fontWeight: 900, fontSize: "2.75rem", letterSpacing: "-0.03em" }}>₦0</span>
+              <span style={{ color: "#888888", fontSize: "0.875rem" }}> during beta</span>
+            </div>
+            <CheckItem text="MT5 Direct Sync — automatic, 24/7, no EA (includes 7-day free trial)" />
+            <CheckItem text="CSV Import — unlimited trades, no caps" />
+            <CheckItem text="Full dashboard: P&L, equity curve, win rate, discipline score, daily heatmap" />
+            <CheckItem text="Trade Replay on live charts with behavioral grid + NIRI verdict" />
+            <CheckItem text="8 visual reports: Nightingale Rose, trading clock, waterfall P&L, radar, and more" />
+            <CheckItem text="NIRI Orb AI companion — 10 behavioral patterns, 10 questions/day" />
+            <CheckItem text="NIRI Alpha — social feed, leaderboard, analyst scoring" />
+            <CheckItem text="AI Journal Analysis — 3 per week, resets Monday" />
+            <Link href="/login">
+              <button className="gold-btn" style={{ width: "100%", padding: "0.9375rem", fontSize: "0.9375rem", marginTop: "1.75rem", animation: "pulseGold 2.5s ease infinite" }}>
+                Get Early Access — It&rsquo;s Free
+              </button>
+            </Link>
           </div>
+
           <div style={{ textAlign: "center", marginTop: "2rem" }}>
-            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.9rem", marginBottom: "0.5rem" }}>Try free for 14 days, upgrade when ready.</p>
-            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem" }}>
-              <IcoLock />Secured by Paystack. Cards, bank transfer and USSD accepted.
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: "0.875rem",
+              background: "rgba(224,85,85,0.08)", border: "1px solid rgba(224,85,85,0.25)",
+              borderRadius: "0.875rem", padding: "0.875rem 1.5rem",
+            }}>
+              <span style={{ color: "#e05555", fontWeight: 800, fontSize: "1.0625rem" }}>20 / 50</span>
+              <span style={{ color: "#CCCCCC", fontSize: "0.9rem" }}>early access spots filled — 30 remaining</span>
+            </div>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "1rem" }}>
+              No payment required during beta. Pricing will be announced before July 2026.
             </p>
           </div>
         </div>
@@ -1425,7 +1421,7 @@ export default function LandingPage() {
               { name: "Kwame A.", location: "Accra, Ghana", badge: "Diamond Trader",
                 text: "The chart trade review is the feature I use most. I can click any losing trade and see exactly where I went wrong on the actual candle." },
               { name: "Fatima M.", location: "Nairobi, Kenya", badge: "Gold Trader",
-                text: "NIRI costs ₦15,000 per month. It helped me fix a behavioral pattern that was costing me $400 per month. It paid for itself in the first week." },
+                text: "NIRI is free during beta and it helped me fix a behavioral pattern that was costing me $400 per month. I cannot believe this tool exists and it is free." },
             ].map((t, i) => {
               const tRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
               return (
@@ -1525,23 +1521,25 @@ export default function LandingPage() {
           </div>
           <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#16151f,#12111c)", border: "1px solid rgba(245,197,24,0.12)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
             <FaqItem q="How is NIRI different from TradeZella?"
-              a="NIRI is built specifically for MT5 traders and costs 70% less (₦15,000/month compared to $29–$49/month). NIRI also includes features TradeZella does not: emotion tracking per trade, trade visualization on a live chart, a dedicated Psychology report tab, and a referral earnings program." />
+              a="NIRI is built specifically for MT5 traders and is currently free during beta. NIRI includes features TradeZella does not: Trade Replay on live charts with a behavioral grid, NIRI Orb AI companion (10 patterns, 10 Q&A/day), NIRI Alpha social feed and leaderboard, and a dedicated Psychology report tab." />
             <FaqItem q="Do I need to manually import my trades?"
-              a="No. Enter your MT5 credentials in Settings — our server connects directly to MT5 and syncs your trades automatically 24/7. No EA to download, no PC to keep on, works from your phone." />
+              a="No. Enter your MT5 credentials in Settings — our server connects directly to MT5 and syncs your trades automatically 24/7. No EA to download, no PC to keep on, works from your phone. You can also import trades via CSV with no trade limits." />
             <FaqItem q="How does the coaching report work?"
               a="After each session, NIRI analyses your trade history and generates a report covering your best and worst trades, behavioral patterns such as revenge trading or early exits, and specific observations for the next session." />
-            <FaqItem q="How does the free trial work?"
-              a="Every new account gets 14 days of full access to explore NIRI. No credit card required. After 14 days, upgrade to Pro for ₦15,000/month to keep your account active and all your data." />
-            <FaqItem q="Is it free to start?"
-              a="Yes. No credit card is required to create an account. You get a full 14-day free trial, then upgrade to Pro (₦15,000/month) when you're ready." />
+            <FaqItem q="How long is NIRI free?"
+              a="NIRI is in free beta until July 1, 2026. All features are included at no cost. Pricing will be announced before the beta period ends. No credit card is required to join." />
+            <FaqItem q="Is there a limit on how many trades I can import?"
+              a="No. CSV imports and MT5 sync have no trade limits. Import your full history from day one." />
             <FaqItem q="Which brokers does NIRI support?"
               a="NIRI works with any broker that provides an MT5 platform. This includes Exness, ICMarkets, HFM, FBS, OctaFX, XM, Deriv and hundreds more." />
             <FaqItem q="Is my trading data secure?"
               a="Yes. All data is encrypted at rest and in transit. Your trading data is private and is never shared with third parties. You can export or delete your data at any time." />
             <FaqItem q="What if I trade on MT4?"
-              a="NIRI is optimized for MT5. MT4 support is planned for a future release. MT4 trades can be logged manually in the meantime." />
+              a="NIRI is optimized for MT5. MT4 support is planned for a future release. MT4 trades can be imported manually via CSV in the meantime." />
+            <FaqItem q="Does MT5 Direct Sync have a trial?"
+              a="Yes. When you connect your MT5 account for the first time, you get 7 days of free syncing. After that, a paid plan is required to continue syncing." />
             <FaqItem q="Is NIRI available in my country?"
-              a="Yes — NIRI works for any MT5 trader worldwide. However, pricing is designed specifically for African traders at ₦15,000/month, making it accessible compared to USD-priced competitors. Traders from Nigeria, Ghana, Kenya, South Africa, and across Africa are our primary community." />
+              a="Yes — NIRI works for any MT5 trader worldwide. The platform is designed with African traders as the primary community, with specific support for WAT timezone, African brokers, and Deriv synthetic indices. Traders from Nigeria, Ghana, Kenya, South Africa, and across Africa are most welcome." />
           </div>
         </div>
       </section>
@@ -1557,14 +1555,14 @@ export default function LandingPage() {
           </p>
           <Link href="/login">
             <button className="gold-btn" style={{ padding: "1.0625rem 2.75rem", fontSize: "1.125rem", marginBottom: "1rem", animation: "pulseGold 2.5s ease infinite" }}>
-              Start 30-Day Free Trial
+              Join Free Beta — It&rsquo;s Free
             </button>
           </Link>
           <div style={{ marginTop: "0.75rem" }}>
-            <a href="#pricing" style={{ color: "var(--cj-text-muted)", fontSize: "0.9375rem", textDecoration: "underline", cursor: "pointer" }}>See Pricing</a>
+            <a href="#access" style={{ color: "var(--cj-text-muted)", fontSize: "0.9375rem", textDecoration: "underline", cursor: "pointer" }}>See Beta Access</a>
           </div>
           <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "1.5rem" }}>
-            Join 500+ traders already using NIRI.
+            20 traders already in the beta — 30 spots left.
           </p>
         </div>
       </section>
@@ -1603,7 +1601,7 @@ export default function LandingPage() {
             </div>
             <div>
               <h4 style={{ color: "var(--cj-text-muted)", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", marginBottom: "1rem", textTransform: "uppercase" }}>Product</h4>
-              {[["Features","#features"],["Pricing","#pricing"],["FAQ","#faq"]].map(([l,h]) => (
+              {[["Features","#features"],["Beta Access","#access"],["FAQ","#faq"]].map(([l,h]) => (
                 <a key={l as string} href={h as string} style={{ display: "block", color: "var(--cj-text-muted)", fontSize: "0.875rem", textDecoration: "none", marginBottom: "0.625rem", transition: "color 0.2s" }}
                   onMouseEnter={e => (e.currentTarget.style.color = "var(--cj-gold)")}
                   onMouseLeave={e => (e.currentTarget.style.color = "")}>{l}</a>

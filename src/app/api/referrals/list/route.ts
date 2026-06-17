@@ -1,19 +1,29 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { createClient }       from "@supabase/supabase-js";
+import { cookies }            from "next/headers";
+import { NextResponse }       from "next/server";
+
+export const dynamic = "force-dynamic";
 
 async function serverDb() {
-  const cookieStore = await cookies();
+  const store = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: ()    => cookieStore.getAll(),
-        setAll: (cs)  => cs.forEach(({ name, value, options }) => cookieStore.set(name, value, options)),
-      },
-    }
+    { cookies: { getAll: () => store.getAll(), setAll: (cs) => cs.forEach(({ name, value, options }) => store.set(name, value, options)) } }
   );
+}
+function serviceDb() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
+
+function maskEmail(email: string | null): string {
+  if (!email) return "—";
+  const atIdx = email.indexOf("@");
+  if (atIdx < 0) return email.slice(0, 3) + "***";
+  const local  = email.slice(0, atIdx);
+  const domain = email.slice(atIdx + 1);
+  return local.slice(0, 3) + "***@" + domain;
 }
 
 export async function GET() {
@@ -21,38 +31,19 @@ export async function GET() {
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: referrals } = await supabase
+  const svc = serviceDb();
+
+  const { data: referrals } = await svc
     .from("referrals")
-    .select("id, referred_id, status, plan_type, commission_rate, joined_at, activated_at, last_payment_at")
-    .eq("referrer_id", user.id)
-    .order("joined_at", { ascending: false });
+    .select("id, referred_email, status, created_at")
+    .eq("referrer_user_id", user.id)
+    .order("created_at", { ascending: false });
 
-  if (!referrals?.length) return NextResponse.json({ referrals: [] });
-
-  // Calculate earnings per referral from commissions table
-  const referralIds = referrals.map(r => r.id);
-  const { data: commissions } = await supabase
-    .from("commissions")
-    .select("referral_id, amount, status")
-    .in("referral_id", referralIds)
-    .neq("status", "cancelled");
-
-  const earningsByRef: Record<string, number> = {};
-  (commissions || []).forEach(c => {
-    earningsByRef[c.referral_id] = (earningsByRef[c.referral_id] || 0) + Number(c.amount);
-  });
-
-  // Anonymize: only expose first 8 chars of referred_id
-  const list = referrals.map(r => ({
-    id:              r.id,
-    referred_anon:   r.referred_id.slice(0, 8),  // anonymized
-    status:          r.status,
-    plan_type:       r.plan_type || "free",
-    commission_rate: Number(r.commission_rate),
-    joined_at:       r.joined_at,
-    activated_at:    r.activated_at,
-    last_payment_at: r.last_payment_at,
-    earnings:        earningsByRef[r.id] || 0,
+  const list = (referrals ?? []).map((r) => ({
+    id:        r.id,
+    email:     maskEmail(r.referred_email),
+    status:    r.status as "pending" | "converted" | "paid",
+    joined_at: r.created_at,
   }));
 
   return NextResponse.json({ referrals: list });

@@ -90,7 +90,6 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   const [collapsed,    setCollapsed]    = useState(false);
   const [upgradeOpen,  setUpgradeOpen]  = useState(false);
   const [supportOpen,  setSupportOpen]  = useState(false);
-  const [copyEnabled,  setCopyEnabled]  = useState(false);
 
   // Load collapse preference from localStorage
   useEffect(() => {
@@ -115,36 +114,23 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
     if (!user) return;
     const sb = createClient();
     sb.from("user_profiles")
-      .select("subscription_status, is_copy_trading_enabled")
+      .select("subscription_status")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        const d = data as { subscription_status: string | null; is_copy_trading_enabled?: boolean } | null;
+        const d = data as { subscription_status: string | null } | null;
         if (d?.subscription_status) setPlan(d.subscription_status);
-        if (d?.is_copy_trading_enabled) setCopyEnabled(true);
       });
   }, [user?.id]);
 
   const isPaid = plan === "pro";
   const sidebarWidth = collapsed ? 64 : 240;
 
-  const COPY_TRADING_ITEM = {
-    href: "/copy-trading",
-    label: "Copy Trading",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/>
-      </svg>
-    ),
-  };
-
   function NavLinks({ onClick, isCollapsed }: { onClick?: () => void; isCollapsed?: boolean }) {
-    const items = copyEnabled ? [...NAV_ITEMS, COPY_TRADING_ITEM] : NAV_ITEMS;
     return (
       <>
-        {items.map(({ href, label, icon }) => {
+        {NAV_ITEMS.map(({ href, label, icon }) => {
           const active = pathname === href;
-          const isCopy = href === "/copy-trading";
           return (
             <Link
               key={href}
@@ -159,17 +145,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
                           }`}
             >
               <span className="shrink-0">{icon}</span>
-              {!isCollapsed && (
-                <span className="flex items-center gap-2 flex-1">
-                  {label}
-                  {isCopy && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                          style={{ background: "rgba(245,197,24,0.10)", color: "var(--cj-gold)", border: "1px solid rgba(245,197,24,0.25)" }}>
-                      BETA
-                    </span>
-                  )}
-                </span>
-              )}
+              {!isCollapsed && <span className="flex-1">{label}</span>}
               {/* Tooltip when collapsed */}
               {isCollapsed && (
                 <span className="absolute left-full ml-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold
@@ -212,25 +188,6 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           <p className="text-[11px] text-[var(--cj-text-muted)] truncate">{user.email}</p>
         )}
         <ThemeSwitcher user={user} />
-
-        {isPaid ? (
-          <div className="flex items-center gap-2 py-0.5">
-            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                  style={{ background: "rgba(245,197,24,0.10)", border: "1px solid rgba(245,197,24,0.25)", color: "var(--cj-gold)" }}>
-              {plan.toUpperCase()}
-            </span>
-            <Link href="/pricing" className="text-[10px] text-[var(--cj-text-muted)] hover:text-[var(--cj-text)] transition-colors">
-              Manage
-            </Link>
-          </div>
-        ) : (
-          <button
-            onClick={() => setUpgradeOpen(true)}
-            className="block w-full text-center text-xs font-bold py-2 rounded-xl transition-all hover:opacity-90"
-            style={{ background: "linear-gradient(135deg,var(--cj-gold),var(--cj-gold-deep))", color: "var(--cj-bg)" }}>
-            Upgrade to Pro
-          </button>
-        )}
 
         <button
           onClick={onSignOutClick}

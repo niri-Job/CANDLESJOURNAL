@@ -20,7 +20,7 @@ export async function GET() {
 
   const [authRes, profilesRes, tradesRes, accountsRes] = await Promise.all([
     db.auth.admin.listUsers({ page: 1, perPage: 500 }),
-    db.from("user_profiles").select("user_id, onboarding_completed"),
+    db.from("user_profiles").select("user_id, onboarding_completed, ai_credits_used, ai_credits_limit"),
     db.from("trades").select("user_id, source, created_at"),
     db.from("trading_accounts").select("user_id, metaapi_account_id, last_synced_at"),
   ]);
@@ -74,6 +74,8 @@ export async function GET() {
       has_metaapi:          hasMetaApi,
       last_active:          lastActive,
       onboarding_completed: profile?.onboarding_completed ?? false,
+      ai_credits_used:      (profile as { ai_credits_used?: number } | undefined)?.ai_credits_used ?? 0,
+      ai_credits_limit:     (profile as { ai_credits_limit?: number } | undefined)?.ai_credits_limit ?? 3,
     };
   });
 

@@ -131,7 +131,7 @@ export async function POST(request: Request) {
 
   const { data: tradingAccount, error: taErr } = await svc
     .from("trading_accounts")
-    .select("metaapi_account_id, account_login, account_server, account_label")
+    .select("metaapi_account_id, account_login, account_server, account_label, last_synced_at")
     .eq("user_id", user.id)
     .eq("account_signature", account_signature.trim())
     .maybeSingle();
@@ -153,6 +153,36 @@ export async function POST(request: Request) {
   if (!token) return NextResponse.json({ error: "MetaAPI is not configured on this server." }, { status: 503 });
 
   const accountId = tradingAccount.metaapi_account_id;
+
+  // Trial gate: block sync when free trial has expired
+  const { data: trialProfile } = await svc
+    .from("user_profiles")
+    .select("subscription_status, mt5_trial_ends_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const isPro = trialProfile?.subscription_status === "pro";
+  if (!isPro && trialProfile?.mt5_trial_ends_at && new Date() >= new Date(trialProfile.mt5_trial_ends_at)) {
+    return NextResponse.json({
+      error:        "Your 7-day free trial has ended. Upgrade to continue syncing your MT5 account.",
+      trialExpired: true,
+    }, { status: 403 });
+  }
+
+  // 24-hour sync limit per account
+  if (tradingAccount.last_synced_at) {
+    const msSinceSync = Date.now() - new Date(tradingAccount.last_synced_at).getTime();
+    if (msSinceSync < 24 * 60 * 60 * 1000) {
+      const nextSyncDate = new Date(new Date(tradingAccount.last_synced_at).getTime() + 24 * 60 * 60 * 1000);
+      const hh = nextSyncDate.getUTCHours().toString().padStart(2, "0");
+      const mm = nextSyncDate.getUTCMinutes().toString().padStart(2, "0");
+      return NextResponse.json({
+        alreadySynced: true,
+        nextSyncAt:    nextSyncDate.toISOString(),
+        message:       `Already synced today. Next sync available at ${hh}:${mm} UTC.`,
+      });
+    }
+  }
 
   try {
     // Ensure account is deployed before fetching history
@@ -281,11 +311,13 @@ export async function POST(request: Request) {
       duplicates += chunk.length - (upserted?.length ?? 0);
     }
 
+    const hasTrades = inserted > 0 || duplicates > 0;
+
     const dbPayload: Record<string, unknown> = {
-      last_synced_at: new Date().toISOString(),
-      sync_status:    "connected",
-      sync_error:     null,
-      sync_source:    "metaapi",
+      ...(hasTrades ? { last_synced_at: new Date().toISOString() } : {}),
+      sync_status: "connected",
+      sync_error:  null,
+      sync_source: "metaapi",
       ...(liveInfo ? {
         balance:      liveInfo.balance      ?? null,
         equity:       liveInfo.equity       ?? null,
@@ -294,7 +326,7 @@ export async function POST(request: Request) {
           : null,
       } : {}),
     };
-    console.log("[metaapi/sync] DB update payload:", JSON.stringify(dbPayload));
+    console.log("[metaapi/sync] DB update payload:", JSON.stringify(dbPayload), "| hasTrades:", hasTrades);
     const { error: updateErr } = await svc
       .from("trading_accounts")
       .update(dbPayload)
@@ -304,6 +336,33 @@ export async function POST(request: Request) {
       console.error("[metaapi/sync] trading_accounts update ERROR:", JSON.stringify(updateErr));
     } else {
       console.log("[metaapi/sync] trading_accounts update OK — balance:", dbPayload.balance, "equity:", dbPayload.equity, "floating_pnl:", dbPayload.floating_pnl);
+    }
+
+    // Auto-undeploy to avoid MetaAPI compute charges between syncs
+    try {
+      const undeployRes = await fetch(`${CLIENT_API}/users/current/accounts/${accountId}/undeploy`, {
+        method: "PUT",
+        headers: { "auth-token": token },
+        cache: "no-store",
+      });
+      if (!undeployRes.ok) {
+        console.warn("[metaapi/sync] Undeploy response:", undeployRes.status);
+      } else {
+        console.log("[metaapi/sync] Undeployed account:", accountId);
+      }
+    } catch (undeployErr) {
+      console.warn("[metaapi/sync] Undeploy (non-fatal):", (undeployErr as { message?: string }).message);
+    }
+
+    if (!hasTrades) {
+      return NextResponse.json({
+        success:        false,
+        historyNotReady: true,
+        total:          0,
+        inserted:       0,
+        duplicates:     0,
+        message:        "No trade history returned yet. Your broker may still be loading history. Try syncing again in a few minutes.",
+      });
     }
 
     return NextResponse.json({ success: true, total: tradeRows.length, inserted, duplicates });

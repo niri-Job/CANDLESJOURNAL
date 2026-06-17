@@ -1281,7 +1281,8 @@ export default function TradingJournal() {
           const lastSyncedLabel = diffHours < 1
             ? `${Math.max(1, Math.floor(diffMs / (60 * 1000)))}m ago`
             : `${diffHours}h ago`;
-          const nextSyncLabel = nextSync.toLocaleTimeString("en-GB", {
+          const nextSyncWat = new Date(nextSync.getTime() + 60 * 60 * 1000);
+          const nextSyncLabel = nextSyncWat.toLocaleTimeString("en-GB", {
             hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC",
           });
 
@@ -1291,7 +1292,7 @@ export default function TradingJournal() {
               <div className="flex items-center gap-3">
                 <span className="text-base shrink-0" style={{ color: "var(--cj-gold)" }}>↻</span>
                 <p className="text-xs leading-relaxed" style={{ color: "#C4B89A" }}>
-                  Next sync at <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>{nextSyncLabel} UTC</span>
+                  Next sync at <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>{nextSyncLabel} WAT</span>
                   {" "}— your trades are up to date as of {lastSyncedLabel}
                 </p>
               </div>

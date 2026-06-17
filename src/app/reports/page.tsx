@@ -737,12 +737,14 @@ function WaterfallChart({ data }: { data: ReturnType<typeof weeklyWaterfall> }) 
 }
 
 // ── Trading Clock (24h radial dial) ────────────────────────────
-function TradingClock({ hours }: { hours: { h: number; trades: number; pnl: number; winRate: number }[] }) {
-  const CX = 120, CY = 120, R = 86, SW_BASE = 18;
+function TradingClock({ hours }: { hours: { h: number; hour: string; trades: number; pnl: number; winRate: number }[] }) {
+  const CX = 120, CY = 120, R = 86;
+
+  // Gap-free session buckets covering all 24h — used for legend grouping only
   const sessions = [
-    { name: "Asia",   h0: 0,  h1: 6,  color: "#7C9CF5" },
-    { name: "London", h0: 8,  h1: 12, color: "#FAC775" },
-    { name: "NY",     h0: 13, h1: 17, color: "#5DCAA5" },
+    { name: "Asia",   h0: 0,  h1: 8  },
+    { name: "London", h0: 8,  h1: 13 },
+    { name: "NY",     h0: 13, h1: 24 },
   ];
 
   function hxy(h: number, r: number): [number, number] {
@@ -750,23 +752,12 @@ function TradingClock({ hours }: { hours: { h: number; trades: number; pnl: numb
     return [+(CX + r * Math.cos(a)).toFixed(2), +(CY + r * Math.sin(a)).toFixed(2)];
   }
 
-  function sessionArc(h0: number, h1: number, r: number): string {
-    const [x1, y1] = hxy(h0, r);
-    const [x2, y2] = hxy(h1, r);
-    const span = (h1 - h0) / 24;
-    const la = span > 0.5 ? 1 : 0;
-    return `M ${x1} ${y1} A ${r} ${r} 0 ${la} 1 ${x2} ${y2}`;
+  // Arc for exactly one hour slot (1/24th of the dial)
+  function hourArc(h: number, r: number): string {
+    const [x1, y1] = hxy(h, r);
+    const [x2, y2] = hxy(h + 1, r);
+    return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
   }
-
-  const activeSessions = sessions.map(s => {
-    const sessionHours = hours.filter(h => h.h >= s.h0 && h.h < s.h1 && h.trades > 0);
-    const totalTrades = sessionHours.reduce((a, h) => a + h.trades, 0);
-    const wins = sessionHours.reduce((a, h) => a + Math.round(h.trades * h.winRate / 100), 0);
-    const wr = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
-    return { ...s, totalTrades, wr };
-  }).filter(s => s.totalTrades > 0);
-
-  const maxTrades = Math.max(...activeSessions.map(s => s.totalTrades), 1);
 
   function arcColor(wr: number) {
     if (wr >= 60) return "#0F6E56";
@@ -774,8 +765,20 @@ function TradingClock({ hours }: { hours: { h: number; trades: number; pnl: numb
     return "#E8A0A0";
   }
 
-  // Best session
-  const bestSession = [...activeSessions].sort((a, b) => b.wr - a.wr)[0];
+  const activeHours = hours.filter(h => h.trades > 0);
+  const maxTrades   = Math.max(...activeHours.map(h => h.trades), 1);
+
+  // Best hour for center readout
+  const bestHour = [...activeHours].sort((a, b) => b.winRate - a.winRate)[0];
+
+  // Session stats for legend — gap-free ranges so every trade is counted
+  const activeSessions = sessions.map(s => {
+    const sh = activeHours.filter(h => h.h >= s.h0 && h.h < s.h1);
+    const totalTrades = sh.reduce((a, h) => a + h.trades, 0);
+    const wins = sh.reduce((a, h) => a + Math.round(h.trades * h.winRate / 100), 0);
+    const wr = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
+    return { ...s, totalTrades, wr };
+  }).filter(s => s.totalTrades > 0);
 
   const ticks = Array.from({ length: 48 }, (_, i) => i);
 
@@ -783,7 +786,7 @@ function TradingClock({ hours }: { hours: { h: number; trades: number; pnl: numb
     <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
       <svg viewBox="0 0 240 240" width={240} height={240} style={{ display: "block", flexShrink: 0 }}>
         {/* Base ring */}
-        <circle cx={CX} cy={CY} r={R} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth={SW_BASE} />
+        <circle cx={CX} cy={CY} r={R} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth={18} />
 
         {/* Tick marks every 30 min */}
         {ticks.map(i => {
@@ -802,40 +805,37 @@ function TradingClock({ hours }: { hours: { h: number; trades: number; pnl: numb
           );
         })}
 
-        {/* Session arcs */}
-        {activeSessions.map(s => {
-          const sw = 13 + (s.totalTrades / maxTrades) * 5;
-          const col = arcColor(s.wr);
+        {/* One arc per active hour — sized by trade count, coloured by win rate */}
+        {activeHours.map(h => {
+          const sw = 10 + (h.trades / maxTrades) * 10;
           return (
-            <path key={s.name} d={sessionArc(s.h0, s.h1, R)}
-                  fill="none" stroke={col} strokeWidth={sw} strokeLinecap="round" opacity={0.85} />
+            <path key={h.h} d={hourArc(h.h, R)}
+                  fill="none" stroke={arcColor(h.winRate)} strokeWidth={sw}
+                  strokeLinecap="butt" opacity={0.85} />
           );
         })}
 
-        {/* Hour labels */}
+        {/* Hour labels at 0, 6, 12, 18 */}
         {[0, 6, 12, 18].map(h => {
           const [x, y] = hxy(h, R + 16);
-          const label = h.toString().padStart(2, "0");
           return (
             <text key={h} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
-                  fontSize={9} fill="#71717a" fontFamily="sans-serif">{label}</text>
+                  fontSize={9} fill="#71717a" fontFamily="sans-serif">{h.toString().padStart(2, "0")}</text>
           );
         })}
 
         {/* White center */}
         <circle cx={CX} cy={CY} r={58} fill="white" />
 
-        {/* Center readout */}
-        {bestSession ? (
+        {/* Center readout: best trading hour */}
+        {bestHour ? (
           <>
             <text x={CX} y={CY - 16} textAnchor="middle" fontSize={10} fill="#9ca3af"
-                  fontFamily="sans-serif" letterSpacing={1.5}>BEST WINDOW</text>
-            <text x={CX} y={CY + 4} textAnchor="middle" fontSize={21} fill="#111827"
-                  fontWeight="600" fontFamily="sans-serif">
-              {bestSession.h0.toString().padStart(2, "0")}–{bestSession.h1.toString().padStart(2, "0")}
-            </text>
+                  fontFamily="sans-serif" letterSpacing={1.5}>BEST HOUR</text>
+            <text x={CX} y={CY + 4} textAnchor="middle" fontSize={19} fill="#111827"
+                  fontWeight="600" fontFamily="sans-serif">{bestHour.hour}</text>
             <text x={CX} y={CY + 20} textAnchor="middle" fontSize={11}
-                  fill={arcColor(bestSession.wr)} fontFamily="sans-serif">{bestSession.wr}% wr</text>
+                  fill={arcColor(bestHour.winRate)} fontFamily="sans-serif">{bestHour.winRate}% wr</text>
           </>
         ) : (
           <text x={CX} y={CY + 4} textAnchor="middle" fontSize={11} fill="#9ca3af"
@@ -854,7 +854,7 @@ function TradingClock({ hours }: { hours: { h: number; trades: number; pnl: numb
               <div>
                 <p className="text-xs font-medium text-zinc-300">{s.name}</p>
                 <p className="text-[10px] text-zinc-500">
-                  {s.h0.toString().padStart(2,"0")}:00 – {s.h1.toString().padStart(2,"0")}:00
+                  {s.h0.toString().padStart(2,"0")}:00 – {(s.h1 % 24).toString().padStart(2,"0")}:00
                   {active ? ` · ${active.totalTrades}t · ${active.wr}% wr` : " · no trades"}
                 </p>
               </div>
@@ -2081,15 +2081,19 @@ function TabStreaks({ trades }: { trades: Trade[] }) {
 // ═══════════════════════════════════════════════════════════════
 function computeMaeMfe(t: Trade): { mae: number; mfe: number } | null {
   if (t.mae != null && t.mfe != null) return { mae: t.mae, mfe: t.mfe };
-  if (!t.sl || !t.tp) return null;
+  // TP is required to compute MFE (the primary metric); SL is optional — MAE defaults to 0
+  if (!t.tp) return null;
   const priceMove = t.exit_price - t.entry;
   if (priceMove === 0 || t.entry === 0) return null;
   const absRate = Math.abs(t.pnl / priceMove);
-  const maePrice = t.direction === "BUY" ? t.entry - t.sl   : t.sl   - t.entry;
-  const mfePrice = t.direction === "BUY" ? t.tp   - t.entry : t.entry - t.tp;
-  if (maePrice < 0 || mfePrice <= 0) return null;
+  const mfePrice = t.direction === "BUY" ? t.tp - t.entry : t.entry - t.tp;
+  if (mfePrice <= 0) return null;
+  const slValid  = t.sl && t.sl !== t.entry;
+  const maePrice = slValid
+    ? (t.direction === "BUY" ? t.entry - t.sl! : t.sl! - t.entry)
+    : 0;
   return {
-    mae: +(maePrice * absRate).toFixed(2),
+    mae: +(Math.max(0, maePrice) * absRate).toFixed(2),
     mfe: +(mfePrice * absRate).toFixed(2),
   };
 }
@@ -2145,7 +2149,7 @@ function TabMAEMFE({ trades }: { trades: Trade[] }) {
   if (!plotData.length) return (
     <div className="space-y-4">
       <SectionHead>MAE / MFE Analysis</SectionHead>
-      <InsightCard icon="›" text="Set SL and TP on your trades to unlock MAE/MFE analysis." />
+      <InsightCard icon="›" text="No Take Profit data found on your trades. MT5 Direct Sync captures TP only when it was set on the platform before the trade closed. If you use CSV import, make sure your export includes the TP column." />
     </div>
   );
 

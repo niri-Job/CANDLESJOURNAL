@@ -1,3 +1,6 @@
+// DEPRECATED - not in use, scheduled for removal
+// Replaced by /api/metaapi/connect (VPS-based MetaAPI direct connect).
+// No frontend component calls this route. Safe to delete after confirming no EA traffic.
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";

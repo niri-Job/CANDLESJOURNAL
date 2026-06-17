@@ -1,3 +1,6 @@
+// DEPRECATED - not in use, scheduled for removal
+// This was the EA file-based sync endpoint (DataExport EA → VPS → this route).
+// Replaced by /api/metaapi/sync (MetaAPI direct connect). No frontend component calls this route.
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 

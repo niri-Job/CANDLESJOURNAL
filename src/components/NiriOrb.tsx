@@ -26,6 +26,16 @@ const PERSONALITY_QUIPS = [
 type EyeMode = "normal" | "concerned" | "wide";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// Uses the browser's local time (not UTC, not server time) — getHours() already
+// resolves to the user's own timezone, so no conversion is needed.
+function timeGreeting(): string {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return "Good morning";
+  if (h >= 12 && h < 17) return "Good afternoon";
+  if (h >= 17 && h < 21) return "Good evening";
+  return "Good night";
+}
+
 function getBounds() {
   if (typeof window === "undefined") return { minX: 280, maxX: 800, minY: 90, maxY: 500 };
   const sidebar = window.innerWidth >= 1024 ? 264 : 16;
@@ -290,7 +300,7 @@ export default function NiriOrb({ trades = [] }: Props) {
       setPos(contentCentre());
       showAlert({
         type:    "daily_checkin",
-        message: "Good morning. Before the charts, before the news — how are you feeling today? Your mindset is your edge, and I want to make sure it's sharp.",
+        message: `${timeGreeting()}. Before the charts, before the news — how are you feeling today? Your mindset is your edge, and I want to make sure it's sharp.`,
       }, "normal", 8000);
     }, 3000);
     return () => clearTimeout(t);

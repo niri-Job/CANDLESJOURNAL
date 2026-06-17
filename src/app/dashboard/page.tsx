@@ -1266,6 +1266,43 @@ export default function TradingJournal() {
           );
         })()}
 
+        {/* Next sync cooldown notice — MetaAPI accounts only */}
+        {!loading && (() => {
+          const selectedAcc = tradingAccounts.find((a) => a.account_signature === selectedAccountSig);
+          if (!selectedAcc || selectedAcc.sync_source !== "metaapi" || !selectedAcc.last_synced_at) return null;
+
+          const lastSynced = new Date(selectedAcc.last_synced_at);
+          const nextSync    = new Date(lastSynced.getTime() + 24 * 60 * 60 * 1000);
+          const now         = new Date();
+          if (nextSync <= now) return null;
+
+          const diffMs    = now.getTime() - lastSynced.getTime();
+          const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+          const lastSyncedLabel = diffHours < 1
+            ? `${Math.max(1, Math.floor(diffMs / (60 * 1000)))}m ago`
+            : `${diffHours}h ago`;
+          const nextSyncLabel = nextSync.toLocaleTimeString("en-GB", {
+            hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC",
+          });
+
+          return (
+            <div className="mb-5 flex items-center justify-between gap-4 px-4 py-3 rounded-xl"
+                 style={{ background: "rgba(245,197,24,0.06)", border: "1px solid rgba(245,197,24,0.18)", borderLeft: "3px solid var(--cj-gold)" }}>
+              <div className="flex items-center gap-3">
+                <span className="text-base shrink-0" style={{ color: "var(--cj-gold)" }}>↻</span>
+                <p className="text-xs leading-relaxed" style={{ color: "#C4B89A" }}>
+                  Next sync at <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>{nextSyncLabel} UTC</span>
+                  {" "}— your trades are up to date as of {lastSyncedLabel}
+                </p>
+              </div>
+              <a href="/settings"
+                 className="text-xs font-semibold whitespace-nowrap shrink-0 hover:underline"
+                 style={{ color: "var(--cj-gold)" }}>
+                Sync Settings →
+              </a>
+            </div>
+          );
+        })()}
 
         {/* MetaAPI connected but no trades yet — Sync Now or trial expired */}
         {!loading && (() => {

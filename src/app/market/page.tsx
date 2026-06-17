@@ -684,6 +684,8 @@ export default function MarketPage() {
                                   }>
                                     {ev.actual}
                                   </span>
+                                ) : new Date(ev.date).getTime() - tickMs <= 0 ? (
+                                  <span className="text-zinc-600">Released</span>
                                 ) : (
                                   <span className="text-zinc-700">Pending</span>
                                 )}

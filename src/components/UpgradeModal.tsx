@@ -11,10 +11,9 @@ const PRO_FEATURES = [
   "MT5 EA Sync",
   "Full dashboard with all charts",
   "Trade journal (notes, screenshots, emotions)",
-  "Market Intelligence (AI setups)",
   "90 AI analyses per month",
   "10 trading accounts",
-  "Referral earnings program",
+  "Referral rewards program",
   "Priority support",
 ];
 

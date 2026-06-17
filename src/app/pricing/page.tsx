@@ -13,11 +13,10 @@ const ALL_FEATURES = [
   "CSV Import from MT5",
   "Trade journal (notes, screenshots, emotions)",
   "3 AI analyses per week",
-  "Market Intelligence",
   "Position size calculator",
-  "Strategy Library (Playbook)",
-  "Calendar & market news",
-  "Referral earnings program",
+  "Strategy Playbook",
+  "Economic calendar",
+  "Referral rewards program",
 ];
 
 export default function PricingPage() {

@@ -36,7 +36,7 @@ const DAY_CONFIG: Record<number, { title: string; prompt: string }> = {
   },
   3: { // Wednesday
     title: "NIRI Feature Spotlight",
-    prompt: "Write a short promotional message highlighting a feature of the NIRI trading journal app (niri.live). Rotate through features: trade journaling, performance analytics, market intelligence, or EA sync with MT5. Make it feel natural and useful, not salesy. Include 1-2 sentences of market context for the pairs listed.",
+    prompt: "Write a short promotional message highlighting a feature of the NIRI trading journal app (niri.live). Rotate through features: trade journaling, performance analytics, the economic calendar, or MT5 direct sync. Make it feel natural and useful, not salesy. Include 1-2 sentences of market context for the pairs listed.",
   },
   4: { // Thursday
     title: "Trading Psychology",

@@ -15,7 +15,6 @@ const PAGE_MESSAGES: Record<string, string> = {
   "/playbook":     "Your playbook is only useful if you actually follow it. Just saying.",
   "/calculator":   "Good. You're calculating before trading. I respect that.",
   "/market":       "Markets are noisy today. Don't let the news trade for you.",
-  "/intelligence": "AI setups are a guide, not a guarantee. Your judgement still matters.",
   "/copy-trading": "Copying others is fine — but understand WHY they took the trade.",
   "/referrals":    "Building your network while building your edge. Smart.",
   "/settings":     "Housekeeping. Good traders keep their tools clean.",

@@ -100,7 +100,7 @@ export default function TermsOfServicePage() {
           >
             {[
               "NIRI does not provide financial advice",
-              "Market Intelligence setups are for educational purposes only and should not be taken as trading signals",
+              "AI coaching reports and trade analysis are for educational purposes only and should not be taken as trading signals",
               "Past performance shown in your journal does not guarantee future results",
               "Trading forex and financial instruments involves significant risk of loss",
               "Never trade with money you cannot afford to lose",
@@ -156,13 +156,13 @@ export default function TermsOfServicePage() {
           <Section title="2. Description of Service">
             NIRI is a trade journaling and analytics platform designed to help traders track, review,
             and analyse their trading performance. The platform connects with MetaTrader 5 (MT5) to sync
-            trade data automatically. All analytics, AI insights, and Market Intelligence content are
+            trade data automatically. All analytics and AI insights are
             provided strictly for informational and educational purposes.
           </Section>
 
           <Section title="3. No Financial Advice">
             Nothing on NIRI constitutes financial advice, investment advice, trading advice, or any other
-            form of advice. Market Intelligence setups, AI coaching reports, and all other content are for
+            form of advice. AI coaching reports and all other content are for
             educational and journaling purposes only. You should not act upon any information provided by
             NIRI without seeking independent professional financial advice. NIRI expressly disclaims all
             liability for any trading decisions made based on information or analysis provided by the platform.

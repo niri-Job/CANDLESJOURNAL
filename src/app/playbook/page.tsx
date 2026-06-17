@@ -702,7 +702,7 @@ export default function PlaybookPage() {
           {/* ── Header ───────────────────────────────────────── */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-xl font-bold text-zinc-100">Strategy Library</h1>
+              <h1 className="text-xl font-bold text-zinc-100">Strategy Playbook</h1>
               <p className="text-xs text-zinc-500 mt-0.5">
                 {strategies.length} {strategies.length === 1 ? "strategy" : "strategies"} documented
               </p>

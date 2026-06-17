@@ -5,7 +5,6 @@ const TRIAL_DAYS = 3;
 // Maximum AI uses per feature during the 3-day trial (one-time, never reset)
 export const TRIAL_LIMITS = {
   ai_analyses:         3,  // /api/analyze   ~$0.03 total
-  market_intelligence: 3,  // /api/intelligence ~$0.03 total
   psychology_reports:  1,  // /api/trade-insight ~$0.01 total
 } as const;
 

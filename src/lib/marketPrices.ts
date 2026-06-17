@@ -1,4 +1,4 @@
-// Shared market-data fetching used by both /api/intelligence and /api/telegram/daily-setup.
+// Shared market-data fetching used by /api/telegram/daily-setup and the market page.
 // Single source of truth — whatever prices the app shows, the Telegram message shows too.
 
 export const MARKET_PAIRS = [
@@ -294,37 +294,6 @@ export async function fetchPairIndicators(p: { symbol: string; label: string; de
     console.warn(`[marketPrices] ${p.label} fetch failed:`, e);
     return null;
   }
-}
-
-// Batch variant used by /api/intelligence — shares one crumb + one quote call
-// across all 10 pairs instead of 10 × (crumb + quote + chart) round-trips.
-export async function fetchAllPairIndicators(
-  pairs: readonly { symbol: string; label: string; decimals: number }[],
-): Promise<(PairIndicators | null)[]> {
-  // Run crumb, batch quote, and gold spot fetch in parallel
-  const [auth, goldSpot] = await Promise.all([
-    acquireYahooCrumb(),
-    fetchGoldSpot(),
-  ]);
-  const quotes = await fetchLiveQuotes(pairs.map(p => p.symbol), auth);
-
-  // Override gold with the dedicated goldprice.org live price
-  if (goldSpot) {
-    const goldPair = pairs.find(p => p.label === "XAUUSD");
-    if (goldPair) quotes.set(goldPair.symbol, goldSpot);
-  }
-
-  return Promise.all(
-    pairs.map(async p => {
-      try {
-        const closes = await fetchCloses(p.symbol, auth, quotes.get(p.symbol));
-        return _buildIndicators(p, closes);
-      } catch (e) {
-        console.warn(`[marketPrices] ${p.label} fetch failed:`, e);
-        return null;
-      }
-    }),
-  );
 }
 
 function _buildIndicators(

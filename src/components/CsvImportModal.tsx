@@ -277,9 +277,6 @@ export default function CsvImportModal({ onClose, onSuccess }: Props) {
             {error && (
               <div style={{ padding: "10px 14px", borderRadius: 10, fontSize: 12, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}>
                 {error}
-                {error.includes("Upgrade to Pro") && (
-                  <a href="/pricing" style={{ marginLeft: 8, fontWeight: 700, textDecoration: "underline", color: "#F5C518" }}>Upgrade →</a>
-                )}
               </div>
             )}
 

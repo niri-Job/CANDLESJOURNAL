@@ -346,12 +346,12 @@ export async function POST(request: Request) {
         cache: "no-store",
       });
       if (!undeployRes.ok) {
-        console.warn("[metaapi/sync] Undeploy response:", undeployRes.status);
+        console.error("[metaapi/sync] Undeploy response:", undeployRes.status);
       } else {
         console.log("[metaapi/sync] Undeployed account:", accountId);
       }
     } catch (undeployErr) {
-      console.warn("[metaapi/sync] Undeploy (non-fatal):", (undeployErr as { message?: string }).message);
+      console.error("[metaapi/sync] Undeploy (non-fatal):", (undeployErr as { message?: string }).message);
     }
 
     if (!hasTrades) {

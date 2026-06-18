@@ -414,7 +414,7 @@ export default function NiriOrb({ trades = [] }: Props) {
   return (
     <motion.div
       data-niri-orb=""
-      style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, width: ORB_SIZE, height: ORB_SIZE }}
+      style={{ position: "fixed", bottom: 96, right: 24, zIndex: 9999, width: ORB_SIZE, height: ORB_SIZE }}
       animate={{
         x: pos.x,
         y: pos.y,

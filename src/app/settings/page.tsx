@@ -36,6 +36,17 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+// WAT = UTC+1 — mutate a copy forward 1 UTC hour, then read UTC-clock fields
+// back out. Uses UTC methods throughout so the offset doesn't depend on the
+// browser's own local timezone.
+function formatWAT(date: Date): string {
+  const wat = new Date(date);
+  wat.setUTCHours(wat.getUTCHours() + 1);
+  const hh = wat.getUTCHours().toString().padStart(2, "0");
+  const mm = wat.getUTCMinutes().toString().padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 // ── Referral quick-view ───────────────────────────────────────────────────────
 function ReferralQuickView() {
   const [data, setData] = useState<{
@@ -481,7 +492,7 @@ export default function SettingsPage() {
                               </button>
                               {nextSyncAt && (
                                 <p className="text-[9px] text-amber-400">
-                                  Next sync {nextSyncAt.getUTCHours().toString().padStart(2, "0")}:{nextSyncAt.getUTCMinutes().toString().padStart(2, "0")} UTC
+                                  Next sync {formatWAT(nextSyncAt)} WAT
                                 </p>
                               )}
                             </div>
@@ -866,7 +877,7 @@ export default function SettingsPage() {
                               </button>
                               {nextSyncAt && (
                                 <p className="text-[9px] text-amber-400">
-                                  Next sync {nextSyncAt.getUTCHours().toString().padStart(2, "0")}:{nextSyncAt.getUTCMinutes().toString().padStart(2, "0")} UTC
+                                  Next sync {formatWAT(nextSyncAt)} WAT
                                 </p>
                               )}
                             </div>

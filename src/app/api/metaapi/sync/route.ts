@@ -169,17 +169,21 @@ export async function POST(request: Request) {
     }, { status: 403 });
   }
 
-  // 24-hour sync limit per account
+  // 6-hour sync limit per account during beta — skipped entirely on first sync
   if (tradingAccount.last_synced_at) {
-    const msSinceSync = Date.now() - new Date(tradingAccount.last_synced_at).getTime();
-    if (msSinceSync < 24 * 60 * 60 * 1000) {
-      const nextSyncDate = new Date(new Date(tradingAccount.last_synced_at).getTime() + 24 * 60 * 60 * 1000);
-      const hh = nextSyncDate.getUTCHours().toString().padStart(2, "0");
-      const mm = nextSyncDate.getUTCMinutes().toString().padStart(2, "0");
+    const intervalHours = 6;
+    const now  = new Date();
+    const nextSync = new Date(tradingAccount.last_synced_at);
+    nextSync.setHours(nextSync.getHours() + intervalHours);
+
+    if (now < nextSync) {
+      const nextSyncWat = new Date(nextSync.getTime() + 60 * 60 * 1000);
+      const hh = nextSyncWat.getUTCHours().toString().padStart(2, "0");
+      const mm = nextSyncWat.getUTCMinutes().toString().padStart(2, "0");
       return NextResponse.json({
         alreadySynced: true,
-        nextSyncAt:    nextSyncDate.toISOString(),
-        message:       `Already synced today. Next sync available at ${hh}:${mm} UTC.`,
+        nextSyncAt:    nextSync.toISOString(),
+        message:       `Already synced recently. Next sync available at ${hh}:${mm} WAT.`,
       });
     }
   }

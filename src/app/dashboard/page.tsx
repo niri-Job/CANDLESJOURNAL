@@ -1272,7 +1272,7 @@ export default function TradingJournal() {
           if (!selectedAcc || selectedAcc.sync_source !== "metaapi" || !selectedAcc.last_synced_at) return null;
 
           const lastSynced = new Date(selectedAcc.last_synced_at);
-          const nextSync    = new Date(lastSynced.getTime() + 24 * 60 * 60 * 1000);
+          const nextSync    = new Date(lastSynced.getTime() + 6 * 60 * 60 * 1000);
           const now         = new Date();
           if (nextSync <= now) return null;
 

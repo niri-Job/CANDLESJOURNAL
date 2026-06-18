@@ -36,33 +36,10 @@ function timeGreeting(): string {
   return "Good night";
 }
 
-function getBounds() {
-  if (typeof window === "undefined") return { minX: 280, maxX: 800, minY: 90, maxY: 500 };
-  const sidebar = window.innerWidth >= 1024 ? 264 : 16;
-  const hw = BUBBLE_W / 2;
-  return {
-    minX: sidebar + hw + 8,
-    maxX: Math.max(sidebar + hw + 20, window.innerWidth  - ORB_SIZE - hw - 8),
-    minY: 90,
-    maxY: Math.max(90, window.innerHeight - ORB_SIZE - 120),
-  };
-}
-
-function randomPos() {
-  const b = getBounds();
-  return {
-    x: b.minX + Math.random() * (b.maxX - b.minX),
-    y: b.minY + Math.random() * (b.maxY - b.minY),
-  };
-}
-
-function contentCentre() {
-  if (typeof window === "undefined") return { x: 500, y: 300 };
-  const sidebar = window.innerWidth >= 1024 ? 264 : 0;
-  return {
-    x: sidebar + (window.innerWidth - sidebar) / 2 - ORB_SIZE / 2,
-    y: window.innerHeight / 2 - ORB_SIZE / 2,
-  };
+// Small idle wobble — a few px from the pinned corner, never roams over content
+function smallDrift() {
+  const r = 14;
+  return { x: (Math.random() * 2 - 1) * r, y: (Math.random() * 2 - 1) * r };
 }
 
 // ── Arrow ─────────────────────────────────────────────────────────────────────
@@ -129,7 +106,6 @@ export default function NiriOrb({ trades = [] }: Props) {
   const [hidden,      setHidden]      = useState(true);
   const [pos,         setPos]         = useState({ x: 500, y: 300 });
   const [driftDur,    setDriftDur]    = useState(3);
-  const [bobbing,     setBobbing]     = useState(false);
   const [eyeMode,     setEyeMode]     = useState<EyeMode>("normal");
   const [isBlinking,  setIsBlinking]  = useState(false);
   const [alert,       setAlert]       = useState<NiriAlert | null>(null);
@@ -158,7 +134,7 @@ export default function NiriOrb({ trades = [] }: Props) {
 
   // ── Init: position then reveal (no localStorage permanent-hide) ──────────────
   useEffect(() => {
-    setPos(randomPos());
+    setPos(smallDrift());
     setHidden(false);
   }, []);
 
@@ -176,7 +152,6 @@ export default function NiriOrb({ trades = [] }: Props) {
     setInMsg(true);
     inMsgRef.current = true;
     setShowPanel(false);
-    setBobbing(false);
     setTimeout(() => setIsAttention(false), 700);
     if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
     msgTimerRef.current = setTimeout(() => {
@@ -253,7 +228,7 @@ export default function NiriOrb({ trades = [] }: Props) {
     const roll = Math.random();
     const dur = roll < 0.15 ? 5 : roll < 0.85 ? 3 : 1.5;
     setDriftDur(dur);
-    setPos(randomPos());
+    setPos(smallDrift());
   }, []);
 
   useEffect(() => {
@@ -261,15 +236,7 @@ export default function NiriOrb({ trades = [] }: Props) {
     function schedule() {
       const delay = (15 + Math.random() * 15) * 1000;
       driftTimerRef.current = setTimeout(() => {
-        if (!inMsgRef.current) {
-          if (Math.random() < 0.2) {
-            setBobbing(true);
-            setTimeout(() => setBobbing(false), (20 + Math.random() * 10) * 1000);
-          } else {
-            setBobbing(false);
-            drift();
-          }
-        }
+        if (!inMsgRef.current) drift();
         schedule();
       }, delay);
     }
@@ -297,7 +264,6 @@ export default function NiriOrb({ trades = [] }: Props) {
     console.log("[NIRI] daily check-in scheduled");
     const t = setTimeout(() => {
       console.log("[NIRI] daily check-in executing");
-      setPos(contentCentre());
       showAlert({
         type:    "daily_checkin",
         message: `${timeGreeting()}. Before the charts, before the news — how are you feeling today? Your mindset is your edge, and I want to make sure it's sharp.`,
@@ -335,7 +301,6 @@ export default function NiriOrb({ trades = [] }: Props) {
       if (inMsgRef.current) return;
       if (Date.now() - lastAction.current > 5 * 60 * 1000) {
         lastAction.current = Date.now();
-        setPos(contentCentre());
         showAlert({
           type:    "inactivity",
           message: "Hey. I noticed you've gone quiet. That's okay — sometimes stepping back IS the smartest trade you can make. Just don't stay away too long.",
@@ -422,7 +387,7 @@ export default function NiriOrb({ trades = [] }: Props) {
   }
 
   function restoreOrb() {
-    setPos(randomPos());
+    setPos(smallDrift());
     setHidden(false);
   }
 
@@ -451,23 +416,25 @@ export default function NiriOrb({ trades = [] }: Props) {
       data-niri-orb=""
       style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, width: ORB_SIZE, height: ORB_SIZE }}
       animate={{
+        x: pos.x,
+        y: pos.y,
         scale: isAttention
           ? [1, 1.4, 0.88, 1.22, 1.0]
           : inMsg ? 1.15 : 1,
       }}
       transition={{
+        x: { duration: driftDur, ease: "easeInOut" },
+        y: { duration: driftDur, ease: "easeInOut" },
         scale: isAttention
           ? { duration: 0.65, ease: "easeOut", times: [0, 0.25, 0.5, 0.75, 1] }
           : { duration: 0.35, ease: "easeOut" },
       }}
     >
-      {/* ── Bob wrapper ── */}
+      {/* ── Bob wrapper — continuous gentle float ── */}
       <motion.div
         style={{ position: "relative", width: "100%", height: "100%" }}
-        animate={{ y: bobbing ? [0, -10, 0] : 0 }}
-        transition={bobbing
-          ? { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
-          : { duration: 0.5 }}
+        animate={{ y: [0, -5, 0] }}
+        transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
       >
         {/* ── Magnifying glass ── */}
         {!alert && !askOpen && !inMsg && (

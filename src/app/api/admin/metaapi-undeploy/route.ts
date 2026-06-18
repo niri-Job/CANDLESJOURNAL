@@ -22,11 +22,11 @@ export async function POST(request: Request) {
   const ids = (body.ids ?? []).map((s) => s.trim()).filter(Boolean);
   if (ids.length === 0) return NextResponse.json({ error: "Pass { ids: [...] }" }, { status: 400 });
 
-  async function tryUndeploy(base: string, accountId: string) {
+  async function tryUndeploy(base: string, accountId: string, method: "PUT" | "POST") {
     try {
       const res = await fetch(`${base}/users/current/accounts/${accountId}/undeploy`, {
-        method:  "PUT",
-        headers: { "auth-token": authToken },
+        method,
+        headers: { "auth-token": authToken, "Content-Type": "application/json" },
         cache:   "no-store",
       });
       const body = await res.text();
@@ -39,8 +39,10 @@ export async function POST(request: Request) {
   const results = await Promise.all(
     ids.map(async (accountId) => ({
       accountId,
-      clientApi:   await tryUndeploy(CLIENT_API, accountId),
-      provisioning: await tryUndeploy(PROVISIONING, accountId),
+      clientApiPut:     await tryUndeploy(CLIENT_API, accountId, "PUT"),
+      clientApiPost:    await tryUndeploy(CLIENT_API, accountId, "POST"),
+      provisioningPut:  await tryUndeploy(PROVISIONING, accountId, "PUT"),
+      provisioningPost: await tryUndeploy(PROVISIONING, accountId, "POST"),
     }))
   );
 

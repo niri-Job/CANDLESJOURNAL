@@ -48,3 +48,23 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ results });
 }
+
+export async function GET(request: Request) {
+  if (!await verifyAdminCookie()) return adminUnauthorized();
+  const token = process.env.METAAPI_TOKEN;
+  if (!token) return NextResponse.json({ error: "METAAPI_TOKEN not configured" }, { status: 503 });
+
+  const ids = (new URL(request.url).searchParams.get("ids") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+
+  const results = await Promise.all(
+    ids.map(async (accountId) => {
+      const res = await fetch(`${PROVISIONING}/users/current/accounts/${accountId}`, {
+        headers: { "auth-token": token }, cache: "no-store",
+      });
+      const body = await res.json().catch(() => ({}));
+      return { accountId, status: res.status, state: body.state, connectionStatus: body.connectionStatus };
+    })
+  );
+
+  return NextResponse.json({ results });
+}

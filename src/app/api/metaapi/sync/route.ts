@@ -344,8 +344,8 @@ export async function POST(request: Request) {
 
     // Auto-undeploy to avoid MetaAPI compute charges between syncs
     try {
-      const undeployRes = await fetch(`${CLIENT_API}/users/current/accounts/${accountId}/undeploy`, {
-        method: "PUT",
+      const undeployRes = await fetch(`${PROVISIONING}/users/current/accounts/${accountId}/undeploy`, {
+        method: "POST",
         headers: { "auth-token": token },
         cache: "no-store",
       });

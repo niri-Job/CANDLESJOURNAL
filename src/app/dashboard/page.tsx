@@ -1274,17 +1274,23 @@ export default function TradingJournal() {
           const lastSynced = new Date(selectedAcc.last_synced_at);
           const nextSync    = new Date(lastSynced.getTime() + 6 * 60 * 60 * 1000);
           const now         = new Date();
-          if (nextSync <= now) return null;
+          const cooldownActive = nextSync > now;
 
           const diffMs    = now.getTime() - lastSynced.getTime();
           const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
           const lastSyncedLabel = diffHours < 1
             ? `${Math.max(1, Math.floor(diffMs / (60 * 1000)))}m ago`
             : `${diffHours}h ago`;
-          const nextSyncWat = new Date(nextSync.getTime() + 60 * 60 * 1000);
-          const nextSyncLabel = nextSyncWat.toLocaleTimeString("en-GB", {
-            hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC",
-          });
+
+          // WAT = UTC+1 — mutate a copy of nextSync forward 1 UTC hour, then read
+          // its UTC-clock fields back out (now equal to the WAT wall-clock time).
+          // Uses UTC methods throughout — getHours()/setHours() would depend on
+          // the browser's own local timezone instead of a fixed UTC+1 offset.
+          const nextSyncWAT = new Date(nextSync);
+          nextSyncWAT.setUTCHours(nextSyncWAT.getUTCHours() + 1);
+          const hh = nextSyncWAT.getUTCHours().toString().padStart(2, "0");
+          const mm = nextSyncWAT.getUTCMinutes().toString().padStart(2, "0");
+          const nextSyncLabel = `${hh}:${mm}`;
 
           return (
             <div className="mb-5 flex items-center justify-between gap-4 px-4 py-3 rounded-xl"
@@ -1292,8 +1298,17 @@ export default function TradingJournal() {
               <div className="flex items-center gap-3">
                 <span className="text-base shrink-0" style={{ color: "var(--cj-gold)" }}>↻</span>
                 <p className="text-xs leading-relaxed" style={{ color: "#C4B89A" }}>
-                  Next sync at <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>{nextSyncLabel} WAT</span>
-                  {" "}— your trades are up to date as of {lastSyncedLabel}
+                  {cooldownActive ? (
+                    <>
+                      Next sync at <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>{nextSyncLabel} WAT</span>
+                      {" "}— your trades are up to date as of {lastSyncedLabel}
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold" style={{ color: "var(--cj-gold)" }}>Sync available</span>
+                      {" "}— your account will sync shortly
+                    </>
+                  )}
                 </p>
               </div>
               <a href="/settings"

@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { motion, useInView } from "framer-motion";
+import Lenis from "lenis";
+import useEmblaCarousel from "embla-carousel-react";
 
 // ─── SVG icon wrapper ─────────────────────────────────────────────────────────
 function Ico({ children, size = 24, color = "#F5C518", style }: {
@@ -244,6 +247,111 @@ function useCountUp(target: number, suffix = "", duration = 1800) {
   return { ref, val };
 }
 
+// ─── Scroll-triggered reveal (framer-motion) ─────────────────────────────────
+function Reveal({ children, className, style, delay = 0 }: {
+  children: React.ReactNode; className?: string; style?: React.CSSProperties; delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-80px" });
+  return (
+    <motion.div
+      ref={ref}
+      className={className}
+      style={style}
+      initial={{ opacity: 0, y: 30 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.6, ease: "easeOut", delay }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ─── Magnetic button wrapper ──────────────────────────────────────────────────
+function MagneticButton({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setPos({
+      x: (e.clientX - rect.left - rect.width / 2) * 0.3,
+      y: (e.clientY - rect.top - rect.height / 2) * 0.3,
+    });
+  }
+
+  return (
+    <motion.div
+      ref={ref}
+      style={{ display: "inline-block" }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setPos({ x: 0, y: 0 })}
+      animate={{ x: pos.x, y: pos.y }}
+      transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ─── Testimonial carousel (embla, auto-advancing, infinite loop) ─────────────
+const TESTIMONIALS = [
+  { name: "Emeka O.", location: "Lagos, Nigeria", badge: "Gold Trader",
+    text: "I knew I was revenge trading but I could not stop. NIRI showed me I lose 80% of trades placed after 2 losses. Seeing the data made me respect the rule." },
+  { name: "Kwame A.", location: "Accra, Ghana", badge: "Diamond Trader",
+    text: "The chart trade review is the feature I use most. I can click any losing trade and see exactly where I went wrong on the actual candle." },
+  { name: "Fatima M.", location: "Nairobi, Kenya", badge: "Gold Trader",
+    text: "NIRI is free during beta and it helped me fix a behavioral pattern that was costing me $400 per month. I cannot believe this tool exists and it is free." },
+];
+
+function TestimonialCard({ t }: { t: typeof TESTIMONIALS[number] }) {
+  return (
+    <div className="embla-slide">
+      <div className="card-hover lp-card" style={{
+        background: "linear-gradient(145deg,#0C0018,#07000F)",
+        border: "1px solid rgba(245,197,24,0.30)",
+        borderRadius: "1.25rem", padding: "2rem", height: "100%",
+      }}>
+        <div style={{ display: "flex", gap: 2, marginBottom: "1rem" }}>
+          {[1,2,3,4,5].map(s => <IcoStar key={s} color="#F5C518" />)}
+        </div>
+        <p style={{ color: "#CCCCCC", lineHeight: 1.8, fontStyle: "italic", marginBottom: "1.5rem", fontSize: "0.9375rem" }}>&ldquo;{t.text}&rdquo;</p>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#C49A00 0%,#F5C518 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#FFFFFF", fontSize: "1rem", flexShrink: 0 }}>{t.name[0]}</div>
+          <div>
+            <div style={{ color: "var(--cj-text)", fontWeight: 700, fontSize: "0.875rem" }}>{t.name}</div>
+            <div style={{ color: "#888888", fontSize: "0.8125rem" }}>{t.location}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: 2 }}>
+              <IcoAward color="#C49A00" size={12} />
+              <span style={{ color: "#C49A00", fontSize: "0.75rem" }}>{t.badge}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TestimonialCarousel() {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "center" });
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    const id = setInterval(() => emblaApi.scrollNext(), 4000);
+    return () => clearInterval(id);
+  }, [emblaApi]);
+
+  return (
+    <div className="embla" ref={emblaRef} style={{ overflow: "hidden" }}>
+      <div style={{ display: "flex" }}>
+        {TESTIMONIALS.map((t) => <TestimonialCard key={t.name} t={t} />)}
+      </div>
+    </div>
+  );
+}
+
 // ─── FAQ item ─────────────────────────────────────────────────────────────────
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
@@ -310,6 +418,20 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // ── Smooth scroll (Lenis) ───────────────────────────────────────────────────
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    });
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+    const rafId = requestAnimationFrame(raf);
+    return () => { cancelAnimationFrame(rafId); lenis.destroy(); };
+  }, []);
+
   useEffect(() => {
     const saved = (localStorage.getItem("cj_theme") ?? "light") as LPTheme;
     setTheme(saved);
@@ -329,14 +451,6 @@ export default function LandingPage() {
 
   const heroRef    = useFadeUp(0.05);
   const painRef    = useFadeUp();
-  const howRef     = useFadeUp();
-  const aiRef      = useFadeUp();
-  const featRef    = useFadeUp();
-  const cmpRef     = useFadeUp();
-  const previewRef = useFadeUp();
-  const pricingRef = useFadeUp();
-  const testRef    = useFadeUp();
-  const ctaRef     = useFadeUp();
 
   const stat1 = useCountUp(10000, "+");
   const stat2 = useCountUp(21, "+");
@@ -533,6 +647,13 @@ export default function LandingPage() {
           .footer-grid { grid-template-columns: 1fr 1fr !important; }
           .cmp-table   { font-size: 0.8rem !important; }
           .cmp-table td{ padding: 0.625rem 0.5rem !important; }
+          .embla-slide { flex: 0 0 100% !important; }
+        }
+
+        /* ── Testimonial carousel (embla) ── */
+        .embla-slide { flex: 0 0 50%; min-width: 0; padding: 0 0.75rem; }
+        @media (min-width: 1024px) {
+          .embla-slide { flex: 0 0 33.333%; }
         }
 
         /* ── Glitch animation ── */
@@ -629,9 +750,11 @@ export default function LandingPage() {
           </div>
           <Link href="/login" className="nav-a">Log in</Link>
           <Link href="/login">
-            <button className="gold-btn" style={{ padding: "0.5rem 1.25rem", fontSize: "0.875rem" }}>
-              Join Free Beta — It&rsquo;s Free
-            </button>
+            <MagneticButton>
+              <button className="gold-btn" style={{ padding: "0.5rem 1.25rem", fontSize: "0.875rem" }}>
+                Join Free Beta — It&rsquo;s Free
+              </button>
+            </MagneticButton>
           </Link>
         </div>
 
@@ -727,9 +850,11 @@ export default function LandingPage() {
 
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
                 <Link href="/login">
-                  <button className="gold-btn" style={{ padding: "0.9375rem 2rem", fontSize: "1.0625rem", animation: "pulseGold 2.5s ease infinite" }}>
-                    Join Free Beta — It&rsquo;s Free
-                  </button>
+                  <MagneticButton>
+                    <button className="gold-btn" style={{ padding: "0.9375rem 2rem", fontSize: "1.0625rem", animation: "pulseGold 2.5s ease infinite" }}>
+                      Join Free Beta — It&rsquo;s Free
+                    </button>
+                  </MagneticButton>
                 </Link>
                 <a href="#ai-showcase">
                   <button className="outline-btn" style={{ padding: "0.9375rem 1.75rem", fontSize: "1rem" }}>
@@ -864,9 +989,11 @@ export default function LandingPage() {
             <p style={{ color: "#F5C518", fontSize: "0.8125rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "1rem" }}>
               Your dashboard, automated
             </p>
-            <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "var(--cj-text)", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
-              Everything you need<br />to improve, <span className="shimmer-text">in one place.</span>
-            </h2>
+            <Reveal>
+              <h2 style={{ fontSize: "clamp(1.75rem,3.5vw,2.5rem)", fontWeight: 800, color: "var(--cj-text)", lineHeight: 1.15, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
+                Everything you need<br />to improve, <span className="shimmer-text">in one place.</span>
+              </h2>
+            </Reveal>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", lineHeight: 1.75, marginBottom: "2rem" }}>
               Trade journal, equity curve, AI analysis and discipline score — all synced automatically from MT5 in minutes.
             </p>
@@ -934,12 +1061,12 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Sound <span className="shimmer-text">Familiar?</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem" }}>Most traders know these problems exist. NIRI quantifies them.</p>
-          </div>
+          </Reveal>
           <div className="grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
             {[
               { ico: <IcoRepeat color="#e05555" />, title: "You repeat the same mistakes",
@@ -975,12 +1102,12 @@ export default function LandingPage() {
       {/* ── HOW NIRI WORKS — Interactive ────────────────────────────────────── */}
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <div ref={howRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Up and Running in <span className="shimmer-text">3 Steps</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem" }}>Click each step to see what to expect</p>
-          </div>
+          </Reveal>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3.5rem", alignItems: "start" }} className="grid-2">
             {/* Step selector */}
@@ -1091,14 +1218,14 @@ export default function LandingPage() {
       {/* ── COACHING REPORT SHOWCASE ──────────────────────────────────────────── */}
       <section id="ai-showcase" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 820, margin: "0 auto" }}>
-          <div ref={aiRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
               NIRI Doesn&rsquo;t Just <span className="shimmer-text">Track Trades.</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
               It gives you a structured analysis of what happened and what to change.
             </p>
-          </div>
+          </Reveal>
 
           <div className="lp-card" style={{
             background: "linear-gradient(145deg,#0C0018,#07000F)",
@@ -1140,9 +1267,11 @@ export default function LandingPage() {
           </p>
           <div style={{ textAlign: "center" }}>
             <Link href="/login">
-              <button className="gold-btn" style={{ padding: "0.875rem 2.25rem", fontSize: "1rem" }}>
-                Join Free Beta — See Your Report
-              </button>
+              <MagneticButton>
+                <button className="gold-btn" style={{ padding: "0.875rem 2.25rem", fontSize: "1rem" }}>
+                  Join Free Beta — See Your Report
+                </button>
+              </MagneticButton>
             </Link>
           </div>
         </div>
@@ -1151,29 +1280,54 @@ export default function LandingPage() {
       {/* ── FEATURES ────────────────────────────────────────────────────────── */}
       <section id="features" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
-          <div ref={featRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
               Stop Guessing. <span className="shimmer-text">Start Growing.</span>
             </h2>
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 520, margin: "0 auto" }}>
               Every feature is designed to turn raw trade data into specific, actionable improvements.
             </p>
-          </div>
+          </Reveal>
           <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1.25rem" }}>
-            {features.map((f, i) => {
-              const fRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
-              return (
-                <div key={f.title} ref={fRef} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 60}ms`,
-                  background: "linear-gradient(145deg,#0C0018,#07000F)",
-                  border: "1px solid rgba(245,197,24,0.30)",
-                  borderRadius: "1rem", padding: "1.75rem",
-                }}>
-                  <div style={{ marginBottom: "0.875rem" }}>{f.ico}</div>
-                  <h3 style={{ color: "#F5C518", fontWeight: 700, fontSize: "1rem", marginBottom: "0.5rem", lineHeight: 1.4 }}>{f.title}</h3>
-                  <p style={{ color: "#AAAAAA", lineHeight: 1.75, margin: 0, fontSize: "0.9rem" }}>{f.desc}</p>
+            {features.map((f, i) => (
+              <Reveal key={f.title} className="card-hover lp-card" delay={Math.min(i, 6) * 0.06} style={{
+                background: "linear-gradient(145deg,#0C0018,#07000F)",
+                border: "1px solid rgba(245,197,24,0.30)",
+                borderRadius: "1rem", padding: "1.75rem",
+              }}>
+                <div style={{ marginBottom: "0.875rem" }}>{f.ico}</div>
+                <h3 style={{ color: "#F5C518", fontWeight: 700, fontSize: "1rem", marginBottom: "0.5rem", lineHeight: 1.4 }}>{f.title}</h3>
+                <p style={{ color: "#AAAAAA", lineHeight: 1.75, margin: 0, fontSize: "0.9rem" }}>{f.desc}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── STORYTELLING ─────────────────────────────────────────────────────── */}
+      <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 50% 0%, rgba(245,197,24,0.10) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "4rem" }}>
+            <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
+              Your Trading, <span className="shimmer-text">Transformed.</span>
+            </h2>
+            <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem" }}>From chaos to clarity in three steps.</p>
+          </Reveal>
+          <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "2rem" }}>
+            {[
+              { n: "01", title: "Connect your MT5 in 2 minutes" },
+              { n: "02", title: "NIRI analyses your behavioural patterns" },
+              { n: "03", title: "You trade with clarity, not emotion" },
+            ].map((s, i) => (
+              <Reveal key={s.n} delay={i * 0.15} style={{ textAlign: "center" }}>
+                <div style={{ fontWeight: 900, fontSize: "clamp(3rem,6vw,4.5rem)", color: "rgba(245,197,24,0.22)", lineHeight: 1, marginBottom: "0.5rem", letterSpacing: "-0.02em" }}>
+                  {s.n}
                 </div>
-              );
-            })}
+                <h3 style={{ color: "#ffffff", fontWeight: 700, fontSize: "1.125rem", lineHeight: 1.4, maxWidth: 260, margin: "0 auto" }}>
+                  {s.title}
+                </h3>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
@@ -1181,11 +1335,11 @@ export default function LandingPage() {
       {/* ── COMPARISON ──────────────────────────────────────────────────────── */}
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
-          <div ref={cmpRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.875rem" }}>
               Why Serious MT5 Traders <span className="shimmer-text">Choose NIRI</span>
             </h2>
-          </div>
+          </Reveal>
           <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#0C0018,#07000F)", border: "1px solid rgba(245,197,24,0.30)", borderRadius: "1.25rem", overflow: "hidden" }}>
             <table className="cmp-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -1219,11 +1373,11 @@ export default function LandingPage() {
       {/* ── APP PREVIEW ─────────────────────────────────────────────────────── */}
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
-          <div ref={previewRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Built for Traders Serious About <span className="shimmer-text">Improvement</span>
             </h2>
-          </div>
+          </Reveal>
           <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.5rem" }}>
 
             {/* Dashboard */}
@@ -1330,7 +1484,7 @@ export default function LandingPage() {
       {/* ── BUILT FOR AFRICA ─────────────────────────────────────────────────── */}
       <section className="lp-dark-bg" style={{ background: "linear-gradient(135deg, #06000E 0%, #0D0020 40%, #06000E 100%)", padding: "7rem 1.5rem", borderTop: "1px solid rgba(245,197,24,0.25)", borderBottom: "1px solid rgba(245,197,24,0.25)", position: "relative", overflow: "hidden" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: "0.5rem",
               background: "rgba(245,197,24,0.10)", border: "1px solid rgba(245,197,24,0.30)",
@@ -1346,7 +1500,7 @@ export default function LandingPage() {
             <p style={{ color: "#CCCCCC", fontSize: "1.0625rem", lineHeight: 1.8, maxWidth: 560, margin: "0 auto" }}>
               NIRI is built for African traders — free during beta, priced fairly when we launch.
             </p>
-          </div>
+          </Reveal>
           <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1.25rem", marginBottom: "3rem" }}>
             {[
               { val: "1M+", label: "Nigerian Traders", sub: "Active MT5 accounts in Nigeria" },
@@ -1379,7 +1533,7 @@ export default function LandingPage() {
       {/* ── BETA ACCESS ──────────────────────────────────────────────────────── */}
       <section id="access" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 680, margin: "0 auto" }}>
-          <div ref={pricingRef} className="fade-up" style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "2.5rem" }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: "0.5rem",
               background: "rgba(74,158,74,0.12)", border: "1px solid rgba(74,158,74,0.35)",
@@ -1395,7 +1549,7 @@ export default function LandingPage() {
             <p style={{ color: "var(--cj-text-muted)", fontSize: "1rem", maxWidth: 480, margin: "0 auto" }}>
               NIRI is in early access. Every feature is available to all beta users at no cost until July 1, 2026.
             </p>
-          </div>
+          </Reveal>
 
           <div className="lp-card" style={{ background: "linear-gradient(145deg,#160028,#0C0018)", border: "2px solid #F5C518", borderRadius: "1.375rem", padding: "2.5rem", position: "relative", boxShadow: "0 0 60px rgba(245,197,24,0.18), 0 0 80px rgba(139,53,255,0.10), inset 0 0 30px rgba(245,197,24,0.04)" }}>
             <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#F5C518 0%,#8B35FF 100%)", color: "#FFFFFF", fontWeight: 800, fontSize: "0.75rem", padding: "0.3rem 1.25rem", borderRadius: "2rem", letterSpacing: "0.06em", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>
@@ -1447,47 +1601,13 @@ export default function LandingPage() {
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────────── */}
       <section style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 1140, margin: "0 auto" }}>
-          <div ref={testRef} className="fade-up" style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Traders Who Stopped <span className="shimmer-text">Guessing</span>
             </h2>
-          </div>
+          </Reveal>
           {/* Placeholder testimonials — replace with real quotes when available */}
-          <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.5rem" }}>
-            {[
-              { name: "Emeka O.", location: "Lagos, Nigeria", badge: "Gold Trader",
-                text: "I knew I was revenge trading but I could not stop. NIRI showed me I lose 80% of trades placed after 2 losses. Seeing the data made me respect the rule." },
-              { name: "Kwame A.", location: "Accra, Ghana", badge: "Diamond Trader",
-                text: "The chart trade review is the feature I use most. I can click any losing trade and see exactly where I went wrong on the actual candle." },
-              { name: "Fatima M.", location: "Nairobi, Kenya", badge: "Gold Trader",
-                text: "NIRI is free during beta and it helped me fix a behavioral pattern that was costing me $400 per month. I cannot believe this tool exists and it is free." },
-            ].map((t, i) => {
-              const tRef = useFadeUp(); // eslint-disable-line react-hooks/rules-of-hooks
-              return (
-                <div key={t.name} ref={tRef} className="fade-up card-hover lp-card" style={{ transitionDelay: `${i * 100}ms`,
-                  background: "linear-gradient(145deg,#0C0018,#07000F)",
-                  border: "1px solid rgba(245,197,24,0.30)",
-                  borderRadius: "1.25rem", padding: "2rem",
-                }}>
-                  <div style={{ display: "flex", gap: 2, marginBottom: "1rem" }}>
-                    {[1,2,3,4,5].map(s => <IcoStar key={s} color="#F5C518" />)}
-                  </div>
-                  <p style={{ color: "#CCCCCC", lineHeight: 1.8, fontStyle: "italic", marginBottom: "1.5rem", fontSize: "0.9375rem" }}>&ldquo;{t.text}&rdquo;</p>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#C49A00 0%,#F5C518 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#FFFFFF", fontSize: "1rem", flexShrink: 0 }}>{t.name[0]}</div>
-                    <div>
-                      <div style={{ color: "var(--cj-text)", fontWeight: 700, fontSize: "0.875rem" }}>{t.name}</div>
-                      <div style={{ color: "#888888", fontSize: "0.8125rem" }}>{t.location}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginTop: 2 }}>
-                        <IcoAward color="#C49A00" size={12} />
-                        <span style={{ color: "#C49A00", fontSize: "0.75rem" }}>{t.badge}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <TestimonialCarousel />
         </div>
       </section>
 
@@ -1506,9 +1626,11 @@ export default function LandingPage() {
                 <IcoGlobe color="#F5C518" />
                 <span>Deriv MT5 Traders</span>
               </div>
-              <h2 style={{ fontSize: "clamp(1.625rem,3.5vw,2.375rem)", fontWeight: 800, color: "#ffffff", marginBottom: "1rem", lineHeight: 1.2 }}>
-                Trade Synthetic Indices on <span className="shimmer-text">Deriv?</span>
-              </h2>
+              <Reveal>
+                <h2 style={{ fontSize: "clamp(1.625rem,3.5vw,2.375rem)", fontWeight: 800, color: "#ffffff", marginBottom: "1rem", lineHeight: 1.2 }}>
+                  Trade Synthetic Indices on <span className="shimmer-text">Deriv?</span>
+                </h2>
+              </Reveal>
               <p style={{ color: "var(--cj-text)", fontSize: "1rem", lineHeight: 1.8, marginBottom: "1.5rem" }}>
                 NIRI fully supports Deriv MT5 accounts including Volatility indices, Boom and Crash,
                 Step Index and all synthetic instruments. Connect your Deriv MT5 account and finally
@@ -1553,11 +1675,11 @@ export default function LandingPage() {
       {/* ── FAQ ──────────────────────────────────────────────────────────────── */}
       <section id="faq" style={{ padding: "7rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 0% 0%, rgba(245,197,24,0.12) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 100% 100%, rgba(139,53,255,0.12) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
         <div style={{ maxWidth: 740, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: "3.5rem" }}>
             <h2 style={{ fontSize: "clamp(1.875rem,4vw,2.75rem)", fontWeight: 800, color: "#ffffff", marginBottom: "0.75rem" }}>
               Frequently Asked <span className="shimmer-text">Questions</span>
             </h2>
-          </div>
+          </Reveal>
           <div className="lp-card lp-surface" style={{ background: "linear-gradient(145deg,#16151f,#12111c)", border: "1px solid rgba(245,197,24,0.12)", borderRadius: "1.25rem", padding: "0.5rem 2rem" }}>
             <FaqItem q="How is NIRI different from TradeZella?"
               a="NIRI is built specifically for MT5 traders and is currently free during beta. NIRI includes features TradeZella does not: Trade Replay on live charts with a behavioral grid, NIRI Orb AI companion (10 patterns, 10 Q&A/day), NIRI Alpha social feed and leaderboard, and a dedicated Psychology report tab." />
@@ -1585,7 +1707,7 @@ export default function LandingPage() {
 
       {/* ── FINAL CTA ────────────────────────────────────────────────────────── */}
       <section style={{ padding: "8rem 1.5rem", background: "radial-gradient(ellipse 65% 55% at 100% 100%, rgba(245,197,24,0.13) 0%, transparent 55%), radial-gradient(ellipse 55% 45% at 0% 0%, rgba(139,53,255,0.13) 0%, transparent 55%), var(--cj-bg)", position: "relative" }}>
-        <div ref={ctaRef} className="fade-up" style={{ maxWidth: 660, margin: "0 auto", textAlign: "center" }}>
+        <Reveal style={{ maxWidth: 660, margin: "0 auto", textAlign: "center" }}>
           <h2 style={{ fontSize: "clamp(2rem,5.5vw,3.25rem)", fontWeight: 900, color: "#ffffff", lineHeight: 1.1, marginBottom: "1.25rem", letterSpacing: "-0.02em" }}>
             Stop Repeating the<br />Same Mistakes.
           </h2>
@@ -1593,9 +1715,11 @@ export default function LandingPage() {
             Create a free account, connect your MT5, and receive your first coaching report after your next session.
           </p>
           <Link href="/login">
-            <button className="gold-btn" style={{ padding: "1.0625rem 2.75rem", fontSize: "1.125rem", marginBottom: "1rem", animation: "pulseGold 2.5s ease infinite" }}>
-              Join Free Beta — It&rsquo;s Free
-            </button>
+            <MagneticButton>
+              <button className="gold-btn" style={{ padding: "1.0625rem 2.75rem", fontSize: "1.125rem", marginBottom: "1rem", animation: "pulseGold 2.5s ease infinite" }}>
+                Join Free Beta — It&rsquo;s Free
+              </button>
+            </MagneticButton>
           </Link>
           <div style={{ marginTop: "0.75rem" }}>
             <a href="#access" style={{ color: "var(--cj-text-muted)", fontSize: "0.9375rem", textDecoration: "underline", cursor: "pointer" }}>See Beta Access</a>
@@ -1603,7 +1727,7 @@ export default function LandingPage() {
           <p style={{ color: "var(--cj-text-muted)", fontSize: "0.875rem", marginTop: "1.5rem" }}>
             21 traders in beta — 29 spots left.
           </p>
-        </div>
+        </Reveal>
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────────────────── */}

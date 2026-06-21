@@ -209,6 +209,15 @@ export default function SettingsPage() {
     }
     setMt5Connecting(true);
     setMt5ConnectError(null);
+
+    const supabase = createClient();
+    const { error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      setMt5ConnectError("Your session has expired. Please log out and log back in.");
+      setMt5Connecting(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/metaapi/connect", {
         method: "POST",

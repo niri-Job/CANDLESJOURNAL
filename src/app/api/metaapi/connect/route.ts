@@ -66,7 +66,7 @@ function serviceDb() {
 export async function POST(request: Request) {
   const supabase = await serverDb();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (authErr || !user) return NextResponse.json({ error: "Your session has expired. Please refresh the page and try again." }, { status: 401 });
 
   const svc = serviceDb();
 
@@ -255,7 +255,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: e.message ?? "Failed to connect. Please try again." },
+      { error: "Connection failed. Please check your MT5 credentials and try again. If the problem persists, contact support." },
       { status: e.status ?? 500 }
     );
   }
